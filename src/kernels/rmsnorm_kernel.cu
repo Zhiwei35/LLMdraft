@@ -81,8 +81,8 @@ __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
 
         Vec_t out = dout[i];// note the offset should divide vec size
-        thread_accm += __half2float2(out).x * __half2float2(out).x;
-        thread_accm += __half2float2(out).y * __half2float2(out).y;
+        thread_accm += __half22float2(out).x * __half22float2(out).x;
+        thread_accm += __half22float2(out).y * __half22float2(out).y;
     } //x^2
     
     // mean(x^2)
@@ -94,13 +94,13 @@ __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
     // rmsnorm
     s = reinterpret_cast<Vec_t*>(scale);
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
-        float2 dout_f2 = __half2float2(dout[i])
+        float2 dout_f2 = __half22float2(dout[i]);
         dout[i].x = s[i].x * __float2half(dout_f2.x * inv_fenmu);
         dout[i].y = s[i].y * __float2half(dout_f2.y * inv_fenmu);
         if(i == 0) {
             printf("rmsnorm after emb top2 res: \n");
-            printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",(float)dout[i].x, (float)s[i].x, (float)inv_fenmu.x);
-            printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",(float)dout[i].y, (float)s[i].y, (float)inv_fenmu.y);
+            printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",(float)(dout[i].x), (float)(s[i].x), (float)(inv_fenmu.x));
+            printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",(float)(dout[i].y), (float)(s[i].y), (float)(inv_fenmu.y));
         }
     }    
 }
