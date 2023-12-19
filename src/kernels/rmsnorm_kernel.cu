@@ -45,8 +45,8 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
     Vec_t dout, tmp;
     if(batch_id == 0 && tid == 0) {
         printf("rmsnorm input: \n");
-        printf("%f\n",decoder_out[0]);
-        printf("%f\n",decoder_out[1]);
+        printf("%f\n",decoder_out[128]);
+        printf("%f\n",decoder_out[64]);
     }
     float thread_accm = 0.0f;
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
@@ -60,27 +60,26 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
     
     // mean(x^2)
     float blocksum = blockReduceSum<float>(thread_accm);
-    __shared__ Vec_t inv_fenmu;
+    __shared__ float inv_fenmu;
     if(tid == 0){
-        inv_fenmu = scalar_cast_vec<Vec_t, T>(rsqrt(float(blocksum / hidden_units) + eps));
+        inv_fenmu = rsqrt(float(blocksum / hidden_units) + eps);
         // if (batch_id == 0){
         //     printf("blocksum = %f\n", blocksum);
         //     printf("inv_fenmu = %f\n", inv_fenmu.x);
         // }
     }
     // rmsnorm
-    Vec_t* out = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);// note before vec the stride is batch_id * hiddenunits w/o / vecsize
-    s = reinterpret_cast<Vec_t*>(const_cast<T*>(scale));
+    // Vec_t* out = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);// note before vec the stride is batch_id * hiddenunits w/o / vecsize
+    s = reinterpret_cast<Vec_t*>(scale);
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
-        //s = reinterpret_cast<Vec_t*>(const_cast<T*>(scale))[i];
-        out[i].x = s[i].x * out[i].x * inv_fenmu.x;
-        out[i].y = s[i].y * out[i].y * inv_fenmu.y;
-        out[i].z = s[i].z * out[i].z * inv_fenmu.z;
-        out[i].w = s[i].w * out[i].w * inv_fenmu.w;
-        if(i == 0) {
+        out[i].x = s[i].x * out[i].x * inv_fenmu;
+        out[i].y = s[i].y * out[i].y * inv_fenmu;
+        out[i].z = s[i].z * out[i].z * inv_fenmu;
+        out[i].w = s[i].w * out[i].w * inv_fenmu;
+        if(batch_id == 0 && i == 32) {
             printf("rmsnorm after emb top2 res: \n");
-            printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",out[i].x, s[i].x, inv_fenmu.x);
-            printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",out[i].y, s[i].y, inv_fenmu.y);
+            printf("out.x = %f, s[i].x = %f, inv_fenmu = %f\n",out[i].x, s[i].x, inv_fenmu);
+            printf("out.y = %f, s[i].y = %f, inv_fenmu = %f\n",out[i].y, s[i].y, inv_fenmu);
         }
     }    
 }
@@ -98,7 +97,7 @@ __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
     Vec_t* s;
     Vec_t dout, tmp;
     if(batch_id == 0 && tid == 0) {
-        printf("rmsnorm input: %f, %f\n",(float)decoder_out[0],(float)decoder_out[1]);
+        printf("rmsnorm input: %f, %f\n",(float)decoder_out[128] ,(float)decoder_out[64]);
     }    
     float thread_accm = 0.0f;
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
@@ -113,7 +112,7 @@ __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
     float blocksum = blockReduceSum<float>(thread_accm);
     __shared__ Vec_t inv_fenmu;
     if(tid == 0){
-        inv_fenmu = scalar_cast_vec<Vec_t>(__float2half(rsqrt(float(blocksum / hidden_units) + eps)));
+        inv_fenmu = scalar_cast_vec<Vec_t, half>(__float2half(rsqrt(float(blocksum / hidden_units) + eps)));
     }
     // rmsnorm
     Vec_t* out = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);// note before vec the stride is batch_id * hiddenunits w/o / vecsize
@@ -122,8 +121,8 @@ __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
         out[i] = __hmul2(__hmul2(s[i], out[i]), inv_fenmu);
         if(i == 0) {
             printf("rmsnorm after emb top2 res: \n");
-            printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",out[i].x, s[i].x, inv_fenmu.x);
-            printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",out[i].y, s[i].y, inv_fenmu.y);
+            printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",(float)out[i].x, (float)s[i].x, (float)inv_fenmu.x);
+            printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",(float)out[i].y, (float)s[i].y, (float)inv_fenmu.y);
         }
     }    
 }

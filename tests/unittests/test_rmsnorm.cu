@@ -51,10 +51,11 @@ void CPUfusedresidandRMSNorm(float* h_decoder_out,
 
 template<typename T>
 bool CheckResult(float* CPUoutput, T* GPUoutput, int output_size) {
+    float fp32GPUoutput = 0.0f;
     for(int i = 0; i < output_size; i++) {
         fp32GPUoutput = (float)GPUoutput[i];
         if(fabs(CPUoutput[i] - fp32GPUoutput) > 1e-4){
-            printf("the %dth res is wrong, CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], GPUoutput[i]);
+            printf("the %dth res is wrong, CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], fp32GPUoutput);
             return false;
         }
 
@@ -63,10 +64,10 @@ bool CheckResult(float* CPUoutput, T* GPUoutput, int output_size) {
 }
 
 int main(int argc, char *argv[]) {
-    const int num_tokens = 2;
-    const int hidden_units = 32;
+    const int num_tokens = 64;
+    const int hidden_units = 4096;
     const int total_size = num_tokens * hidden_units;
-    float eps = 0.5f;
+    float eps = 1e-6;
     // debug info, better to retain: std::cout <<"batch_size=" << batch_size << "  vocab_size=" << vocab_size << std::endl;
     // first param = true or 1, we go fp32
     if (argv[1]) {
@@ -98,7 +99,7 @@ int main(int argc, char *argv[]) {
         scale.gamma = d_scale;
         // debug info, better to retain: 
         std::cout << "before launch kernel" << std::endl;
-        launchRMSNorm(decoder_out_tensor->as<float>(), scale, eps);
+        launchRMSNorm(decoder_out_tensor, scale, eps);
         // debug info, better to retain: 
         std::cout << "after launch kernel" << std::endl;
         // debug info, better to retain: 
@@ -154,7 +155,7 @@ int main(int argc, char *argv[]) {
         scale.gamma = d_scale;
         // debug info, better to retain: 
         std::cout << "before launch kernel" << std::endl;
-        launchRMSNorm(decoder_out_tensor->as<half>(), scale, eps);
+        launchRMSNorm(decoder_out_tensor, scale, eps);
         // debug info, better to retain: 
         std::cout << "after launch kernel" << std::endl;
         // debug info, better to retain: 
