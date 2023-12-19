@@ -37,49 +37,67 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
                         float eps, //RMSNorm eps
                         int num_tokens, 
                         int hidden_units){
-    int vec_size = Vec<T>::size;
-    using Vec_t = typename Vec<T>::Type;
-    int batch_id = blockIdx.x;
-    int tid = threadIdx.x;
-    Vec_t* s;
-    Vec_t* dout = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);
-    if(batch_id == 0 && tid == 0) {
-        printf("rmsnorm input: \n");
-        printf("%f\n",decoder_out[128]);
-        printf("%f\n",decoder_out[64]);
-    }
-    float thread_accm = 0.0f;
-    for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
-        Vec_t out = dout[i];// note the offset should divide vec size
+  __shared__ float s_variance;
+  float variance = 0.0f;
 
-        thread_accm += out.x * out.x + out.y * out.y + 
-                        out.z * out.z + out.w * out.w;
-    } //x^2
+  for (int idx = threadIdx.x; idx < hidden_units; idx += blockDim.x) {
+    const float x = (float) decoder_out[blockIdx.x * hidden_units + idx];
+    variance += x * x;
+  }
+  variance = blockReduceSum<float>(variance);
+  if (threadIdx.x == 0) {
+    s_variance = rsqrtf(variance / hidden_units + epsilon);
+  }
+  __syncthreads();
+
+  for (int idx = threadIdx.x; idx < hidden_units; idx += blockDim.x) {
+    float x = (float) decoder_out[blockIdx.x * hidden_units + idx];
+    decoder_out[blockIdx.x * hidden_units + idx] = ((T) (x * s_variance)) * scale[idx];
+  }
+    // int vec_size = Vec<T>::size;
+    // using Vec_t = typename Vec<T>::Type;
+    // int batch_id = blockIdx.x;
+    // int tid = threadIdx.x;
+    // Vec_t* s;
+    // Vec_t* dout = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);
+    // if(batch_id == 0 && tid == 0) {
+    //     printf("rmsnorm input: \n");
+    //     printf("%f\n",decoder_out[128]);
+    //     printf("%f\n",decoder_out[64]);
+    // }
+    // float thread_accm = 0.0f;
+    // for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
+    //     Vec_t out = dout[i];// note the offset should divide vec size
+
+    //     thread_accm += out.x * out.x + out.y * out.y + 
+    //                     out.z * out.z + out.w * out.w;
+    // } //x^2
     
-    // mean(x^2)
-    float blocksum = blockReduceSum<float>(thread_accm);
-    __shared__ float inv_fenmu;
-    if(tid == 0){
-        inv_fenmu = rsqrt(float(blocksum / hidden_units) + eps);
-        // if (batch_id == 0){
-        //     printf("blocksum = %f\n", blocksum);
-        //     printf("inv_fenmu = %f\n", inv_fenmu.x);
-        // }
-    }
-    // rmsnorm
-    // Vec_t* out = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);// note before vec the stride is batch_id * hiddenunits w/o / vecsize
-    s = reinterpret_cast<Vec_t*>(scale);
-    for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
-        dout[i].x = s[i].x * dout[i].x * inv_fenmu;
-        dout[i].y = s[i].y * dout[i].y * inv_fenmu;
-        dout[i].z = s[i].z * dout[i].z * inv_fenmu;
-        dout[i].w = s[i].w * dout[i].w * inv_fenmu;
-        if(batch_id == 0 && i == 32) {
-            printf("rmsnorm after emb top2 res: \n");
-            printf("dout.x = %f, s[i].x = %f, inv_fenmu = %f\n",dout[i].x, s[i].x, inv_fenmu);
-            printf("dout.y = %f, s[i].y = %f, inv_fenmu = %f\n",dout[i].y, s[i].y, inv_fenmu);
-        }
-    }    
+    // // mean(x^2)
+    // float blocksum = blockReduceSum<float>(thread_accm);
+    // __shared__ float inv_fenmu;
+    // if(tid == 0){
+    //     inv_fenmu = rsqrt(float(blocksum / hidden_units) + eps);
+    //     // if (batch_id == 0){
+    //     //     printf("blocksum = %f\n", blocksum);
+    //     //     printf("inv_fenmu = %f\n", inv_fenmu.x);
+    //     // }
+    // }
+    // __syncthreads();
+    // // rmsnorm
+    // // Vec_t* out = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);// note before vec the stride is batch_id * hiddenunits w/o / vecsize
+    // s = reinterpret_cast<Vec_t*>(scale);
+    // for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
+    //     dout[i].x = s[i].x * dout[i].x * inv_fenmu;
+    //     dout[i].y = s[i].y * dout[i].y * inv_fenmu;
+    //     dout[i].z = s[i].z * dout[i].z * inv_fenmu;
+    //     dout[i].w = s[i].w * dout[i].w * inv_fenmu;
+    //     if(batch_id == 0 && i == 32) {
+    //         printf("rmsnorm after emb top2 res: \n");
+    //         printf("dout.x = %f, s[i].x = %f, inv_fenmu = %f\n",dout[i].x, s[i].x, inv_fenmu);
+    //         printf("dout.y = %f, s[i].y = %f, inv_fenmu = %f\n",dout[i].y, s[i].y, inv_fenmu);
+    //     }
+    // }    
 }
 
 template <>
