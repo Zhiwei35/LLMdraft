@@ -37,22 +37,33 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
                         float eps, //RMSNorm eps
                         int num_tokens, 
                         int hidden_units){
-  __shared__ float s_variance;
-  float variance = 0.0f;
-
+  int vec_size = Vec<T>::size;
+  using Vec_t = typename Vec<T>::Type;
+  float thread_sum = 0.0f;
+  Vec_t* dout = reinterpret_cast<Vec_t*>(decoder_out + blockIdx.x * hidden_units);
   for (int idx = threadIdx.x; idx < hidden_units; idx += blockDim.x) {
-    const float x = (float) decoder_out[blockIdx.x * hidden_units + idx];
-    variance += x * x;
+    Vec_t vec = dout[idx];
+    thread_sum += vec.x * vec.x;
+    thread_sum += vec.y * vec.y;
+    thread_sum += vec.z * vec.z;
+    thread_sum += vec.w * vec.w;
   }
-  variance = blockReduceSum<float>(variance);
+  thread_sum = blockReduceSum<float>(thread_sum);
+  __shared__ float inv_mean;
   if (threadIdx.x == 0) {
-    s_variance = rsqrtf(variance / hidden_units + epsilon);
+    inv_mean = rsqrtf(thread_sum / hidden_units + eps);
   }
   __syncthreads();
-
+  Vec_t* s = reinterpret_cast<Vec_t*>(scale);
   for (int idx = threadIdx.x; idx < hidden_units; idx += blockDim.x) {
-    float x = (float) decoder_out[blockIdx.x * hidden_units + idx];
-    decoder_out[blockIdx.x * hidden_units + idx] = ((T) (x * s_variance)) * scale[idx];
+    Vec_t out = dout[idx];// note the offset should divide vec size
+
+    dout[idx].x = out.x * inv_mean * s[idx].x;
+    dout[idx].y = out.y * inv_mean * s[idx].y;
+    dout[idx].z = out.z * inv_mean * s[idx].z;
+    dout[idx].w = out.w * inv_mean * s[idx].w;
+    // float x = (float) decoder_out[blockIdx.x * hidden_units + idx];
+    // decoder_out[blockIdx.x * hidden_units + idx] = ((T) (x * inv_mean)) * scale[idx];
   }
     // int vec_size = Vec<T>::size;
     // using Vec_t = typename Vec<T>::Type;
