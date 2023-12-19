@@ -41,7 +41,7 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
   using Vec_t = typename Vec<T>::Type;
   float thread_sum = 0.0f;
   Vec_t* dout = reinterpret_cast<Vec_t*>(decoder_out + blockIdx.x * hidden_units);
-  for (int idx = threadIdx.x; idx < hidden_units; idx += blockDim.x) {
+  for (int idx = threadIdx.x; idx < hidden_units / vec_size; idx += blockDim.x) {
     Vec_t vec = dout[idx];
     thread_sum += vec.x * vec.x;
     thread_sum += vec.y * vec.y;
@@ -55,7 +55,7 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
   }
   __syncthreads();
   Vec_t* s = reinterpret_cast<Vec_t*>(scale);
-  for (int idx = threadIdx.x; idx < hidden_units; idx += blockDim.x) {
+  for (int idx = threadIdx.x; idx < hidden_units / vec_size; idx += blockDim.x) {
     Vec_t out = dout[idx];// note the offset should divide vec size
 
     dout[idx].x = out.x * inv_mean * s[idx].x;
