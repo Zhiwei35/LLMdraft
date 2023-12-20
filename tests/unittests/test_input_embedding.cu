@@ -60,7 +60,6 @@ bool checkResults(float* h_output, float* d_output, const int output_size) {
 }
 
 int main(int argc, char *argv[]) {
-    const int batch_size = 1;
     const int max_context_token_num = 64;
     const int hidden_size = 4096;
     const int vocab_size = 30000;
@@ -83,9 +82,9 @@ int main(int argc, char *argv[]) {
 
         for (int i = 0; i < max_context_token_num; ++i) {
             h_input[i] = dis_int(gen);
-	    printf("h_input[%d] = %d\n",i,  h_input[i]);
-	}
-	for (int i = 0; i < table_size; ++i) {
+            printf("h_input[%d] = %d\n",i,  h_input[i]);
+        }
+        for (int i = 0; i < table_size; ++i) {
             h_table[i] = (float)(i / hidden_size);
         }
 
@@ -108,12 +107,12 @@ int main(int argc, char *argv[]) {
         TensorWrapper<float>* output = new TensorWrapper<float>(Device::GPU, type_float, {max_context_token_num,     hidden_size}, d_output);
         EmbeddingWeight<float> emb_table;
         emb_table.data = d_table;
-        launchInputEmbedding(input_ids->as<int>(), output->as<float>(), &emb_table);
+        launchInputEmbedding(input_ids, output, &emb_table);
         CHECK(cudaMemcpy(h_output, output->data, output_size * sizeof(float), cudaMemcpyDeviceToHost));
         std::cout << "printf h_output for check" << std::endl;
         for (int i = 0; i < max_context_token_num; i++){
- 	    std::cout << (float)h_output[i * hidden_size] << std::endl;
-	}
+            std::cout << (float)h_output[i * hidden_size] << std::endl;
+        }
 
         cudaFree(d_output);
         cudaFree(d_table);
@@ -136,7 +135,7 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < max_context_token_num; ++i) {
             h_input[i] = dis_int(gen);
         }
-	printf("h_input[0] = %d\n", h_input[0]);
+	    printf("h_input[0] = %d\n", h_input[0]);
         for (int i = 0; i < table_size; ++i) {
             h_table[i] = (half)(i / hidden_size);
         }
@@ -162,7 +161,7 @@ int main(int argc, char *argv[]) {
         TensorWrapper<half>* output = new TensorWrapper<half>(Device::GPU, type_half, {max_context_token_num,     hidden_size}, d_output);
         EmbeddingWeight<half> emb_table;
         emb_table.data = d_table;
-        launchInputEmbedding(input_ids->as<int>(), output->as<half>(), &emb_table);
+        launchInputEmbedding(input_ids, output, &emb_table);
         CHECK(cudaMemcpy(h_output, output->data, output_size * sizeof(half), cudaMemcpyDeviceToHost));
         std::cout << "printf h_output for check" << std::endl;
         std::cout << (float)h_output[0] << std::endl;

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "src/kernels/input_embedding.h"
-
+// lmdeploy/src/kernels/decoding_kernels.cu/embeddinglookup貌似才是实现了真正的多轮对话的embedding
+// 用一个all ids保存了所有step生成的token id，然后对应step offset去取，不过我这里只是没有用all ids，所以不用他这么复杂去取
 template<typename T>
 __global__ void embeddingFunctor(const int* input_ids,
                T* output, 
