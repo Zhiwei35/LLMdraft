@@ -10,8 +10,17 @@ target_link_libraries(
 add_executable(rms_norm
     test_rmsnorm.cu
 )
-target_link_libraries(  # Libs for test_rmsnorm
+target_link_libraries(
     rms_norm PUBLIC
     -lcudart
     -lcudadevrt
     rmsnorm)
+
+add_executable(paddingoffset
+    test_cal_paddingoffset.cu
+)
+target_link_libraries(
+  paddingoffset PUBLIC
+    -lcudart
+    -lcudadevrt
+    cal_paddingoffset) 
