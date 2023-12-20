@@ -3,7 +3,7 @@
 //bugs1: 2nd warpreducesum returns 0, because blockDim.x < 32, blockDim.x / 32=0
 //bugs2: output buffer valuse is the same as ones before call, thats because we didn't successfully write into the output address
 //bugs3: output buffer's 1st 32 values are right, the latter is wrong, because when we use vec, the ele nums of a row is hiddenunits/vecsize, we should note the row stride to move the ptr carefully
-
+//bugs4: remeber add __syncthreads() in fp32/fp16 kernel, or we cant get the right res, ep, here we didnt add it, we get some res equal to 0 
 template<typename T>
 __device__ T warpReduceSum(T val){
     for(int i = 32 / 2; i > 0; i >>= 1){
@@ -91,17 +91,18 @@ __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
     if(tid == 0){
         inv_fenmu = rsqrtf(float(blocksum / hidden_units) + eps);
     }
+    __syncthreads();
     // rmsnorm
     s = reinterpret_cast<Vec_t*>(scale);
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
         Vec_t dout_h2 =dout[i];
         dout[i].x = s[i].x * __float2half(__half2float(dout_h2.x) * inv_fenmu);
         dout[i].y = s[i].y * __float2half(__half2float(dout_h2.y) * inv_fenmu);
-        if(i == 0) {
-            printf("rmsnorm after emb top2 res: \n");
-            printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",(float)(dout[i].x), (float)(s[i].x), (float)(inv_fenmu.x));
-            printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",(float)(dout[i].y), (float)(s[i].y), (float)(inv_fenmu.y));
-        }
+        //if(i == 0) {
+          //  printf("rmsnorm after emb top2 res: \n");
+         //   printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",(float)(dout[i].x), (float)(s[i].x), (float)(inv_fenmu.x));
+         //   printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",(float)(dout[i].y), (float)(s[i].y), (float)(inv_fenmu.y));
+        //}
     }    
 }
 
