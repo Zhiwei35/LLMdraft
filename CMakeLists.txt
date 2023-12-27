@@ -13,20 +13,20 @@ find_package(CUDA REQUIRED)
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}")	
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -Xcompiler -Wall")
+#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -Xcompiler") #去掉警告
+#if (SM STREQUAL 70 OR
+#    SM STREQUAL 75 OR
+#    SM STREQUAL 61 OR
+#    SM STREQUAL 60)
+#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM},code=\\\"sm_${SM},compute_${SM}\\\" -rdc=true")
+#if (SM STREQUAL 70 OR SM STREQUAL 75)
+# set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
+# set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
+# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
+#endif()
+#message("-- Assign GPU architecture (sm=60 61 70 75})")
 
-if (SM STREQUAL 70 OR
-    SM STREQUAL 75 OR
-    SM STREQUAL 61 OR
-    SM STREQUAL 60)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM},code=\\\"sm_${SM},compute_${SM}\\\" -rdc=true")
-  if (SM STREQUAL 70 OR SM STREQUAL 75)
-    set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
-  endif()
-message("-- Assign GPU architecture (sm=60 61 70 75})")
-
-else()
+#else()
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  \
                       -gencode=arch=compute_70,code=\\\"sm_70,compute_70\\\" \
                       -gencode=arch=compute_75,code=\\\"sm_75,compute_75\\\" \
@@ -35,18 +35,18 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  \
                         ")
 #                      -rdc=true") # not sure the effect of this option, retain it temply
 
-set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
+#set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
+#set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
+#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
 set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86)
 message("-- Assign GPU architecture (sm=70 75 80 86)")
-endif()
+#endif()
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")
 set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w") #忽略所有警告
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W") #忽略所有警告
 message(STATUS "CMAKE_CXX_FLAGS" ${CMAKE_CXX_FLAGS})
 
 set(CMAKE_CXX_STANDARD 11)
