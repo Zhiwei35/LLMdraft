@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
     // debug info, better to retain: 
     std::cout << "cuda memcpy device to host" << std::endl;
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
-    CHECK(cudaMemcpy(h_out, out->data, sizeof(float) * output_size, cudaMemcpyDeviceToHost));
+    CHECK(cudaMemcpy(h_out, d_out, sizeof(float) * output_size, cudaMemcpyDeviceToHost));
     float* CPUout = (float*) malloc(sizeof(float) * output_size);
     if (argv[1]) {// enable trans_b for test lmhead linear
         CPUlinear(h_in, h_w, CPUout, seqlen, hidden_units, vocab_size);
