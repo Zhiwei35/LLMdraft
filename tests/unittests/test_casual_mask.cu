@@ -70,11 +70,11 @@ int main() {
                                                         type_float,
                                                         {batch_size, max_q_len, max_k_len}, 
                                                         d_mask);
-    TensorWrapper<float>* q_lens = new TensorWrapper<float>(Device::GPU, 
+    TensorWrapper<int>* q_lens = new TensorWrapper<int>(Device::GPU, 
                                                         type_int,
                                                         {batch_size}, 
                                                         d_q_lens);
-    TensorWrapper<float>* k_lens = new TensorWrapper<float>(Device::GPU, 
+    TensorWrapper<int>* k_lens = new TensorWrapper<int>(Device::GPU, 
                                                         type_int,
                                                         {batch_size}, 
                                                         d_k_lens);

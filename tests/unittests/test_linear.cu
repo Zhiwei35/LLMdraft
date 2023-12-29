@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     DataType type = getTensorType<float>();
     WeightType wtype = getWeightType<float>(); 
     TensorWrapper<float>* in = new TensorWrapper<float>(Device::GPU, type, {seqlen, hidden_units}, d_in);
-    BaseWeight weight;
+    BaseWeight<float> weight;
     if (argv[1]) {// enable trans_b for test lmhead linear
         weight.shape = {vocab_size, hidden_units};
     } else {
