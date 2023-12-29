@@ -14,7 +14,7 @@ void CPUlinear(float* input, float* weight, float* output,
     for(int i = 0; i < m; i++) {
         for(int j = 0; j < n; j++) {
             for(int l = 0; l < k; l++) {
-                output[i * n + j] += weight[i * k + l] * input[l * n + j];
+                output[i * n + j] += input[i * k + l] * weight[l * n + j];
             }
         }
     }
