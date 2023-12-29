@@ -1,5 +1,5 @@
 #include <iostream>
-#include "src/kernels/qkv_linear.h"
+#include "src/kernels/linear.h"
 //TODO: when abstracted weight class, replace T with class
 //weight * input
 //weight shape = [hidden_units, hidden_units]
