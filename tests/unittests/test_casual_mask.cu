@@ -64,8 +64,21 @@ int main() {
     }
     CHECK(cudaMemcpy(d_q_lens, h_q_lens, sizeof(int) * batch_size, cudaMemcpyHostToDevice));
     CHECK(cudaMemcpy(d_k_lens, h_k_lens, sizeof(int) * batch_size, cudaMemcpyHostToDevice));
-    // debug info, better to retain: std::cout << "before launch kernel" << std::endl;
-    launchBuildCausalMasks(d_mask, d_q_lens, d_k_lens, max_q_len, max_k_len, batch_size);
+    DataType type_float = getTensorType<float>();
+    DataType type_int = getTensorType<int>();
+    TensorWrapper<float>* mask = new TensorWrapper<float>(Device::GPU, 
+                                                        type_float,
+                                                        {batch_size, max_q_len, max_k_len}, 
+                                                        d_mask);
+    TensorWrapper<float>* q_lens = new TensorWrapper<float>(Device::GPU, 
+                                                        type_int,
+                                                        {batch_size}, 
+                                                        d_q_lens);
+    TensorWrapper<float>* k_lens = new TensorWrapper<float>(Device::GPU, 
+                                                        type_int,
+                                                        {batch_size}, 
+                                                        d_k_lens);
+    launchBuildCausalMasks(mask, q_lens, k_lens);
     // debug info, better to retain: std::cout << "after launch kernel" << std::endl;
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
     CHECK(cudaMemcpy(h_mask, d_mask, sizeof(float) * mask_size, cudaMemcpyDeviceToHost));
