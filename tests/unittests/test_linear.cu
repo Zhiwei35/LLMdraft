@@ -83,13 +83,17 @@ int main(int argc, char *argv[]) {
     } else {
         out = new TensorWrapper<float>(Device::GPU, type, {seqlen, hidden_units}, d_out);
     }
-    
+    cublasHandle_t cublas_handle;
+    cublasLtHandle_t cublaslt_handle;
+    cublasCreate(&cublas_handle);
+    cublasSetMathMode(cublas_handle, CUBLAS_DEFAULT_MATH);
+    cublasWrapper* cublas_wrapper = new cublasWrapper(cublas_handle, cublaslt_handle);    
     // debug info, better to retain: 
     std::cout << "before launch kernel" << std::endl;
     if (argv[1]) {// enable trans_b for test lmhead linear
-        launchLinearGemm(in, weight, out, false, true);
+        launchLinearGemm(in, weight, out, cublas_wrapper, false, true);
     } else {
-        launchLinearGemm(in, weight, out);
+        launchLinearGemm(in, weight, out, cublas_wrapper);
     } 
     // debug info, better to retain: 
     std::cout << "after launch kernel" << std::endl;
