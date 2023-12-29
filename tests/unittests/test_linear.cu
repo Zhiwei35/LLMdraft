@@ -87,7 +87,8 @@ int main(int argc, char *argv[]) {
     cublasLtHandle_t cublaslt_handle;
     cublasCreate(&cublas_handle);
     cublasSetMathMode(cublas_handle, CUBLAS_DEFAULT_MATH);
-    cublasWrapper* cublas_wrapper = new cublasWrapper(cublas_handle, cublaslt_handle);    
+    cublasWrapper* cublas_wrapper = new cublasWrapper(cublas_handle, cublaslt_handle);  
+    cublas_wrapper->setFP32GemmConfig();  
     // debug info, better to retain: 
     std::cout << "before launch kernel" << std::endl;
     if (argv[1]) {// enable trans_b for test lmhead linear
