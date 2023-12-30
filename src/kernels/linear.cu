@@ -26,7 +26,7 @@ void launchLinearGemm(TensorWrapper<T> *input,
     int offset = 0;
     if (shared_out_buf)
     {
-        int offset = input_lda * k; // num tokes * inter size, need to modify activate kernel input shape to [2, num tokens, inter size] and buf shape
+        int offset = input_lda * n; // num tokes * inter size, need to modify activate kernel input shape to [2, num tokens, inter size] and buf shape
     }
     // std::cout << "m: " << input_lda
     //           << "n: " << n << " or " << weight_1st_dim
