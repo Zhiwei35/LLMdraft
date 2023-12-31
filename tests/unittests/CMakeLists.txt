@@ -64,8 +64,17 @@ target_link_libraries(  # Libs for test_qkv_bias_and_rope
 add_executable(test_repeat_kv
     test_repeat_kv.cu
 )
-target_link_libraries(  # Libs for test_qkv_bias_and_rope
+target_link_libraries( 
     test_repeat_kv PUBLIC
     -lcudart
     -lcudadevrt
     repeat_kv) 
+
+add_executable(test_mask_softmax
+    test_mask_softmax.cu
+)
+target_link_libraries(  
+    test_mask_softmax PUBLIC
+    -lcudart
+    -lcudadevrt
+    mask_softmax) 
