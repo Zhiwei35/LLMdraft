@@ -39,7 +39,7 @@
     launchScaleMaskAndSoftmax(qk, mask, score, scale);                                                                              \
     std::cout << "after launch softmax kernel" << std::endl;                                                                        \
     std::cout << "cuda memcpy device to host" << std::endl;                                                                         \
-    cudaMemcpy(h_score, score.data, sizeof(dtype) * qk_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_score, score->data, sizeof(dtype) * qk_size, cudaMemcpyDeviceToHost);
 
 int main(int argc, char *argv[])
 {
