@@ -96,3 +96,12 @@ target_link_libraries(
     -lcudart
     -lcudadevrt
     fused_addresidual_norm) 
+
+add_executable(test_act
+    test_act.cu
+)
+target_link_libraries(  
+    test_act PUBLIC
+    -lcudart
+    -lcudadevrt
+    act) 
