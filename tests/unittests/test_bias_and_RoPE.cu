@@ -151,17 +151,17 @@ int main() {
     cudaMemcpy(dqkv_bias, qkv_bias, sizeof(float) * (head_num + 2 * kv_head_num) * head_size, cudaMemcpyHostToDevice);
     
     DataType type = getTensorType<float>(); 
-    TensorWrapper<float>* q_buf(Device::GPU, type, {batch_size, head_num, seq_len, head_size}, dq);
-    TensorWrapper<float>* k_buf(Device::GPU, type, {batch_size, kv_head_num, seq_len, head_size}, dk);
-    TensorWrapper<float>* v_buf(Device::GPU, type, {batch_size, kv_head_num, seq_len, head_size}, dv);
-    TensorWrapper<float>* QKV_buf(Device::GPU, type, {token_num, head_num + 2 * kv_head_num, head_size}, dQKV);
+    TensorWrapper<float>* q_buf = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seq_len, head_size}, dq);
+    TensorWrapper<float>* k_buf = new TensorWrapper<float>(Device::GPU, type, {batch_size, kv_head_num, seq_len, head_size}, dk);
+    TensorWrapper<float>* v_buf = new TensorWrapper<float>(Device::GPU, type, {batch_size, kv_head_num, seq_len, head_size}, dv);
+    TensorWrapper<float>* QKV_buf = new TensorWrapper<float>(Device::GPU, type, {token_num, head_num + 2 * kv_head_num, head_size}, dQKV);
 //    Tensor qkv_bias_buf(Device::GPU, type, {(head_num + 2 * kv_head_num), head_size}, dqkv_bias);
     LLaMAattentionWeights<float> attn_weights;
     attn_weights.qkv.bias = dqkv_bias;
     DataType type_int = getTensorType<int>(); 
-    TensorWrapper<int>* input_length_buf(Device::GPU, type_int, {batch_size}, dinput_length);
-    TensorWrapper<int>* history_length_buf(Device::GPU, type_int, {batch_size}, dhistory_length);
-    TensorWrapper<int>* padding_offset_buf(Device::GPU, type_int, {batch_size, seq_len}, dpadding_offset);
+    TensorWrapper<int>* input_length_buf = new TensorWrapper<int>(Device::GPU, type_int, {batch_size}, dinput_length);
+    TensorWrapper<int>* history_length_buf = new TensorWrapper<int>(Device::GPU, type_int, {batch_size}, dhistory_length);
+    TensorWrapper<int>* padding_offset_buf = new TensorWrapper<int>(Device::GPU, type_int, {batch_size, seq_len}, dpadding_offset);
     LLaMAAttentionStaticParams params;
     params.rotary_embedding_dim = rotary_embedding_dim;
     params.rotary_embedding_base = rotary_embedding_base;

@@ -59,12 +59,12 @@ int main() {
     cudaMemcpy(d_ctx_len, h_ctx_len, sizeof(int) * batch_size, cudaMemcpyHostToDevice);
     DataType type = getTensorType<float>(); 
     DataType type_int = getTensorType<int>(); 
-    TensorWrapper<float>* in_k(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_k);
-    TensorWrapper<float>* in_v(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_v);
-    TensorWrapper<int>* ctx_len(Device::GPU, type_int, {batch_size}, d_ctx_len);
-    TensorWrapper<float>* out_k(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_k);
-    TensorWrapper<float>* out_v(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_v);
-    TensorWrapper<int>* layer_id(Device::CPU, type_int, {batch_size}, h_layer_id);
+    TensorWrapper<float>* in_k = new TensorWrapper<float>(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_k);
+    TensorWrapper<float>* in_v = new TensorWrapper<float>(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_v);
+    TensorWrapper<int>* ctx_len = new TensorWrapper<float>(Device::GPU, type_int, {batch_size}, d_ctx_len);
+    TensorWrapper<float>* out_k = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_k);
+    TensorWrapper<float>* out_v = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_v);
+    TensorWrapper<int>* layer_id = new TensorWrapper<float>(Device::CPU, type_int, {batch_size}, h_layer_id);
     
     // size_t layer_offset = layer_id * batch_size * kv_head_num * max_seq_len * head_size;
     std::cout << "before launch softmax kernel" << std::endl;

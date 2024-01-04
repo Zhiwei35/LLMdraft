@@ -17,20 +17,20 @@
     dtype *d_score;                                                                                                                 \
     h_score = (dtype *)malloc(sizeof(dtype) * qk_size);                                                                             \
     cudaMalloc((void **)&d_score, sizeof(dtype) * qk_size);                                                                         \
-    uint8_t *h_mask;                                                                                                                \
-    uint8_t *d_mask;                                                                                                                \
-    h_mask = (uint8_t *)malloc(sizeof(uint8_t) * batch_size * q_length * k_length);                                                 \
-    cudaMalloc((void **)&d_mask, sizeof(uint8_t) * batch_size * q_length * k_length);                                               \
+    dtype *h_mask;                                                                                                                \
+    dtype *d_mask;                                                                                                                \
+    h_mask = (dtype *)malloc(sizeof(dtype) * batch_size * q_length * k_length);                                                 \
+    cudaMalloc((void **)&d_mask, sizeof(dtype) * batch_size * q_length * k_length);                                               \
     for (int i = 0; i < qk_size; i++)                                                                                               \
     {                                                                                                                               \
         h_qk[i] = 4.0f;                                                                                                             \
     }                                                                                                                               \
     for (int i = 0; i < batch_size * q_length * k_length; i++)                                                                      \
     {                                                                                                                               \
-        h_mask[i] = (uint8_t)(1);                                                                                                   \
+        h_mask[i] = (dtype)(1);                                                                                                   \
     }                                                                                                                               \
     cudaMemcpy(d_qk, h_qk, sizeof(dtype) * qk_size, cudaMemcpyHostToDevice);                                                        \
-    cudaMemcpy(d_mask, h_mask, sizeof(uint8_t) * batch_size * q_length * k_length, cudaMemcpyHostToDevice);                         \
+    cudaMemcpy(d_mask, h_mask, sizeof(dtype) * batch_size * q_length * k_length, cudaMemcpyHostToDevice);                         \
     DataType type = getTensorType<dtype>();                                                                                         \
     TensorWrapper<dtype> *qk = new TensorWrapper<dtype>(Device::GPU, type, {batch_size, head_num, q_length, k_length}, d_qk);       \
     TensorWrapper<dtype> *mask = new TensorWrapper<dtype>(Device::GPU, type, {batch_size, q_length, k_length}, d_mask);             \
