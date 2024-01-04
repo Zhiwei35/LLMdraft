@@ -108,5 +108,4 @@ int main()
     cudaFree(dcur_query_length);
     cudaFree(dhistory_length);
     cudaFree(kv_scale);
-    cudaFree(d_layer_id);
 }

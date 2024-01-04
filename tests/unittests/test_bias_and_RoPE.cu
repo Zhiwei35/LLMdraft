@@ -151,16 +151,17 @@ int main() {
     cudaMemcpy(dqkv_bias, qkv_bias, sizeof(float) * (head_num + 2 * kv_head_num) * head_size, cudaMemcpyHostToDevice);
     
     DataType type = getTensorType<float>(); 
-    Tensor q_buf(Device::GPU, type, {batch_size, head_num, seq_len, head_size}, dq);
-    Tensor k_buf(Device::GPU, type, {batch_size, kv_head_num, seq_len, head_size}, dk);
-    Tensor v_buf(Device::GPU, type, {batch_size, kv_head_num, seq_len, head_size}, dv);
-    Tensor QKV_buf(Device::GPU, type, {token_num, head_num + 2 * kv_head_num, head_size}, dQKV);
+    TensorWrapper<float>* q_buf(Device::GPU, type, {batch_size, head_num, seq_len, head_size}, dq);
+    TensorWrapper<float>* k_buf(Device::GPU, type, {batch_size, kv_head_num, seq_len, head_size}, dk);
+    TensorWrapper<float>* v_buf(Device::GPU, type, {batch_size, kv_head_num, seq_len, head_size}, dv);
+    TensorWrapper<float>* QKV_buf(Device::GPU, type, {token_num, head_num + 2 * kv_head_num, head_size}, dQKV);
 //    Tensor qkv_bias_buf(Device::GPU, type, {(head_num + 2 * kv_head_num), head_size}, dqkv_bias);
-    LLaMAattentionWeights attn_weights;
+    LLaMAattentionWeights<float> attn_weights;
     attn_weights.qkv.bias = dqkv_bias;
-    Tensor input_length_buf(Device::GPU, type, {batch_size}, dinput_length);
-    Tensor history_length_buf(Device::GPU, type, {batch_size}, dhistory_length);
-    Tensor padding_offset_buf(Device::GPU, type, {batch_size, seq_len}, dpadding_offset);
+    DataType type_int = getTensorType<int>(); 
+    TensorWrapper<int>* input_length_buf(Device::GPU, type_int, {batch_size}, dinput_length);
+    TensorWrapper<int>* history_length_buf(Device::GPU, type_int, {batch_size}, dhistory_length);
+    TensorWrapper<int>* padding_offset_buf(Device::GPU, type_int, {batch_size, seq_len}, dpadding_offset);
     LLaMAAttentionStaticParams params;
     params.rotary_embedding_dim = rotary_embedding_dim;
     params.rotary_embedding_base = rotary_embedding_base;
@@ -168,14 +169,14 @@ int main() {
     params.use_dynamic_ntk = false;
     // debug info, better to retain: 
     std::cout << "before launch kernel" << std::endl;
-    launchAddFusedQKVBiasTransposeAndRoPE(&q_buf,
-                                          &k_buf,
-                                          &v_buf,
-                                          &QKV_buf,
+    launchAddFusedQKVBiasTransposeAndRoPE(q_buf,
+                                          k_buf,
+                                          v_buf,
+                                          QKV_buf,
                                           attn_weights.qkv,
-                                          &padding_offset_buf,
-                                          &history_length_buf,
-                                          &input_length_buf,
+                                          padding_offset_buf,
+                                          history_length_buf,
+                                          input_length_buf,
                                           params);
     // debug info, better to retain: 
     std::cout << "after launch kernel" << std::endl;

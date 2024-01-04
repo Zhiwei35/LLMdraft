@@ -1,4 +1,4 @@
-#include "src/kernels/fused_transpose_reshape_remv_pad.h"
+#include "src/kernels/fused_transpose_and_remv_pad.h"
 #include <iostream>
 // [b,h,s,d]=>[b,s,h,d]=>[num tokens,h,d]
 // padding_offset.shape = [num_tokens]

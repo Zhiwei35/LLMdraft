@@ -6,7 +6,7 @@
 #include <vector>      // std::vector
 
 #include <cuda.h>
-#include "src/kernels/beamsearch_topK.h"
+#include "src/kernels/topK.h"
 
 int main() {
     const int batch_size = 1;

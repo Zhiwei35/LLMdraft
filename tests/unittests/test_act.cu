@@ -44,7 +44,10 @@ void test_act(int batch_size, int intermedia_size, int input_size , int output_s
         h_input[i] = (T)i;
     }
     cudaMemcpy(d_input, h_input, sizeof(T) * input_size, cudaMemcpyHostToDevice);
-    launchAct(d_input, d_output, batch_size, intermedia_size);
+    DataType type = getTensorType<T>();
+    TensorWrapper<T>* input_tensor = new TensorWrapper<T>(GPU, type, {2, batch_size, intermedia_size}, d_input);
+    TensorWrapper<T>* output_tensor = new TensorWrapper<T>(GPU, type, {batch_size, intermedia_size}, d_output);
+    launchAct(input_tensor, output_tensor);
     cudaMemcpy(h_output, d_output, sizeof(T) * output_size, cudaMemcpyDeviceToHost);
     T* CPU_output = (T*)malloc(sizeof(T) * output_size);
     CPUSwiGLU(h_input, CPU_output, batch_size, intermedia_size);

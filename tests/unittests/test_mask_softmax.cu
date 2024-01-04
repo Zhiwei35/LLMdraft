@@ -39,7 +39,17 @@
     launchScaleMaskAndSoftmax(qk, mask, score, scale);                                                                              \
     std::cout << "after launch softmax kernel" << std::endl;                                                                        \
     std::cout << "cuda memcpy device to host" << std::endl;                                                                         \
-    cudaMemcpy(h_score, score->data, sizeof(dtype) * qk_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_score, score->data, sizeof(dtype) * qk_size, cudaMemcpyDeviceToHost);                                              \
+    for (int i = 0; i < qk_size; i++)                                                                                               \
+    {                                                                                                                               \
+        printf("attn score[%d] = %f\n", i, (float)h_score[i]);                                                                      \
+    }                                                                                                                               \
+    free(h_qk);                                                                                                                     \
+    free(h_score);                                                                                                                  \
+    free(h_mask);                                                                                                                   \
+    cudaFree(d_qk);                                                                                                                 \
+    cudaFree(d_score);                                                                                                              \
+    cudaFree(d_mask);
 
 int main(int argc, char *argv[])
 {
@@ -51,20 +61,12 @@ int main(int argc, char *argv[])
     float scale = rsqrtf(float(head_size));
     // debug info, better to retain: std::cout <<"batch_size=" << batch_size << "  vocab_size=" << vocab_size << std::endl;
     const int qk_size = batch_size * head_num * q_length * k_length;
-    if (argv[1]) {
+    if (argv[1])
+    {
         TEST_MASKED_SOFTMAX(half);
-    } else {
+    }
+    else
+    {
         TEST_MASKED_SOFTMAX(float);
     }
-    for (int i = 0; i < qk_size; i++)
-    {
-        printf("attn score[%d] = %f\n", i, (float)h_score[i]);
-    }
-    // debug info, better to retain: std::cout << "before free" << std::endl;
-    free(h_qk);
-    free(h_score);
-    free(h_mask);
-    cudaFree(d_qk);
-    cudaFree(d_score);
-    cudaFree(d_mask);
 }

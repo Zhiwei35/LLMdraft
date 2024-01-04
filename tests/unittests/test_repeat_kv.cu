@@ -48,8 +48,6 @@ int main() {
        h_k[i] = i;
     }
     int* h_layer_id = (int*)malloc(sizeof(int)*batch_size);
-    int* d_layer_id;
-    cudaMalloc((void**)&d_layer_id,sizeof(int)*batch_size);
 
     for(int i = 0; i < batch_size; i++) {
        h_ctx_len[i] = 2;
@@ -59,19 +57,18 @@ int main() {
     cudaMemcpy(d_k, h_k, sizeof(float) * k_size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_v, h_v, sizeof(float) * k_size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_ctx_len, h_ctx_len, sizeof(int) * batch_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_layer_id, h_layer_id, sizeof(int) * batch_size, cudaMemcpyHostToDevice);
     DataType type = getTensorType<float>(); 
     DataType type_int = getTensorType<int>(); 
-    Tensor in_k(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_k);
-    Tensor in_v(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_v);
-    Tensor ctx_len(Device::GPU, type_int, {batch_size}, d_ctx_len);
-    Tensor out_k(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_k);
-    Tensor out_v(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_v);
-    Tensor layer_id(Device::GPU, type_int, {batch_size}, d_layer_id);
+    TensorWrapper<float>* in_k(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_k);
+    TensorWrapper<float>* in_v(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_v);
+    TensorWrapper<int>* ctx_len(Device::GPU, type_int, {batch_size}, d_ctx_len);
+    TensorWrapper<float>* out_k(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_k);
+    TensorWrapper<float>* out_v(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_v);
+    TensorWrapper<int>* layer_id(Device::CPU, type_int, {batch_size}, h_layer_id);
     
     // size_t layer_offset = layer_id * batch_size * kv_head_num * max_seq_len * head_size;
     std::cout << "before launch softmax kernel" << std::endl;
-    launchRepeatKVCache(&in_k, &in_v, &ctx_len, &layer_id, &out_k, &out_v);
+    launchRepeatKVCache(in_k, in_v, ctx_len, layer_id, out_k, out_v);
     std::cout << "after launch softmax kernel" << std::endl;
     std::cout << "cuda memcpy device to host" << std::endl;
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
@@ -85,6 +82,7 @@ int main() {
     free(h_ctx_len);
     free(h_trans_k);
     free(h_trans_v);
+    free(h_layer_id);
     cudaFree(d_k);
     cudaFree(d_v);
     cudaFree(d_ctx_len);

@@ -5,7 +5,7 @@
 #include <string>    // std::string
 #include <vector>    // std::vector
 
-#include "src/kernels/decoder_masked_attn.h"
+#include "src/kernels/fused_decoder_self_attention.h"
 #include "src/utils/macro.h"
 
 // bug1: MUST add CHECK to cudaMemcpy to see if its work well
