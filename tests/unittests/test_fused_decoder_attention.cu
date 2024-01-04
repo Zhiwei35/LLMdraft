@@ -15,7 +15,7 @@ void CPUMaskedAttn(T *q,
                    T *v,
                    T *k_cache,
                    T *v_cache,
-                   T *mha_output,
+                   float *mha_output,
                    const int batch_size,
                    const int num_heads,
                    const int head_size,
@@ -50,12 +50,12 @@ void CPUMaskedAttn(T *q,
                 {
                     int qkv_offset = batch_id * batch_stride + head_id * head_stride + tid;
                     // note: sq and sk's offset should be qkv_offset , not tid
-                    sk[qkv_offset] = k_cache[iter * cache_offset + qkv_offset];
+                    sk[qkv_offset] = (float)k_cache[iter * cache_offset + qkv_offset];
                     // when final step, update k cache
                     if (iter == step - 1)
                     {
                         // TODO: update k cache with k with bias add
-                        k_cache[iter * cache_offset + qkv_offset] = (float)k_mem[qkv_offset];
+                        k_cache[iter * cache_offset + qkv_offset] = k_mem[qkv_offset];
                         sk[qkv_offset] = (float)k_mem[qkv_offset];
                     }
 
@@ -81,7 +81,7 @@ void CPUMaskedAttn(T *q,
             }
             for (int iter = 0; iter < step; iter++)
             { // row
-                logits[batch_id * num_heads * step + head_id * step + iter] = fenzi / fenmu;
+                logits[batch_id * num_heads * step + head_id * step + iter] = (float)(fenzi / fenmu);
                 printf("logits=%f\n", fenzi / fenmu);
             }
             // logits*V = [bs, num heads, 1, step] * [mx_seq_len or step, bs, num heads, head size]
@@ -92,12 +92,12 @@ void CPUMaskedAttn(T *q,
                 int qkv_offset = batch_id * batch_stride + head_id * head_stride + tid;
                 for (int iter = 0; iter < step; iter++)
                 {
-                    sv[qkv_offset] = v_cache[iter * cache_offset + qkv_offset];
+                    sv[qkv_offset] = (float)v_cache[iter * cache_offset + qkv_offset];
                     // when final step, update k cache
                     if (iter == step - 1)
                     {
                         // TODO: update k cache with k with bias add
-                        v_cache[iter * cache_offset + qkv_offset] = (float)v_mem[qkv_offset];
+                        v_cache[iter * cache_offset + qkv_offset] = v_mem[qkv_offset];
                         sv[qkv_offset] = (float)v_mem[qkv_offset];
                     }
                     O += sv[qkv_offset] * logits[batch_id * num_heads * step + head_id * step + iter];
@@ -161,7 +161,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     bool *h_finished = (bool *)malloc(sizeof(bool) * batch_size);                                                                     \
     bool *d_finished;                                                                                                                 \
     cudaMalloc((void **)&d_finished, sizeof(bool) * batch_size);                                                                      \
-    \ for (int i = 0; i < batch_size; i++)                                                                                            \
+    for (int i = 0; i < batch_size; i++)                                                                                            \
     {                                                                                                                                 \
         h_finished[i] = static_cast<bool>(0);                                                                                         \
     }                                                                                                                                 \
