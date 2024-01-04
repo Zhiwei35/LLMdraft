@@ -168,7 +168,7 @@ void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_
     dim3 grid(batch_size);
     dim3 block(num_threads);
     // printf("calling fusedAddBiasResidualAndRMSNorm\n");
-    FusedAddBiasResidualRMSNorm<T><<<grid, block>>>(    ->data, 
+    FusedAddBiasResidualRMSNorm<T><<<grid, block>>>(residual->data, 
                                                 decoder_out->data,
                                                 bias,
                                                 gamma,

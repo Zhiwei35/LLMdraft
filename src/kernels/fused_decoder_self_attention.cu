@@ -175,7 +175,7 @@ __global__ void masked_MHA_kernel(const T* q,
     int k_offset_vec = kv_batch_id * batch_stride + kv_head_id * head_stride + tid * vec_size;
     float scale = rsqrt(float(head_size));
     using Vec_t = typename Vec<T>::Type;
-    Vec_t qvec, kvec;
+    Vec_t qvec, kvec, vvec;
     //Vec_t scale_vec = static_cast<Vec_t>(scale);
     //reuse q k v reg from rope
     const T* q_mem = q;
