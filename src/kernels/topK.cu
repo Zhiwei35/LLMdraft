@@ -21,9 +21,6 @@ template <typename T, int K, int blockSize, int BlockPerBeam>
 __global__ void topK_kernel_round1(const T *probs, const int vocab_size,
                                    int *topK_ids, T *topK_vals)
 {
-    typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
-    __shared__ typename blockreduce::TempStorage temp_storage;
-
     int tid = threadIdx.x;
     int bid = blockIdx.x;
     int gid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -40,6 +37,8 @@ __global__ void topK_kernel_round1(const T *probs, const int vocab_size,
         // thread_topK.insertHeap(data, data_id); // bug
     }
     // block local reduce
+    typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
+    __shared__ typename blockreduce::TempStorage temp_storage;
     topK<T, K> block_topK = blockreduce(temp_storage).Reduce(thread_topK, reduce_functor<T, K>);
 
     if (tid == 0)
