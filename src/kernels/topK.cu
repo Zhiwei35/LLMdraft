@@ -1,6 +1,6 @@
 #include <float.h> //FLT_MIN
 #include <iostream>
-#include "src/kernels/beamsearch_topK.h"
+#include "src/kernels/topK.h"
 #include <cub/cub.cuh>
 
 // Note: a b两个topK reduce输出一个topK

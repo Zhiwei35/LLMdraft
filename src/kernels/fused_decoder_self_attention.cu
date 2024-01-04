@@ -1,7 +1,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <math.h>
-#include "src/kernels/decoder_masked_attn.h"
+#include "src/kernels/fused_decoder_self_attention.h"
 // kv cache shape = [numlayers, bs, kv head num, max_seq_len, head size]
 // bug1: scale's dtype must be float ,not int
 // bug2: mha_kernel_params struct's pointer is on CPU, not GPU, which cause we dont run the cuda kernel, so add cudacheck is a must!
