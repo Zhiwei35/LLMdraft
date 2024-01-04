@@ -61,10 +61,10 @@ int main() {
     DataType type_int = getTensorType<int>(); 
     TensorWrapper<float>* in_k = new TensorWrapper<float>(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_k);
     TensorWrapper<float>* in_v = new TensorWrapper<float>(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_v);
-    TensorWrapper<int>* ctx_len = new TensorWrapper<float>(Device::GPU, type_int, {batch_size}, d_ctx_len);
+    TensorWrapper<int>* ctx_len = new TensorWrapper<int>(Device::GPU, type_int, {batch_size}, d_ctx_len);
     TensorWrapper<float>* out_k = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_k);
     TensorWrapper<float>* out_v = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_v);
-    TensorWrapper<int>* layer_id = new TensorWrapper<float>(Device::CPU, type_int, {batch_size}, h_layer_id);
+    TensorWrapper<int>* layer_id = new TensorWrapper<int>(Device::CPU, type_int, {batch_size}, h_layer_id);
     
     // size_t layer_offset = layer_id * batch_size * kv_head_num * max_seq_len * head_size;
     std::cout << "before launch softmax kernel" << std::endl;

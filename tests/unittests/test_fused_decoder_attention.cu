@@ -193,10 +193,10 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     params.rotary_embedding_base = rotary_embedding_base;                                                                             \
     params.max_position_embeddings = max_position_embeddings;                                                                         \
     params.use_dynamic_ntk = false;                                                                                                   \
-    launchDecoderMaskedMHA(qkv, qkv_weight, layer_id, kcache, vcache, finished, step, mha_output, static_params);                     \
+    launchDecoderMaskedMHA(qkv, qkv_weight, layer_id, kcache, vcache, finished, step, mha_output, params);                     \
     CHECK(cudaMemcpy(h_o, d_o, sizeof(dtype) * o_size, cudaMemcpyDeviceToHost));                                                      \
     float *CPU_output = (float *)malloc(sizeof(float) * o_size);                                                                      \
-    CPUMaskedAttn<dtype>(h_q, h_k, h_v, h_kcache, h_vcache, CPU_output, batch_size, num_heads, head_size, step);                      \
+    CPUMaskedAttn<dtype>(h_q, h_k, h_v, h_kcache, h_vcache, CPU_output, batch_size, num_heads, head_size, h_step);                      \
     bool is_true = CheckResult<dtype>(CPU_output, h_o, o_size);                                                                       \
     if (is_true)                                                                                                                      \
     {                                                                                                                                 \

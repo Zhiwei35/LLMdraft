@@ -20,9 +20,9 @@ int main() {
     float* d_out;
     h_out = (float*)malloc(sizeof(float) * out_size);
     cudaMalloc((void**)&d_out, sizeof(float) * out_size);
-    float* h_padding_offset;
-    float* d_padding_offset;
-    h_padding_offset = (float*)malloc(sizeof(int) * num_tokens);
+    int* h_padding_offset;
+    int* d_padding_offset;
+    h_padding_offset = (int*)malloc(sizeof(int) * num_tokens);
     cudaMalloc((void**)&d_padding_offset, sizeof(int) * num_tokens);
 
     //1st seqlen: 2, due to 1st seq, so its padding offset are all 0
