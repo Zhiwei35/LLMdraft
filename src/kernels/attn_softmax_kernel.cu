@@ -90,7 +90,7 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
             mask_data = mask[mask_offset];
             // https://www.zhihu.com/question/472323371/answer/2001223766这
             // debug info,printf("before,data[%d]=%f\n",col_start, data[col_start]);
-            data[col_start] = scale * qk_data + (1 - mask_data) * -10000f;
+            data[col_start] = scale * qk_data + (1 - mask_data) * (-10000.0f);
             // debug info,printf("after,scale*qk_data=%f, (float)mask_data=%f,data[%d]=%f\n",scale * qk_data, (float)mask_data, col_start, data[col_start]);
             thread_max = fmax(data[col_start], thread_max);
         }
@@ -184,7 +184,7 @@ __global__ void ScaleMaskAndSoftmax_half(T_half *attn_score,
 
             mask_offset = batch_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
             mask_data = attn_mask_vec[mask_offset];
-            Vec_t mask_vec_reg= __hmul2(__hsub2(ONE, mask_data), NEG_INFT);
+            Vec_t mask_vec_reg= __hmul2(__hsub2(ONE, mask_data), NEG_INF);
 
             data[col_start] = __hadd2(__hmul2(scale_vec, qk_data), mask_vec_reg);
             // debug info,printf("after,scale*qk_data=%f, (float)mask_data=%f,data[%d]=%f\n",scale * qk_data, (float)mask_data, col_start, data[col_start]);
