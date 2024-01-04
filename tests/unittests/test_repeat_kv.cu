@@ -72,7 +72,7 @@ int main() {
     std::cout << "after launch softmax kernel" << std::endl;
     std::cout << "cuda memcpy device to host" << std::endl;
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
-    cudaMemcpy(h_trans_k, out_k.data, sizeof(float) * out_k_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_trans_k, out_k->data, sizeof(float) * out_k_size, cudaMemcpyDeviceToHost);
     for(int i = 0; i < out_k_size; i++) {
         printf("k trans[%d] = %f\n", i, h_trans_k[i]);
     }

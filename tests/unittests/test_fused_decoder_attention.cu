@@ -19,7 +19,7 @@ void CPUMaskedAttn(T *q,
                    const int batch_size,
                    const int num_heads,
                    const int head_size,
-                   const int step)
+                   int step)
 {
     int batch_stride = num_heads * head_size;
     int head_stride = head_size;
@@ -160,7 +160,8 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     cudaMalloc((void **)&d_o, sizeof(dtype) * o_size);                                                                                \
     bool *h_finished = (bool *)malloc(sizeof(bool) * batch_size);                                                                     \
     bool *d_finished;                                                                                                                 \
-    for (int i = 0; i < batch_size; i++)                                                                                              \
+    cudaMalloc((void **)&d_finished, sizeof(bool) * batch_size);                                                                      \
+    \ for (int i = 0; i < batch_size; i++)                                                                                            \
     {                                                                                                                                 \
         h_finished[i] = static_cast<bool>(0);                                                                                         \
     }                                                                                                                                 \
@@ -193,10 +194,10 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     params.rotary_embedding_base = rotary_embedding_base;                                                                             \
     params.max_position_embeddings = max_position_embeddings;                                                                         \
     params.use_dynamic_ntk = false;                                                                                                   \
-    launchDecoderMaskedMHA(qkv, qkv_weight, layer_id, kcache, vcache, finished, step, mha_output, params);                     \
+    launchDecoderMaskedMHA(qkv, qkv_weight, layer_id, kcache, vcache, finished, step, mha_output, params);                            \
     CHECK(cudaMemcpy(h_o, d_o, sizeof(dtype) * o_size, cudaMemcpyDeviceToHost));                                                      \
     float *CPU_output = (float *)malloc(sizeof(float) * o_size);                                                                      \
-    CPUMaskedAttn<dtype>(h_q, h_k, h_v, h_kcache, h_vcache, CPU_output, batch_size, num_heads, head_size, h_step);                      \
+    CPUMaskedAttn<dtype>(h_q, h_k, h_v, h_kcache, h_vcache, CPU_output, batch_size, num_heads, head_size, h_step);                    \
     bool is_true = CheckResult<dtype>(CPU_output, h_o, o_size);                                                                       \
     if (is_true)                                                                                                                      \
     {                                                                                                                                 \
