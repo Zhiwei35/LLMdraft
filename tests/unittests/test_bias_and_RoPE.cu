@@ -107,7 +107,6 @@ int main() {
     const int rotary_embedding_base = 10000;
     const int max_position_embeddings = 2048;
     
-    bool use_dynamic_ntk = false;
     float* q = (float*)malloc(sizeof(float) * batch_size * seq_len * head_num * head_size); //output
     float* k = (float*)malloc(sizeof(float) * batch_size * seq_len * kv_head_num * head_size); //output
     float* v = (float*)malloc(sizeof(float) * batch_size * seq_len * kv_head_num * head_size); //output

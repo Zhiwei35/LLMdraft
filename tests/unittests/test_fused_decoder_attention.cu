@@ -9,13 +9,13 @@
 #include "src/utils/macro.h"
 
 // bug1: MUST add CHECK to cudaMemcpy to see if its work well
-
-void CPUMaskedAttn(const float *q,
-                   const float *k,
-                   const float *v,
-                   float *k_cache,
-                   float *v_cache,
-                   float *mha_output,
+template <typename T>
+void CPUMaskedAttn(T *q,
+                   T *k,
+                   T *v,
+                   T *k_cache,
+                   T *v_cache,
+                   T *mha_output,
                    const int batch_size,
                    const int num_heads,
                    const int head_size,
@@ -27,9 +27,9 @@ void CPUMaskedAttn(const float *q,
     int block_nums = batch_size * num_heads;
     float scale = rsqrt(float(head_size));
 
-    const float *q_mem = q;
-    const float *k_mem = k;
-    const float *v_mem = v;
+    const T *q_mem = q;
+    const T *k_mem = k;
+    const T *v_mem = v;
 
     // tmp buffer
     float *sqk = (float *)malloc(sizeof(float) * (block_nums * (3 * head_size + step)));
@@ -55,11 +55,11 @@ void CPUMaskedAttn(const float *q,
                     if (iter == step - 1)
                     {
                         // TODO: update k cache with k with bias add
-                        k_cache[iter * cache_offset + qkv_offset] = k_mem[qkv_offset];
-                        sk[qkv_offset] = k_mem[qkv_offset];
+                        k_cache[iter * cache_offset + qkv_offset] = (float)k_mem[qkv_offset];
+                        sk[qkv_offset] = (float)k_mem[qkv_offset];
                     }
 
-                    sq[qkv_offset] = q_mem[qkv_offset];
+                    sq[qkv_offset] = (float)q_mem[qkv_offset];
                     float qk = sq[qkv_offset] * sk[qkv_offset] * scale;
                     // block reduce using multi warp reduce
                     // TODO: maybe broadcast the attn score to each thread of the block in blockreducesum
@@ -97,8 +97,8 @@ void CPUMaskedAttn(const float *q,
                     if (iter == step - 1)
                     {
                         // TODO: update k cache with k with bias add
-                        v_cache[iter * cache_offset + qkv_offset] = v_mem[qkv_offset];
-                        sv[qkv_offset] = v_mem[qkv_offset];
+                        v_cache[iter * cache_offset + qkv_offset] = (float)v_mem[qkv_offset];
+                        sv[qkv_offset] = (float)v_mem[qkv_offset];
                     }
                     O += sv[qkv_offset] * logits[batch_id * num_heads * step + head_id * step + iter];
                     printf("logits[%d]=%f, sv[%d]=%f, O=%f\n", iter, logits[iter], qkv_offset, sv[qkv_offset], O);
@@ -110,7 +110,7 @@ void CPUMaskedAttn(const float *q,
 
     free(sqk);
 }
-template<typename T>
+template <typename T>
 bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
 {
     for (int i = 0; i < output_size; i++)
@@ -148,7 +148,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     dtype *h_q = h_qkv;                                                                                                               \
     dtype *h_k = h_q + batch_size * num_heads * head_size;                                                                            \
     dtype *h_v = h_k + batch_size * (kv_num_heads + num_heads) * head_size;                                                           \
-    for (int i = 0; i < (kcache_size * step) / max_seq_len; i++)                                                                      \
+    for (int i = 0; i < (kcache_size * h_step) / max_seq_len; i++)                                                                    \
     {                                                                                                                                 \
         h_kcache[i] = (dtype)1.0f;                                                                                                    \
         h_vcache[i] = (dtype)1.0f;                                                                                                    \
@@ -162,7 +162,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     bool *d_finished;                                                                                                                 \
     for (int i = 0; i < batch_size; i++)                                                                                              \
     {                                                                                                                                 \
-        h_finished = static_cast<bool>(0);                                                                                            \
+        h_finished[i] = static_cast<bool>(0);                                                                                         \
     }                                                                                                                                 \
     dtype *h_qkv_bias = (dtype *)malloc(sizeof(dtype) * (2 * kv_num_heads + num_heads) * head_size);                                  \
     dtype *d_qkv_bias;                                                                                                                \
@@ -178,6 +178,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     cudaMemcpy(d_vcache, h_vcache, sizeof(dtype) * vcache_size, cudaMemcpyHostToDevice);                                              \
     DataType type = getTensorType<dtype>();                                                                                           \
     DataType type_bool = getTensorType<bool>();                                                                                       \
+    DataType type_int = getTensorType<int>();                                                                                         \
     TensorWrapper<dtype> *qkv = new TensorWrapper<dtype>(GPU, type, {batch_size, num_heads + 2 * kv_num_heads, head_size}, d_qkv);    \
     TensorWrapper<dtype> *kcache = new TensorWrapper<dtype>(GPU, type, {max_seq_len, batch_size, kv_num_heads, head_size}, d_kcache); \
     TensorWrapper<dtype> *vcache = new TensorWrapper<dtype>(GPU, type, {max_seq_len, batch_size, kv_num_heads, head_size}, d_vcache); \
@@ -187,7 +188,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     TensorWrapper<dtype> *mha_output = new TensorWrapper<dtype>(GPU, type, {batch_size, num_heads, head_size}, d_o);                  \
     BaseWeight<dtype> qkv_weight;                                                                                                     \
     qkv_weight.bias = d_qkv_bias;                                                                                                     \
-    LLaMAAttentionStaticParams static_params;                                                                                         \
+    LLaMAAttentionStaticParams params;                                                                                                \
     params.rotary_embedding_dim = rotary_embedding_dim;                                                                               \
     params.rotary_embedding_base = rotary_embedding_base;                                                                             \
     params.max_position_embeddings = max_position_embeddings;                                                                         \
@@ -195,8 +196,27 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     launchDecoderMaskedMHA(qkv, qkv_weight, layer_id, kcache, vcache, finished, step, mha_output, static_params);                     \
     CHECK(cudaMemcpy(h_o, d_o, sizeof(dtype) * o_size, cudaMemcpyDeviceToHost));                                                      \
     float *CPU_output = (float *)malloc(sizeof(float) * o_size);                                                                      \
-    CPUMaskedAttn(h_q, h_k, h_v, h_kcache, h_vcache, CPU_output, batch_size, num_heads, head_size, step);                             \
-    bool is_true = CheckResult<dtype>(CPU_output, h_o, o_size);
+    CPUMaskedAttn<dtype>(h_q, h_k, h_v, h_kcache, h_vcache, CPU_output, batch_size, num_heads, head_size, step);                      \
+    bool is_true = CheckResult<dtype>(CPU_output, h_o, o_size);                                                                       \
+    if (is_true)                                                                                                                      \
+    {                                                                                                                                 \
+        printf("test passed");                                                                                                        \
+    }                                                                                                                                 \
+    else                                                                                                                              \
+    {                                                                                                                                 \
+        printf("test failed");                                                                                                        \
+    }                                                                                                                                 \
+    free(h_qkv);                                                                                                                      \
+    free(h_kcache);                                                                                                                   \
+    free(h_vcache);                                                                                                                   \
+    free(h_o);                                                                                                                        \
+    free(CPU_output);                                                                                                                 \
+    free(h_finished);                                                                                                                 \
+    cudaFree(d_finished);                                                                                                             \
+    cudaFree(d_qkv);                                                                                                                  \
+    cudaFree(d_o);                                                                                                                    \
+    cudaFree(d_kcache);                                                                                                               \
+    cudaFree(d_vcache);
 
 int main(int argc, char *argv[])
 {
@@ -204,9 +224,9 @@ int main(int argc, char *argv[])
     constexpr int head_size = 16;
     constexpr int num_heads = 2;
     constexpr int kv_num_heads = 1;
-    constexpr int h_step = 4;
-    constexpr int h_layer_id = 0;
     constexpr int max_seq_len = 32;
+    int h_step = 4;
+    int h_layer_id = 0;
     int rotary_embedding_dim = 128;
     float rotary_embedding_base = 10000;
     int max_position_embeddings = 2048;
@@ -219,24 +239,4 @@ int main(int argc, char *argv[])
     {
         LAUNCH_FUSED_ATTN(float);
     }
-    if (is_true)
-    {
-        printf("test passed");
-    }
-    else
-    {
-        printf("test failed");
-    }
-
-    free(h_qkv);
-    free(h_kcache);
-    free(h_vcache);
-    free(h_o);
-    free(CPU_output);
-    free(h_finished);
-    cudaFree(d_finished);
-    cudaFree(d_qkv);
-    cudaFree(d_o);
-    cudaFree(d_kcache);
-    cudaFree(d_vcache);
 }
