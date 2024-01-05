@@ -158,21 +158,25 @@ __global__ void masked_MHA_kernel(const T* q,
                     int   rotary_embedding_dim,
                     float rotary_embedding_base){// rsqrt(dh)
     int tid = threadIdx.x;
-    int bid = blockIdx.x;
-    int q_head_id = bid % head_num;
-    int q_batch_id = bid / head_num;
-    int kv_head_id = bid % kv_head_num;
-    int kv_batch_id = bid / kv_head_num;
+    int q_head_id = blockIdx.x;
+    int q_batch_id = blockIdx.y;
+    int kv_head_id = q_head_id / head_num / kv_head_num;
+    int kv_batch_id = q_batch_id;
+    //int q_head_id = bid % head_num;
+    //int q_batch_id = bid / head_num;
+    //int kv_head_id = bid % kv_head_num;
+    //int kv_batch_id = bid / kv_head_num;
 
     int batch_stride = head_num * head_size;
+    int kv_batch_stride = kv_head_num * head_size;
     int head_stride = head_size;
     int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
-    int k_offset = kv_batch_id * batch_stride + kv_head_id * head_stride + tid;
-    int cache_offset = batch_size * batch_stride;
+    int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
+    int cache_offset = batch_size * kv_batch_stride;
 
     int vec_size = Vec<T>::size;
     int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
-    int k_offset_vec = kv_batch_id * batch_stride + kv_head_id * head_stride + tid * vec_size;
+    int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
     float scale = rsqrt(float(head_size));
     using Vec_t = typename Vec<T>::Type;
     Vec_t qvec, kvec, vvec;
@@ -230,7 +234,6 @@ __global__ void masked_MHA_kernel(const T* q,
             *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) = kvec;
             *reinterpret_cast<Vec_t*>(&sk[tid * vec_size]) = kvec;         
         }
-
         // sq[tid] = q_mem[qkv_offset];
         __syncthreads();
         //在FT，k是从k cache加载到reg，q是从q smem加载到reg，q smem是每个新的step把新然后二者mul，这里直接用smem做mul也可以，反正compiler会帮我们load到reg
@@ -251,12 +254,14 @@ __global__ void masked_MHA_kernel(const T* q,
     if (tid == 0){
         row_max = block_max;
     }
+    __syncthreads();
     T fenzi = tid < step ? expf(logits[tid] - row_max) : 0;
     
     T block_fenmu = blockReduceSum<T>(fenzi);
     if (tid == 0){
         fenmu = block_fenmu;
     }
+    __syncthreads();
     if(tid < step) {
         logits[tid] = (T)(fenzi / fenmu);
     }
@@ -277,6 +282,7 @@ __global__ void masked_MHA_kernel(const T* q,
                 // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
                 sv[tid] = v_mem[k_offset];
             }
+	    __syncthreads();
             //if(bid==0 && tid == 0){
             //printf("when tid=0, v cache = %f\n", sv[tid]);
             //在FT，v是从v cache加载到reg，logits是从logits smem加载到reg，然后二者mul
@@ -304,21 +310,26 @@ __global__ void masked_MHA_kernel(const half* q,
                     int   rotary_embedding_dim,
                     float rotary_embedding_base){// rsqrt(dh)
     int tid = threadIdx.x;
-    int bid = blockIdx.x;
-    int q_head_id = bid % head_num;
-    int q_batch_id = bid / head_num;
-    int kv_head_id = bid % kv_head_num;
-    int kv_batch_id = bid / kv_head_num;
+    //int bid = blockIdx.x;
+    int q_head_id = blockIdx.x;
+    int q_batch_id = blockIdx.y;
+    int kv_head_id = q_head_id / head_num / kv_head_num;
+    int kv_batch_id = q_batch_id;
+    //int q_head_id = bid % head_num;
+    //int q_batch_id = bid / head_num;
+    //int kv_head_id = bid % kv_head_num;
+    //int kv_batch_id = bid / kv_head_num;
 
     int batch_stride = head_num * head_size;
+    int kv_batch_stride = kv_head_num * head_size;
     int head_stride = head_size;
     int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
-    int k_offset = kv_batch_id * batch_stride + kv_head_id * head_stride + tid;
-    int cache_offset = batch_size * batch_stride;
+    int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
+    int cache_offset = batch_size * kv_batch_stride;
 
     int vec_size = Vec<half>::size;
     int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
-    int k_offset_vec = kv_batch_id * batch_stride + kv_head_id * head_stride + tid * vec_size;
+    int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
     half scale = __float2half(rsqrt(float(head_size)));
     using Vec_t = typename Vec<half>::Type;
     Vec_t qvec, kvec, vvec;
@@ -336,7 +347,7 @@ __global__ void masked_MHA_kernel(const half* q,
         Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
         kvec = __hadd2(kvec, k_bias);
 
-        apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
+        //apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
         vvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&v_mem[k_offset_vec]));
         Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
         vvec = __hadd2(vvec, v_bias);
@@ -381,25 +392,40 @@ __global__ void masked_MHA_kernel(const half* q,
         float attn_score = blockReduceSum<float>(qk_fp32);
         if(tid == 0) {
             logits[iter] = attn_score;
-        }
+	    float q_tmp = (float)(sq_vec[0].x);
+	    float k_tmp = (float)(sk_vec[0].x);
+	    float scale_tmp = (float)(scale_vec.x);
+            printf("iter = %d, step=%d, blockIdx.x = %d, in cuda, logits=%f, qk_fp32 = %f, q_tmp=%f, k_tmp=%f, scale_tmp=%f\n",iter, step, blockIdx.x, logits[iter], qk_fp32, q_tmp, k_tmp, scale_tmp);
+	}
         __syncthreads();
     }
+    __syncthreads();
     //softmax(logits), logits.shape = [bs, num heads, 1, step]
     float local_logits = tid < step ? logits[tid] : 0;
+    if(tid < step){
+    	printf("tid = %d, logits=%f, local_logits = %f\n", tid, logits[tid], local_logits);
+    }
     __shared__ float row_max, fenmu;
     
     float block_max = blockReduceMax<float>(local_logits);
     if (tid == 0){
         row_max = block_max;
     }
-    float fenzi = tid < step ? expf(logits[tid] - row_max) : 0;
-    
+    __syncthreads();
+    float fenzi = tid < step ? expf(local_logits - row_max) : 0;
+    if(tid < step) {
+    	printf("after expf, row_max=%f, fenzi=%f, logits=%f\n", row_max, fenzi, local_logits);
+    }
     float block_fenmu = blockReduceSum<float>(fenzi);
     if (tid == 0){
         fenmu = block_fenmu;
     }
+    __syncthreads();
     if(tid < step) {
-        logits[tid] = (float)(fenzi / fenmu);
+        
+	logits[tid] = (float)(fenzi / fenmu);
+	printf("in cuda, row_max=%f, fenzi=%f, fenmu=%f, logits=%f\n", row_max, fenzi, fenmu, logits[tid]);
+	
     }
     __syncthreads();
 
@@ -422,6 +448,7 @@ __global__ void masked_MHA_kernel(const half* q,
                 *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]) = vvec;
                 sv_vec[tid] = vvec;  
             }
+	    __syncthreads();
             //if(bid==0 && tid == 0){
             //printf("when tid=0, v cache = %f\n", sv[tid]);
             O.x += (logits[iter] * __half2float(sv_vec[tid].x));
@@ -466,7 +493,7 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
     float rotary_embedding_base = static_params.rotary_embedding_base;
     int   max_position_embeddings = static_params.max_position_embeddings;
     bool  use_dynamic_ntk = static_params.use_dynamic_ntk;
-    dim3 grid(batch_size * head_num);//这里的block分配可以匹配得上lmdeploy
+    dim3 grid(head_num, batch_size);//这里的block分配可以匹配得上lmdeploy
     dim3 block(head_size); //vec size = 4 for fp32
     // printf("calling fused masked self attn kernel\n");
     // printf("block nums = %d\n", grid.x);
