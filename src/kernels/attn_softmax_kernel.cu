@@ -179,15 +179,15 @@ __global__ void ScaleMaskAndSoftmax_half(T_half *attn_score,
         // for(int col_start = threadIdx.x; col_start < k_len; col_start += blockDim.x){
         for (int col_start = 0; col_start < NUMS_PER_THREAD_PER_ROW; col_start++)
         {
-            qk_offset = batch_id * head_nums * q_len * k_len + head_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
+            qk_offset = batch_id * head_nums * q_len * k_len / 2 + head_id * q_len * k_len / 2  + row_start * k_len / 2 + col_start * blockDim.x + threadIdx.x;
             qk_data = qk_buf_vec[qk_offset];
 
-            mask_offset = batch_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
+            mask_offset = batch_id * q_len * k_len / 2 + row_start * k_len / 2 + col_start * blockDim.x + threadIdx.x;
             mask_data = attn_mask_vec[mask_offset];
             Vec_t mask_vec_reg= __hmul2(__hsub2(ONE, mask_data), NEG_INF);
 
             data[col_start] = __hadd2(__hmul2(scale_vec, qk_data), mask_vec_reg);
-            // debug info,printf("after,scale*qk_data=%f, (float)mask_data=%f,data[%d]=%f\n",scale * qk_data, (float)mask_data, col_start, data[col_start]);
+            printf("after,scale=%f, qk_data=%f, qk_offset=%d, tid=%d,  mask_data=%f,data[%d]=%f\n",(float)scale_vec.x, (float)qk_data.x, qk_offset, threadIdx.x, (float)mask_data.x, col_start, (float)data[col_start].x);
             thread_max = fmax(fmax((float)data[col_start].x, (float)data[col_start].y), thread_max);
         }
         // warp/block reduce
@@ -195,7 +195,7 @@ __global__ void ScaleMaskAndSoftmax_half(T_half *attn_score,
         if (threadIdx.x == 0)
         {
             s_max = max_val;
-            // debug info,printf("row max = %f\n", s_max);
+            printf("row max = %f\n", s_max);
         }
         __syncthreads();
         // thread local fenzi/fenmu
@@ -213,7 +213,7 @@ __global__ void ScaleMaskAndSoftmax_half(T_half *attn_score,
         if (threadIdx.x == 0)
         {
             inv_sum = 1 / (sum + 1e-6f); // sum(fenmu) need to add a small value to avoid NAN
-            // debug info, printf("row sum = %f\n", sum);
+            printf("row sum = %f\n", sum);
         }
         __syncthreads();
         // write back into gmem
