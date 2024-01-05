@@ -20,15 +20,16 @@ void launchLinearGemm(TensorWrapper<T> *input,
     int weight_2nd_dim = weight.shape[1];
 
     int output_ldc = input_lda;
-    int n = output->shape[1];
+    int n = output->shape.size() == 3 ? output->shape[2] : output->shape[1];
     cublasOperation_t transA = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
     cublasOperation_t transB = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N;
     int offset = 0;
     if (shared_out_buf)
     {
         ONELLM_CHECK_WITH_INFO(output->shape.size() == 3, "output shape should be 3 dims, that is [2, num tokens, hidden units]");
-        int offset = input_lda * output->shape[2]; // num tokes * inter size, need to modify activate kernel input shape to [2, num tokens, inter size] and buf shape
+        offset = input_lda * output->shape[2]; // num tokes * inter size, need to modify activate kernel input shape to [2, num tokens, inter size] and buf shape
     }
+    //std::cout << "shared offset: " << offset << std::endl;
     // std::cout << "m: " << input_lda
     //           << "n: " << n << " or " << weight_1st_dim
     //           << "k: " << weight_ldb << "\n" // 32
