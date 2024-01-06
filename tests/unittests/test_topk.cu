@@ -48,8 +48,32 @@ int main() {
        h_probs[i] = i;
     }
     cudaMemcpy(d_probs, h_probs, sizeof(float)*probs_size, cudaMemcpyHostToDevice);
+
+    DataType type_float = getTensorType<float>();
+    DataType type_int = getTensorType<int>();
+    TensorWrapper<float>* probs_tensor = new TensorWrapper<float>(Device::GPU, 
+                                                                type_float,
+                                                                {batch_size * beamwidth, vocab_size}, 
+                                                                d_probs);
+    TensorWrapper<int> *tmp_topk_ids = new TensorWrapper<int>(Device::GPU, 
+                                                                type_int,
+                                                                {batch_size, beamwidth, BlockPerBeam, K}, 
+                                                                d_tmp_topk_ids);
+    TensorWrapper<float>* tmp_topk_vals = new TensorWrapper<float>(Device::GPU, 
+                                                                type_float,
+                                                                {batch_size, beamwidth, BlockPerBeam, K}, 
+                                                                d_tmp_topk_vals);
+    TensorWrapper<int> *final_topk_ids = new TensorWrapper<int>(Device::GPU, 
+                                                                type_int,
+                                                                {batch_size * beamwidth, K}, 
+                                                                d_final_topk_ids);
+    TensorWrapper<float> *final_topk_vals = new TensorWrapper<float>(Device::GPU, 
+                                                                type_float,
+                                                                {batch_size * beamwidth, K}, 
+                                                                d_final_topk_vals);
     // debug info, better to retain: std::cout << "before launch kernel" << std::endl;
-    launchTopKforBeamSearch(d_probs, batch_size, vocab_size, d_tmp_topk_ids, d_tmp_topk_vals, d_final_topk_ids, d_final_topk_vals);
+    launchTopKforBeamSearch(probs_tensor, tmp_topk_ids, tmp_topk_vals, final_topk_ids, final_topk_vals);
+    // launchTopKforBeamSearch(d_probs, batch_size, vocab_size, d_tmp_topk_ids, d_tmp_topk_vals, d_final_topk_ids, d_final_topk_vals);
     // debug info, better to retain: std::cout << "after launch kernel" << std::endl;
     //int* h_topK_workspace = (int*)malloc(sizeof(int) * (batch_size * beamwidth));
     // debug info, better to retain: std::cout << "cuda memcpy device to host" << std::endl;

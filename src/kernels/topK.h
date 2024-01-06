@@ -1,6 +1,9 @@
 #pragma once
 #include <cuda_runtime.h>
 #include <float.h>
+#include <cuda.h>
+#include <cuda_fp16.h>
+#include "src/utils/tensor.h"
 template<typename T, int K>
 struct topK
 {
@@ -34,11 +37,18 @@ struct topK
     }
 };
 
-template<typename T>
-void launchTopKforBeamSearch(const T* probs, 
-                            const int batch_size,
-                            const int vocab_size, 
-                            int* topk_ids,
-                            T* topk_vals,
-                            int* final_topk_ids,
-                            T* final_topk_vals);
+
+template <typename T>
+void launchTopKforBeamSearch(TensorWrapper<T> *probs,
+                             TensorWrapper<int> *topk_ids,
+                             TensorWrapper<T> *topk_vals,
+                             TensorWrapper<int> *final_topk_ids,
+                             TensorWrapper<T> *final_topk_vals)
+// template<typename T>
+// void launchTopKforBeamSearch(const T* probs, 
+//                             const int batch_size,
+//                             const int vocab_size, 
+//                             int* topk_ids,
+//                             T* topk_vals,
+//                             int* final_topk_ids,
+//                             T* final_topk_vals);
