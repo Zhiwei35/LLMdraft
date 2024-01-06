@@ -11,12 +11,13 @@
 int main() {
     const int batch_size = 1;
     const int vocab_size = 30000;
-    const int beam_width = 2;
-    const int BlockPerBeam = 8;
+    constexpr int BlockPerBeam = 8;
+    constexpr int beam_width = 1;
+    constexpr int K = 5;
 
-    int topK_val_buf_size = batch_size * beam_width * BlockPerBeam * beam_width;
-    int topK_ids_buf_size = batch_size * beam_width * BlockPerBeam * beam_width;
-    int final_topK_val_buf_size = batch_size * beam_width; // sampling topK buf size, beamsearch topK size = [batch_size * beam_width * beam_width]
+    int topK_val_buf_size = batch_size * beam_width * BlockPerBeam * K;
+    int topK_ids_buf_size = batch_size * beam_width * BlockPerBeam * K;
+    int final_topK_val_buf_size = batch_size * beam_width * K; // sampling topK buf size, beamsearch topK size = [batch_size * beam_width * beam_width]
 
     const int probs_size = batch_size * vocab_size * beam_width;
     float* h_probs;
@@ -54,31 +55,31 @@ int main() {
                                                                 d_probs);
     TensorWrapper<int> *tmp_topk_ids = new TensorWrapper<int>(Device::GPU, 
                                                                 type_int,
-                                                                {batch_size, beam_width, BlockPerBeam, beam_width}, 
+                                                                {batch_size, beam_width, BlockPerBeam, K}, 
                                                                 d_tmp_topk_ids);
     TensorWrapper<float>* tmp_topk_vals = new TensorWrapper<float>(Device::GPU, 
                                                                 type_float,
-                                                                {batch_size, beam_width, BlockPerBeam, beam_width}, 
+                                                                {batch_size, beam_width, BlockPerBeam, K}, 
                                                                 d_tmp_topk_vals);
     TensorWrapper<int> *final_topk_ids = new TensorWrapper<int>(Device::GPU, 
                                                                 type_int,
-                                                                {batch_size, beam_width}, 
+                                                                {batch_size, beam_width, K}, 
                                                                 d_final_topk_ids);
     TensorWrapper<float> *final_topk_vals = new TensorWrapper<float>(Device::GPU, 
                                                                 type_float,
-                                                                {batch_size, beam_width}, 
+                                                                {batch_size, beam_width, K}, 
                                                                 d_final_topk_vals);
     // debug info, better to retain: std::cout << "before launch kernel" << std::endl;
     launchTopKforBeamSearch(probs_tensor, tmp_topk_ids, tmp_topk_vals, final_topk_ids, final_topk_vals);
     // debug info, better to retain: std::cout << "after launch kernel" << std::endl;
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
-    cudaMemcpy(h_final_topk_ids, d_final_topk_ids, sizeof(int) * batch_size * beam_width, cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_final_topk_vals, d_final_topk_vals, sizeof(float) * batch_size * beam_width, cudaMemcpyDeviceToHost);
-    for(int i = 0; i < beam_width; i++) {
+    cudaMemcpy(h_final_topk_ids, d_final_topk_ids, sizeof(int) * batch_size * beam_width * K, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_final_topk_vals, d_final_topk_vals, sizeof(float) * batch_size * beam_width * K, cudaMemcpyDeviceToHost);
+    for(int i = 0; i < K; i++) {
         int id = h_final_topk_ids[i];
-        // debug info, better to retain: printf("topK id = %d\n", id);
+        printf("topK id = %d\n", id);
         float val = h_final_topk_vals[i];
-        // debug info, better to retain: printf("topK val =%f\n", val);
+        printf("topK val =%f\n", val);
     }
     // debug info, better to retain: std::cout << "before free" << std::endl;
     free(h_probs);

@@ -7,88 +7,73 @@
 template <typename T, int K>
 __device__ topK<T, K> reduce_functor(const topK<T, K> &a, const topK<T, K> &b)
 {
-    topK<T, K> res = a;
-    for (int i = 0; i < K; i++)
-    {
-        res.insertHeap(b.val[i], b.id[i]);
-    }
-    return res;
+	topK<T, K> res = a;
+	for (int i = 0; i < K; i++) {
+		res.insertHeap(b.val[i], b.id[i]);
+	}
+	return res;
 }
 // gridsize:bs * beam_width * BlockPerBeam
 // blocksize:256
 // shape infer: [bs, beam_width, vocab size] => [bs, beam_width, BlockPerBeam, K],在vocabsize的大小里选出blockPerBeam个topK
-template <typename T, int beam_width, int K, int blockSize, int BlockPerBeam>
+template <typename T, int K, int blockSize, int BlockPerBeam>
 __global__ void topK_kernel_round1(const T *probs, const int vocab_size,
                                    int *topK_ids, T *topK_vals)
 {
-    int tid = threadIdx.x;
-    int bid = blockIdx.x;
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-    int row_id = bid / BlockPerBeam;
-    int block_lane = bid % BlockPerBeam;
-    topK<T, K> thread_topK;
-    thread_topK.init();
-    // thread local reduce
-    for (int data_id = tid + block_lane * blockSize; data_id < vocab_size; data_id += BlockPerBeam * blockSize)
-    {
-        int data_offset = data_id + row_id * vocab_size;
-        T data = probs[data_offset];
-        thread_topK.insertHeap(data, data_offset);
-        // thread_topK.insertHeap(data, data_id); // bug
-    }
-    // block local reduce
-    typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
-    __shared__ typename blockreduce::TempStorage temp_storage;
-    topK<T, K> block_topK = blockreduce(temp_storage).Reduce(thread_topK, reduce_functor<T, K>);
+	int tid = threadIdx.x;
+	int bid = blockIdx.x;
+	int row_id = bid / BlockPerBeam;
+	int block_lane = bid % BlockPerBeam;
+	topK<T, K> thread_topK;
+	thread_topK.init();
+	//thread local reduce
+	for (int data_id = tid + block_lane * blockSize; data_id < vocab_size; data_id += BlockPerBeam * blockSize) {
+		int data_offset = data_id + row_id * vocab_size;
+		T data = probs[data_offset];
+		thread_topK.insertHeap(data, data_offset);
+	}
+	typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
+	__shared__ typename blockreduce::TempStorage tmp_storage;
+	topK<T, K> block_topk = blockreduce(tmp_storage).Reduce(thread_topK, reduce_functor<T, K>);
 
-    if (tid == 0)
-    {
-        printf("in topK, print probs input to topk...\n");
-        printf("probs[0] = %f\n", probs[0]);
-        printf("probs[1] = %f\n", probs[1]);
-        for (int k_offset = 0; k_offset < K; k_offset++)
-        {
-            // topK_vals[row_id * vocab_size + block_lane * blockSize + k_offset] = block_topK.val[k_offset]; //bug
-            topK_vals[row_id * BlockPerBeam * K + block_lane * K + k_offset] = block_topK.val[k_offset];
-            topK_ids[row_id * BlockPerBeam * K + block_lane * K + k_offset] = block_topK.id[k_offset]; // output offset要根据output buffer的shape来计算
-        }
-    }
+	if (tid == 0) {
+		for (int k_offset = 0; k_offset < K; k_offset++) {
+			int dst_offset = row_id * BlockPerBeam * K + block_lane * K + k_offset;
+			topK_vals[dst_offset] = block_topk.val[k_offset];
+			topK_ids[dst_offset] = block_topk.id[k_offset];
+		}
+	}
+
 }
-// shape infer: [bs, beam_width, BlockPerBeam, K] => [bs, K] ，这是sampling的topK（=>[bs, beam_width, K]才是beamsearch topK），后期注意重写一个beamsearch的topK
-// ids是beam_width * vocalsize中的全局word id
+// shape infer: [bs, beam_width, BlockPerBeam, K] => [bs, beam_width, K] ，这是sampling的topK（=>[bs, beam_width, K]才是beamsearch topK），后期注意重写一个beamsearch的topK
 // gridSize = bs
 // blockSize = 256
 template <typename T, int beam_width, int K, int blockSize, int BlockPerBeam>
 __global__ void topK_kernel_round2(const int *topK_ids, const T *topK_vals,
                                    int *final_topK_ids, T *final_topK_vals)
 {
-    typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
-    __shared__ typename blockreduce::TempStorage temp_storage;
+	int tid = threadIdx.x;
+	int bid = blockIdx.x;
+	int row_id = bid;
+	topK<T, K> thread_topK;
+	thread_topK.init();
+	//thread local reduce
+	for (int data_id = tid; data_id < beam_width * BlockPerBeam * K; data_id += blockSize) {
+		int data_offset = data_id + bid * beam_width * BlockPerBeam * K;
+		thread_topK.insertHeap(topK_vals[data_offset], topK_ids[data_offset]);
+	}
+	typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
+	__shared__ typename blockreduce::TempStorage tmp_storage;
+	topK<T, K> block_topk = blockreduce(tmp_storage).Reduce(thread_topK, reduce_functor<T, K>);
 
-    int tid = threadIdx.x;
-    int bid = blockIdx.x;
-    int gid = blockIdx.x * blockDim.x + threadIdx.x;
-    int row_id = bid;
-    topK<T, K> thread_topK;
-    // thread local reduce
-    for (int i = tid; i < beam_width * BlockPerBeam * K; i += blockDim.x)
-    {
-        int data_offset = bid * beam_width * BlockPerBeam * K + i;
-        thread_topK.insertHeap(topK_vals[data_offset], topK_ids[data_offset]);
-    }
-    // block reduce
-    topK<T, K> block_topK = blockreduce(temp_storage).Reduce(thread_topK, reduce_functor<T, K>);
-    if (tid == 0)
-    {
-        printf("topK id: \n");
-        for (int k_offset = 0; k_offset < K; k_offset++)
-        {
-            // topK_vals[row_id * vocab_size + block_lane * blockSize + k_offset] = block_topK.val[k_offset]; //bug
-            final_topK_vals[bid * K + k_offset] = block_topK.val[k_offset];
-            final_topK_ids[bid * K + k_offset] = block_topK.id[k_offset];
-            printf("%d\n", block_topK.id[k_offset]);
-        }
-    }
+	if (tid == 0) {
+		int beam_id = (blockDim.x * blockIdx.x + tid) / BlockPerBeam / K;
+		for (int k_offset = 0; k_offset < K; k_offset++) {
+			int dst_offset = bid * beam_width * K + beam_id * K + k_offset;
+			final_topK_vals[dst_offset] = block_topk.val[k_offset];
+			final_topK_ids[dst_offset] = block_topk.id[k_offset];
+		}
+	}
 }
 
 template <typename T>
@@ -102,18 +87,17 @@ void launchTopKforBeamSearch(TensorWrapper<T> *probs,
     int batch_size = probs->shape[0];
     int vocab_size = probs->shape[1];
     constexpr int BlockPerBeam = 8;
-    constexpr int beam_width = 2;
-    constexpr int K = 2;
+    constexpr int beam_width = 1;
+    constexpr int K = 5;
     // buffer size
     // int topK_val_buf_size = batch_size * beam_width * BlockPerBeam * beam_width;
     // int topK_ids_buf_size = batch_size * beam_width * BlockPerBeam * beam_width;
     // int final_topK_val_buf_size = batch_size * beam_width; // sampling topK buf size, beamsearch topK size = [batch_size * beam_width * beam_width]
     // memory plan
     T *topK_vals = tmp_topk_vals->data;         // topK_val_buf_size
-    int *topK_ids = tmp_topk_ids->data;         // topK_ids_buf_size, (int*)(topK_vals + topK_val_buf_size);
-    T *final_topK_vals = final_topk_vals->data; // final_topK_val_buf_size, (T *)(topK_ids + topK_ids_buf_size);
-    int *final_topK_ids = final_topk_ids->data; // final_topK_val_buf_size, (int *)(final_topK_vals + final_topK_val_buf_size); // final_topK_val_buf_size,
-
+    int *topK_ids = tmp_topk_ids->data;         // topK_ids_buf_size
+    T *final_topK_vals = final_topk_vals->data; // final_topK_val_buf_size
+    int *final_topK_ids = final_topk_ids->data; // final_topK_val_buf_size
     cudaSetDevice(0);
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
@@ -125,7 +109,7 @@ void launchTopKforBeamSearch(TensorWrapper<T> *probs,
     dim3 grid_round2(BlockNums2);
     dim3 block_round2(256);
     // debug info, better to retain: std::cout << "in cu file, before launch" << std::endl;
-    topK_kernel_round1<T, beam_width, K, 256, BlockPerBeam>
+    topK_kernel_round1<T, K, 256, BlockPerBeam>
         <<<grid_round1, block_round1>>>(probs->data, vocab_size, topK_ids, topK_vals);
     topK_kernel_round2<T, beam_width, K, 256, BlockPerBeam>
         <<<grid_round2, block_round2>>>(topK_ids, topK_vals, final_topK_ids, final_topK_vals);
