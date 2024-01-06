@@ -34,10 +34,11 @@ struct topK
     }
 };
 
-void launchTopKforBeamSearch(const float* probs, 
+template<typename T>
+void launchTopKforBeamSearch(const T* probs, 
                             const int batch_size,
                             const int vocab_size, 
                             int* topk_ids,
-                            float* topk_vals,
+                            T* topk_vals,
                             int* final_topk_ids,
-                            float* final_topk_vals);
+                            T* final_topk_vals);

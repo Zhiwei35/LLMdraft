@@ -18,8 +18,8 @@ __device__ topK<T, K> reduce_functor(const topK<T, K>& a, const topK<T, K>& b) {
 // blocksize:256
 // shape infer: [bs, beamwidth, vocab size] => [bs, beamwidth, BlockPerBeam, K]
 template<typename T, int K, int blockSize, int BlockPerBeam>
-__global__ void topK_kernel_round1(const float* probs, const int vocab_size, 
-                                         int* topK_ids, float* topK_vals)
+__global__ void topK_kernel_round1(const T* probs, const int vocab_size, 
+                                         int* topK_ids, T* topK_vals)
 {
     typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
     __shared__ typename blockreduce::TempStorage temp_storage;
@@ -34,12 +34,12 @@ __global__ void topK_kernel_round1(const float* probs, const int vocab_size,
     // thread local reduce
     for(int data_id = tid + block_lane * blockSize; data_id < vocab_size; data_id += BlockPerBeam * blockSize){
         int data_offset = data_id + row_id * vocab_size;
-        float data = probs[data_offset];
+        T data = probs[data_offset];
         thread_topK.insertHeap(data, data_offset);
        //thread_topK.insertHeap(data, data_id); // bug
     }
     //block local reduce
-    topK<T, K> block_topK = blockreduce(temp_storage).Reduce(thread_topK, reduce_functor<K>);
+    topK<T, K> block_topK = blockreduce(temp_storage).Reduce(thread_topK, reduce_functor<T, K>);
 
     if(tid == 0){
         for(int k_offset = 0; k_offset < K; k_offset++) {
@@ -55,8 +55,8 @@ __global__ void topK_kernel_round1(const float* probs, const int vocab_size,
 // gridSize = bs
 // blockSize = 256
 template<typename T, int K, int blockSize, int BlockPerBeam>
-__global__ void topK_kernel_round2(const int* topK_ids, const float* topK_vals,
-                                    int* final_topK_ids, float* final_topK_vals)
+__global__ void topK_kernel_round2(const int* topK_ids, const T* topK_vals,
+                                    int* final_topK_ids, T* final_topK_vals)
 {
     typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
     __shared__ typename blockreduce::TempStorage temp_storage;
@@ -121,3 +121,18 @@ void launchTopKforBeamSearch(const T* probs,
                         <<<grid_round2, block_round2>>>(topK_ids, topK_vals, final_topK_ids, final_topK_vals);
     // debug info, better to retain: std::cout << "in cu file, after launch" << std::endl;
 }
+
+template void launchTopKforBeamSearch(const float* probs,
+                            const int batch_size,
+                            const int vocab_size,
+                            int* topk_ids,
+                            float* topk_vals,
+                            int* final_topk_ids,
+                            float* final_topk_vals);
+template void launchTopKforBeamSearch(const half* probs,
+                            const int batch_size,
+                            const int vocab_size,
+                            int* topk_ids,
+                            half* topk_vals,
+                            int* final_topk_ids,
+                            half* final_topk_vals);
