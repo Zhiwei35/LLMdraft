@@ -11,25 +11,20 @@
 int main() {
     const int batch_size = 1;
     const int vocab_size = 30000;
-    constexpr int BlockPerBeam = 8;
-    constexpr int beam_width = 1;
-    constexpr int K = 5;
-
-    int topK_val_buf_size = batch_size * beam_width * BlockPerBeam * K;
-    int topK_ids_buf_size = batch_size * beam_width * BlockPerBeam * K;
-    int final_topK_val_buf_size = batch_size * beam_width * K; // sampling topK buf size, beamsearch topK size = [batch_size * beam_width * beam_width]
-
-    const int probs_size = batch_size * vocab_size * beam_width;
+    const int beamwidth = 1;
+    const int K = 5;
+    const int BlockPerBeam = 8;
+    // debug info, better to retain: std::cout <<"batch_size=" << batch_size << "  vocab_size=" << vocab_size << std::endl;
+    const int probs_size = batch_size * vocab_size * beamwidth;
     float* h_probs;
     float *d_probs;
     h_probs = (float*)malloc(sizeof(float) * probs_size);
     cudaMalloc((void**)&d_probs, sizeof(float) * probs_size);
-    // float* topK_workspace;
-    // cudaMalloc((void**)&topK_workspace, sizeof(float) * (2 * batch_size * beam_width + 2 * batch_size * beam_width * 8/*max block per beam*/ * beam_width));
-    for(int i = 0; i < probs_size; i++) { // 0-59999
-       h_probs[i] = i;
-    }
-    cudaMemcpy(d_probs, h_probs, sizeof(float)*probs_size, cudaMemcpyHostToDevice);
+    
+    int topK_val_buf_size = batch_size * beamwidth * BlockPerBeam * K;
+    int topK_ids_buf_size = batch_size * beamwidth * BlockPerBeam * K;
+    int final_topK_val_buf_size = batch_size * beamwidth * K; // sampling topK buf size, beamsearch topK size = [batch_size * beam_width * beam_width]
+
 
     int *d_tmp_topk_ids;
     cudaMalloc((void**)&d_tmp_topk_ids, sizeof(int) * topK_ids_buf_size);
@@ -47,34 +42,21 @@ int main() {
     h_final_topk_vals = (float*)malloc(sizeof(float) * final_topK_val_buf_size);
     cudaMalloc((void**)&d_final_topk_vals, sizeof(float) * final_topK_val_buf_size);
 
-    DataType type_float = getTensorType<float>();
-    DataType type_int = getTensorType<int>();
-    TensorWrapper<float>* probs_tensor = new TensorWrapper<float>(Device::GPU, 
-                                                                type_float,
-                                                                {batch_size, beam_width, vocab_size}, 
-                                                                d_probs);
-    TensorWrapper<int> *tmp_topk_ids = new TensorWrapper<int>(Device::GPU, 
-                                                                type_int,
-                                                                {batch_size, beam_width, BlockPerBeam, K}, 
-                                                                d_tmp_topk_ids);
-    TensorWrapper<float>* tmp_topk_vals = new TensorWrapper<float>(Device::GPU, 
-                                                                type_float,
-                                                                {batch_size, beam_width, BlockPerBeam, K}, 
-                                                                d_tmp_topk_vals);
-    TensorWrapper<int> *final_topk_ids = new TensorWrapper<int>(Device::GPU, 
-                                                                type_int,
-                                                                {batch_size, beam_width, K}, 
-                                                                d_final_topk_ids);
-    TensorWrapper<float> *final_topk_vals = new TensorWrapper<float>(Device::GPU, 
-                                                                type_float,
-                                                                {batch_size, beam_width, K}, 
-                                                                d_final_topk_vals);
+//    float* topK_workspace;
+//    cudaMalloc((void**)&topK_workspace, sizeof(float) * batch_size * beamwidth * BlockPerBeam * K + sizeof(int) * batch_size * beamwidth * BlockPerBeam * K + sizeof(float) * batch_size * beamwidth * K + sizeof(int) * batch_size * beamwidth * K);
+    for(int i = 0; i < probs_size; i++) { // 0-59999
+       h_probs[i] = i;
+    }
+    cudaMemcpy(d_probs, h_probs, sizeof(float)*probs_size, cudaMemcpyHostToDevice);
     // debug info, better to retain: std::cout << "before launch kernel" << std::endl;
-    launchTopKforBeamSearch(probs_tensor, tmp_topk_ids, tmp_topk_vals, final_topk_ids, final_topk_vals);
+    launchTopKforBeamSearch(d_probs, batch_size, vocab_size, d_tmp_topk_ids, d_tmp_topk_vals, d_final_topk_ids, d_final_topk_vals);
     // debug info, better to retain: std::cout << "after launch kernel" << std::endl;
+    //int* h_topK_workspace = (int*)malloc(sizeof(int) * (batch_size * beamwidth));
+    // debug info, better to retain: std::cout << "cuda memcpy device to host" << std::endl;
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
-    cudaMemcpy(h_final_topk_ids, d_final_topk_ids, sizeof(int) * batch_size * beam_width * K, cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_final_topk_vals, d_final_topk_vals, sizeof(float) * batch_size * beam_width * K, cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_final_topk_ids, d_final_topk_ids, sizeof(int) * final_topK_val_buf_size, cudaMemcpyDeviceToHost);
+    //float* h_topK_val = (float*)malloc(sizeof(float) * (batch_size * beamwidth));
+    cudaMemcpy(h_final_topk_vals, d_final_topk_vals,  sizeof(float) * final_topK_val_buf_size, cudaMemcpyDeviceToHost);
     for(int i = 0; i < K; i++) {
         int id = h_final_topk_ids[i];
         printf("topK id = %d\n", id);
