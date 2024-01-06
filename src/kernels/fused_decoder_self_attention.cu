@@ -210,8 +210,9 @@ __global__ void masked_MHA_kernel(const T* q,
     extern __shared__ char sqk[];
     T* sq = reinterpret_cast<T*>(sqk); // 在step行把q存进smem，之前的step-1行可以直接从smem load to reg
     T* sk = sq + head_size; // 不是很有必要在reg上存k
-    float* logits = reinterpret_cast<float*>(sk + head_size); // 所有线程reduce的结果存到logits，需要smem
-    T* sv = reinterpret_cast<T*>(logits + step);
+    T* sv = sk + head_size;
+    float* logits = reinterpret_cast<float*>(sv + step); // 所有线程reduce的结果存到logits，需要smem
+    //T* sv = reinterpret_cast<T*>(logits + step);
     //sq[tid] = q_mem[qkv_offset];
     if (tid * vec_size < head_size) {
         *reinterpret_cast<Vec_t*>(&sq[tid * vec_size]) = qvec;
@@ -356,9 +357,11 @@ __global__ void masked_MHA_kernel(const half* q,
     extern __shared__ char sqk[];
     half* sq = reinterpret_cast<half*>(sqk);
     half* sk = sq + head_size;
-    float* logits = reinterpret_cast<float*>(sk + head_size);
-    half* sv = reinterpret_cast<half*>(logits + step);
+    //float* logits = reinterpret_cast<float*>(sk + head_size);
+    half* sv = sk + head_size;
+    float* logits = reinterpret_cast<float*>(sv + head_size);
     //sq[tid] = q_mem[qkv_offset];
+
     Vec_t* sq_vec = reinterpret_cast<Vec_t*>(sq);
     Vec_t* sk_vec = reinterpret_cast<Vec_t*>(sk);
     Vec_t* sv_vec = reinterpret_cast<Vec_t*>(sv);
@@ -392,19 +395,19 @@ __global__ void masked_MHA_kernel(const half* q,
         float attn_score = blockReduceSum<float>(qk_fp32);
         if(tid == 0) {
             logits[iter] = attn_score;
-	    float q_tmp = (float)(sq_vec[0].x);
-	    float k_tmp = (float)(sk_vec[0].x);
-	    float scale_tmp = (float)(scale_vec.x);
-            printf("iter = %d, step=%d, blockIdx.x = %d, in cuda, logits=%f, qk_fp32 = %f, q_tmp=%f, k_tmp=%f, scale_tmp=%f\n",iter, step, blockIdx.x, logits[iter], qk_fp32, q_tmp, k_tmp, scale_tmp);
+	    //float q_tmp = (float)(sq_vec[0].x);
+	    //float k_tmp = (float)(sk_vec[0].x);
+	    //float scale_tmp = (float)(scale_vec.x);
+            //printf("iter = %d, step=%d, blockIdx.x = %d, in cuda, logits[%d]=%f, qk_fp32 = %f, q_tmp=%f, k_tmp=%f, scale_tmp=%f\n",iter, step, blockIdx.x, iter, logits[iter], qk_fp32, q_tmp, k_tmp, scale_tmp);
 	}
         __syncthreads();
     }
-    __syncthreads();
+    //__syncthreads();
     //softmax(logits), logits.shape = [bs, num heads, 1, step]
+    //if(tid < step){
+    	//printf("logits[%d]=%f\n", tid, logits[tid]);
+    //}
     float local_logits = tid < step ? logits[tid] : 0;
-    if(tid < step){
-    	printf("tid = %d, logits=%f, local_logits = %f\n", tid, logits[tid], local_logits);
-    }
     __shared__ float row_max, fenmu;
     
     float block_max = blockReduceMax<float>(local_logits);
@@ -413,9 +416,9 @@ __global__ void masked_MHA_kernel(const half* q,
     }
     __syncthreads();
     float fenzi = tid < step ? expf(local_logits - row_max) : 0;
-    if(tid < step) {
-    	printf("after expf, row_max=%f, fenzi=%f, logits=%f\n", row_max, fenzi, local_logits);
-    }
+    //if(tid < step) {
+    //	printf("after expf, row_max=%f, fenzi=%f, logits=%f\n", row_max, fenzi, local_logits);
+    //}
     float block_fenmu = blockReduceSum<float>(fenzi);
     if (tid == 0){
         fenmu = block_fenmu;
@@ -424,7 +427,7 @@ __global__ void masked_MHA_kernel(const half* q,
     if(tid < step) {
         
 	logits[tid] = (float)(fenzi / fenmu);
-	printf("in cuda, row_max=%f, fenzi=%f, fenmu=%f, logits=%f\n", row_max, fenzi, fenmu, logits[tid]);
+//	printf("in cuda, row_max=%f, fenzi=%f, fenmu=%f, logits=%f\n", row_max, fenzi, fenmu, logits[tid]);
 	
     }
     __syncthreads();
