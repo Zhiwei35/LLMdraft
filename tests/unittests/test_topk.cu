@@ -11,7 +11,7 @@
 int main() {
     const int batch_size = 1;
     const int vocab_size = 30000;
-    const int beamwidth = 1;
+    const int beamwidth = 2;
     const int K = 5;
     const int BlockPerBeam = 8;
     // debug info, better to retain: std::cout <<"batch_size=" << batch_size << "  vocab_size=" << vocab_size << std::endl;

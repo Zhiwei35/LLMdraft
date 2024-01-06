@@ -35,8 +35,8 @@ __global__ void topK_kernel_round1(const T* probs, const int vocab_size,
     for(int data_id = tid + block_lane * blockSize; data_id < vocab_size; data_id += BlockPerBeam * blockSize){
         int data_offset = data_id + row_id * vocab_size;
         T data = probs[data_offset];
-        thread_topK.insertHeap(data, data_offset);
-       //thread_topK.insertHeap(data, data_id); // bug
+        //thread_topK.insertHeap(data, data_offset);
+        thread_topK.insertHeap(data, data_id); // bug
     }
     //block local reduce
     topK<T, K> block_topK = blockreduce(temp_storage).Reduce(thread_topK, reduce_functor<T, K>);
@@ -69,7 +69,7 @@ __global__ void topK_kernel_round2(const int* topK_ids, const T* topK_vals,
     // thread local reduce    
     for(int i = tid; i < BlockPerBeam * K; i += blockDim.x) {
         int data_offset = bid * BlockPerBeam * K + i;
-        thread_topK.insertHeap(topK_vals[data_offset], topK_ids[data_offset]);
+        thread_topK.insertHeap(topK_vals[data_offset], topK_ids[i]);
     }
     // block reduce
     topK<T, K> block_topK = blockreduce(temp_storage).Reduce(thread_topK, reduce_functor<T, K>);

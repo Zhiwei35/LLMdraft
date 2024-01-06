@@ -43,7 +43,7 @@ void launchTopKforBeamSearch(TensorWrapper<T> *probs,
                              TensorWrapper<int> *topk_ids,
                              TensorWrapper<T> *topk_vals,
                              TensorWrapper<int> *final_topk_ids,
-                             TensorWrapper<T> *final_topk_vals)
+                             TensorWrapper<T> *final_topk_vals);
 // template<typename T>
 // void launchTopKforBeamSearch(const T* probs, 
 //                             const int batch_size,
