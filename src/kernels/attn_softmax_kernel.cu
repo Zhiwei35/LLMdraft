@@ -34,7 +34,7 @@ __inline__ __device__ T blockReduce(T val)
     int tid = threadIdx.x;
     int warp_id = tid / 32;
     int lane_id = tid % 32;
-    int warp_nums = blockDim.x / 32;
+    int warp_nums = (blockDim.x + 31) / 32;
     static __shared__ T warp[64];
     val = warpReduce<ReductionOp, T>(val);
     if (lane_id == 0)
@@ -219,7 +219,7 @@ __global__ void ScaleMaskAndSoftmax_half(T_half *attn_score,
         // write back into gmem
         for (int col_start = 0; col_start < NUMS_PER_THREAD_PER_ROW; col_start++)
         {
-            qk_offset = batch_id * head_nums * q_len * k_len + head_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
+            qk_offset = batch_id * head_nums * q_len * k_len / 2 + head_id * q_len * k_len / 2 + row_start * k_len / 2 + col_start * blockDim.x + threadIdx.x;
             attn_score_vec[qk_offset] = __hmul2(data[col_start], scalar_cast_vec<Vec_t>(inv_sum));
         }
     }
