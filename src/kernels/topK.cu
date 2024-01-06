@@ -17,7 +17,7 @@ __device__ topK<T, K> reduce_functor(const topK<T, K> &a, const topK<T, K> &b)
 // gridsize:bs * beam_width * BlockPerBeam
 // blocksize:256
 // shape infer: [bs, beam_width, vocab size] => [bs, beam_width, BlockPerBeam, K],在vocabsize的大小里选出blockPerBeam个topK
-template <typename T, int K, int blockSize, int BlockPerBeam>
+template <typename T, int beam_width, int K, int blockSize, int BlockPerBeam>
 __global__ void topK_kernel_round1(const T *probs, const int vocab_size,
                                    int *topK_ids, T *topK_vals)
 {
@@ -58,7 +58,7 @@ __global__ void topK_kernel_round1(const T *probs, const int vocab_size,
 // ids是beam_width * vocalsize中的全局word id
 // gridSize = bs
 // blockSize = 256
-template <typename T, int K, int blockSize, int BlockPerBeam>
+template <typename T, int beam_width, int K, int blockSize, int BlockPerBeam>
 __global__ void topK_kernel_round2(const int *topK_ids, const T *topK_vals,
                                    int *final_topK_ids, T *final_topK_vals)
 {
@@ -71,9 +71,9 @@ __global__ void topK_kernel_round2(const int *topK_ids, const T *topK_vals,
     int row_id = bid;
     topK<T, K> thread_topK;
     // thread local reduce
-    for (int i = tid; i < K * BlockPerBeam * K; i += blockDim.x)
+    for (int i = tid; i < beam_width * BlockPerBeam * K; i += blockDim.x)
     {
-        int data_offset = bid * K * BlockPerBeam * K + i;
+        int data_offset = bid * beam_width * BlockPerBeam * K + i;
         thread_topK.insertHeap(topK_vals[data_offset], topK_ids[data_offset]);
     }
     // block reduce
@@ -103,6 +103,7 @@ void launchTopKforBeamSearch(TensorWrapper<T> *probs,
     int vocab_size = probs->shape[1];
     constexpr int BlockPerBeam = 8;
     constexpr int beam_width = 2;
+    constexpr int K = 2;
     // buffer size
     // int topK_val_buf_size = batch_size * beam_width * BlockPerBeam * beam_width;
     // int topK_ids_buf_size = batch_size * beam_width * BlockPerBeam * beam_width;
@@ -124,9 +125,9 @@ void launchTopKforBeamSearch(TensorWrapper<T> *probs,
     dim3 grid_round2(BlockNums2);
     dim3 block_round2(256);
     // debug info, better to retain: std::cout << "in cu file, before launch" << std::endl;
-    topK_kernel_round1<T, beam_width, 256, BlockPerBeam>
+    topK_kernel_round1<T, beam_width, K, 256, BlockPerBeam>
         <<<grid_round1, block_round1>>>(probs->data, vocab_size, topK_ids, topK_vals);
-    topK_kernel_round2<T, beam_width, 256, BlockPerBeam>
+    topK_kernel_round2<T, beam_width, K, 256, BlockPerBeam>
         <<<grid_round2, block_round2>>>(topK_ids, topK_vals, final_topK_ids, final_topK_vals);
     // debug info, better to retain: std::cout << "in cu file, after launch" << std::endl;
 }
