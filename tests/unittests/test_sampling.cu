@@ -1,5 +1,5 @@
 #include <iostream>
-#include "src/kernels/topK_sampling.h"
+#include "src/kernels/sampling.h"
 #include "src/utils/macro.h"
 
 #define LAUNCH_SAMPLING(dtype)                                                                                 \
@@ -50,10 +50,10 @@
     intParams.insert({"vocab_size", vocab_size});                                                              \
     intParams.insert({"end_id", end_id});                                                                      \
     std::cout << "before launch sampling kernel" << std::endl;                                                 \
-    launchSampling(topk_id, topk_val, cuseqlen, finished, output_id, intParams);                               \
+    launchSampling<dtype>(topk_id, topk_val, cuseqlen, finished, output_id, intParams);                               \
     std::cout << "after launch sampling kernel" << std::endl;                                                  \
     std::cout << "cuda memcpy device to host" << std::endl;                                                    \
-    CHECK(cudaMemcpy(h_outid, output_id.data, sizeof(int) * batch_size, cudaMemcpyDeviceToHost));              \
+    CHECK(cudaMemcpy(h_outid, output_id->data, sizeof(int) * batch_size, cudaMemcpyDeviceToHost));              \
     for (int i = 0; i < batch_size; i++)                                                                       \
     {                                                                                                          \
         std::cout << "seq" << i + 1 << ":" << h_outid[i] << std::endl;                                         \
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
     const int batch_size = 3;
     const int K = 3;
     int vocab_size = 1000;
-    int step = 5;
+    int step = 6;
     int end_id = 10;
 
     if (argv[1])
