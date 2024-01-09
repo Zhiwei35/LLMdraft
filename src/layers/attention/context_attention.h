@@ -1,14 +1,14 @@
 #pragma once
 #include "src/weights/llama/attention_weights.h"
 #include "src/memory/allocator/cuda_allocator.h"
-#include "src/kernels/qkv_linear.h"
+#include "src/kernels/linear.h"
 #include "src/kernels/attn_softmax_kernel.h"
 #include "src/kernels/qkv_bias_and_RoPE.h"
-#include "src/kernels/fused_transpose_reshape_remv_pad.h"
-#include "src/kernels/append_to_kvcache.h"
-#include "src/kernels/transpose_kernel.h"
+#include "src/kernels/fused_transpose_and_remv_pad.h"
+#include "src/kernels/concat_past_kv.h"
+#include "src/kernels/repeat_kv.h"
 #include "src/utils/tensor.h"
-#include "src/kernels/cublas_wrapper.h"
+#include "src/kernels/cublas_utils.h"
 #include "src/models/llama/llama_params.h"
 template<typename T>
 class LLaMAContextAttentionLayer {

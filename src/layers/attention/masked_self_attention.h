@@ -1,12 +1,12 @@
 #pragma once
 #include "src/weights/llama/attention_weights.h"
 #include "src/memory/allocator/cuda_allocator.h"
-#include "src/kernels/qkv_linear.h" //1st/4th kernel of masked self attention, qkv gemm
+#include "src/kernels/linear.h" //1st/4th kernel of masked self attention, qkv gemm
 #include "src/kernels/attn_softmax_kernel.h"
 #include "src/kernels/qkv_bias_and_RoPE.h" //2nd kernel of masked self attention, qkv bias and rope
-#include "src/kernels/decoder_masked_attn.h" //3rd kernel 
+#include "src/kernels/fused_decoder_self_attention.h" //3rd kernel 
 #include "src/utils/tensor.h"
-#include "src/kernels/cublas_wrapper.h"
+#include "src/kernels/cublas_utils.h"
 #include "src/models/llama/llama_params.h"
 #include "src/utils/macro.h"
 
