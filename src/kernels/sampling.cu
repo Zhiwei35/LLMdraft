@@ -30,10 +30,10 @@ __global__ void SamplingKernel(int* topk_id,
         curandState_t state;
         curand_init((unsigned long long)rand_num,(unsigned long long)bid, (unsigned long long)0, &state);// not sure rand_num's type is suitable here or not
         thredhold = (float)curand_uniform(&state) * sum; // for a block
-	printf("thredhold = %f\n", thredhold);
-	output_id[bid] = topk_id[bid * K + K - 1] % vocab_size; //init output id in case line37 never run
+        // printf("thredhold = %f\n", thredhold);
+        output_id[bid] = topk_id[bid * K] % vocab_size; //init output id in case line37 never run
         for(int i = 0; i < K; i++) {
-            thredhold = thredhold - (float)topk_val[offset];
+            thredhold = thredhold - (float)topk_val[batch_id * K + i];
             if(thredhold < 0) {
                 output_id[bid] = topk_id[batch_id * K + i] % vocab_size;
                 break;
