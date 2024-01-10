@@ -89,7 +89,7 @@ public:
                                                 
                 return BigBlocks[blockID].data;
             }
-            // 没找到空闲的再cudaMalloc
+            // 没找到空闲的再cudaMalloc，并插进block pool
             void* new_buffer;
             cudaMalloc(&new_buffer, size);
             // std::cout << "allocate a new big block from OS using cudaMalloc, size = "
@@ -131,7 +131,7 @@ public:
             cudaFreeHost(ptr);
             return;
         }
-        // 清理碎片：当累计的小buf超出了1G时，清理未分配出去的smallblocks
+        // 清理碎片：当累计的小buf超出了1G时，清理未分配出去的smallblocks, 已分配的还是保留在smallmap
         for (auto &it: cudaSmallBlocksMap) {
             if (FreeSize[it.first] > 1024 * 1024 * 1024) {
                 auto &cudaBlocks = it.second;
@@ -154,7 +154,7 @@ public:
                 FreeSize[it.first] = 0;
             }
         }
-        // 找到待free的buffer的位置，设is_allocated = false，不归还到OS
+        // 找到待free的buffer的位置，设is_allocated = false，大小block都不归还到OS，除非没有在大小block里面找到待free的ptr
         for (auto &it: cudaSmallBlocksMap) {
             auto &cudaBlocks = it.second;
             for (int i = 0; i < cudaBlocks.size(); i++) {
