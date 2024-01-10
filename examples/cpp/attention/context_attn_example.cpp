@@ -204,8 +204,8 @@ int main(int argc, char** argv)
                                                                                        attn_static_params,
                                                                                        stream,
                                                                                        cublas_wrapper,
-                                                                                       allocator,
-                                                                                       is_free_buffer_after_fwd);
+                                                                                       allocator);
+//                                                                                       is_free_buffer_after_fwd);
     // forward
     ctxAttn->forward(ctx_attn_inputs, ctx_attn_outputs, ctx_attn_weights, attn_dyn_params, attn_static_params);
     // free buffer

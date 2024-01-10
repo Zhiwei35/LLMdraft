@@ -7,12 +7,12 @@ target_link_libraries(LlamaCtxAttn PUBLIC
 #                             -lcudart
                              -lcudadevrt
                              qkv_bias_and_rope
-                             appendtokvcache
+                             concat_kv
 #                             cublasWrapper
-                             qkv_linear
-                             fused_transpose_reshape_remv_pad
-                             transpose
-                             softmax)
+                             linear
+                             fused_transpose_and_remv_pad
+                             repeat_kv
+                             mask_softmax)
 
 add_library(LlamaselfAttn STATIC masked_self_attention.cpp)
 
@@ -21,5 +21,5 @@ set_property(TARGET LlamaselfAttn PROPERTY CUDA_RESOLVE_DEVICE_SYMBOLS  ON)
 target_link_libraries(LlamaselfAttn PUBLIC
                              -lcudart
                              -lcudadevrt
-                             decoder_masked_attn
+                             fused_decoder_self_attention
 )

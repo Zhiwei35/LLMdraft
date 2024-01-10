@@ -1,6 +1,8 @@
 #pragma once
 #include <cuda.h>
+#include <cuda_runtime.h>
 #include <cuda_fp16.h>
+
 template<typename T_OUT, typename T_IN>
 inline __device__ T_OUT scalar_cast_vec(T_IN val)
 {
@@ -28,7 +30,12 @@ inline __device__ float2 scalar_cast_vec<float2, float>(float val)
 template<>
 inline __device__ half2 scalar_cast_vec<half2, half>(half val)
 {
-    return __half2half2(val);
+    //return make_half2(val, val);
+    half2 res;
+    res.x = val;
+    res.y = val;
+    return res;
+    //return __half2half2(val);
 }
 
 template<typename T>
