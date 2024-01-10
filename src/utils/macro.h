@@ -2,6 +2,8 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <cublas_v2.h>
 #define CHECK(call)                                   \
 do                                                    \

@@ -123,13 +123,13 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     Tensor* layer_id = inputs["layer_id"]; //ON CPU
     Tensor* all_k_cache = outputs["all_k_cache"];
     Tensor* all_v_cache = outputs["all_v_cache"];
-    launchAppendKVCache(k_buf_w_pad, v_buf_w_pad, layer_id->as<int>(), input_length->as<int>(), history_length->as<int>(), all_k_cache->as<T>(), all_v_cache->as<T>());
+    launchConcatKVCache(k_buf_w_pad, v_buf_w_pad, layer_id->as<int>(), input_length->as<int>(), history_length->as<int>(), all_k_cache->as<T>(), all_v_cache->as<T>());
     DeviceSyncAndCheckCudaError();
     //4.MHA/MQA/GQA part, reduce kv cache size to [num_layer, bs, kv head num, max_seq_len, head size]
     //0.kv repeat/broadcast to adapt batchgemm shape requirement([bs, head num, seqlen, head size]) if need
     //[num_layer, bs, kv head num, max_seq_len, head size]=>[bs, q head num, max_k_len, head size]
     Tensor* context_length = inputs["context_length"];
-    launchTransposeKVCache(all_k_cache->as<T>(), all_v_cache->as<T>(), context_length->as<int>(), 
+    launchRepeatKVCache(all_k_cache->as<T>(), all_v_cache->as<T>(), context_length->as<int>(), 
                                 layer_id->as<int>(), k_cache_buf, v_cache_buf);
     DeviceSyncAndCheckCudaError();
     //1.qk [bs,qhead,qlen,headsize]*[bs,qhead,klen,headsize](N*T)=>[bs,head,qlen,klen]
