@@ -8,8 +8,8 @@ LLaMASelfAttentionLayer<T>::LLaMASelfAttentionLayer(
                                LLaMAAttentionStaticParams attn_params,
                                cudaStream_t stream,
                                cublasWrapper* cublas_wrapper,
-                               BaseAllocator* allocator,
-                               bool is_free_buffer_after_fwd):
+                               BaseAllocator* allocator):
+                               //bool is_free_buffer_after_fwd):
     head_num(head_num),
     kv_head_num(kv_head_num),
     head_size(head_size),
@@ -18,7 +18,7 @@ LLaMASelfAttentionLayer<T>::LLaMASelfAttentionLayer(
     allocator(allocator), //cudaAllocator
     hidden_units(head_num * head_size),
     attn_static_params(attn_params),
-    is_free_buffer_after_fwd(is_free_buffer_after_fwd),
+    // is_free_buffer_after_fwd(is_free_buffer_after_fwd),
         // TODO: check kv_head_num is divided by haed_num
     q_head_per_kv(head_num / kv_head_num),
     scale(float(1 / sqrt(head_size))){}
@@ -72,10 +72,9 @@ void LLaMASelfAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, 
     DeviceSyncAndCheckCudaError();
 
     launchLinearGemm(mha_output, weights.output, attention_output->as<T>(), cublas_wrapper);
-    if (is_free_buffer_after_fwd) {
-        this->freeBuf();
-        DeviceSyncAndCheckCudaError();
-    }
+    // if (is_free_buffer_after_fwd) {
+    this->freeBuf();
+    // }
     //seqlen将在sampling更新
     //Tensor sequence_lengths = inputs["sequence_lengths"]; //[bs] length_per_sample, 贯穿全kernel，to get tlength, to decide kv cache seqlen, that is kv cache's step/seqlen
 }

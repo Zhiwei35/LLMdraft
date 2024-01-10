@@ -10,7 +10,7 @@ int main(int argc, char** argv)
     int kv_head_num = 2;
     int head_size = 8;
     int num_layers = 1;
-    int max_seq_len = 12;
+    int max_seq_len = 12; // max context length for kv cache
     int hidden_units = (head_num + 2 * kv_head_num) * head_size;
     int q_hidden_units = head_num * head_size;
     LLaMAAttentionStaticParams attn_static_params;
@@ -22,7 +22,7 @@ int main(int argc, char** argv)
     attn_dyn_params.batch_size = 2;
     attn_dyn_params.num_tokens = 14;
     attn_dyn_params.max_q_len = 8;
-    attn_dyn_params.max_k_len = 8;
+    attn_dyn_params.max_k_len = 8; // max actual context length for cur batch
     bool is_free_buffer_after_fwd = true;
 
     cublasHandle_t cublas_handle;
