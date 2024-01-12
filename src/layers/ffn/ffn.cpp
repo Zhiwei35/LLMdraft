@@ -1,6 +1,5 @@
 #include <iostream>
 #include "src/layers/ffn/ffn.h"
-#include "src/utils/macro.h"
 template<typename T>
 LLaMAFFNLayer<T>::LLaMAFFNLayer(int head_num,
                                int head_size,

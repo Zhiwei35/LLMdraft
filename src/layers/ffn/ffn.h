@@ -7,6 +7,7 @@
 #include "src/kernels/cublas_utils.h"
 #include "src/models/llama/llama_params.h"
 #include "src/kernels/act_kernel.h"
+#include "src/utils/macro.h"
 template<typename T>
 class LLaMAFFNLayer {
 private:
