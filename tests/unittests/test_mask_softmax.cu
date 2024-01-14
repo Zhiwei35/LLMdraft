@@ -23,7 +23,7 @@
     cudaMalloc((void **)&d_mask, sizeof(dtype) * batch_size * q_length * k_length);                                               \
     for (int i = 0; i < qk_size; i++)                                                                                               \
     {                                                                                                                               \
-        h_qk[i] = 4.0f;                                                                                                             \
+        h_qk[i] = i % 8;                                                                                                             \
     }                                                                                                                               \
     for (int i = 0; i < batch_size * q_length * k_length; i++)                                                                      \
     {                                                                                                                               \

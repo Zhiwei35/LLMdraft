@@ -88,8 +88,8 @@ void LLaMAContextAttentionLayer<T>::freeBuf(){
     DeviceSyncAndCheckCudaError();
     allocator->Free(k_cache_buf->data);
     DeviceSyncAndCheckCudaError();
-    allocator->Free(v_cache_buf->data);
-    DeviceSyncAndCheckCudaError();
+//    allocator->Free(v_cache_buf->data); //no need to free v cache buf, because its included in k cache buf->data
+//    DeviceSyncAndCheckCudaError();
     allocator->Free(qk_buf->data);
     DeviceSyncAndCheckCudaError();
     allocator->Free(qkv_buf_w_pad->data);
