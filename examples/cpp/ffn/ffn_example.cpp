@@ -81,8 +81,7 @@ int main(int argc, char** argv)
                                                 inter_size,
                                                 stream,
                                                 cublas_wrapper,
-                                                allocator,
-                                                is_free_buffer_after_fwd);
+                                                allocator);
     std::cout << "start fwd" << "\n";
     ffn_layer->forward(ffn_inputs, ffn_outputs, ffn_weights, attn_dyn_params);
     std::cout << "end fwd" << "\n";

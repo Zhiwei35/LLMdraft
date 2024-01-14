@@ -16,7 +16,6 @@ private:
     const int head_size;
     const int inter_size;
     const int hidden_units;
-    const bool is_free_buffer_after_fwd;
 //    const bool is_1st_epoch; // judge if its 1st epoch, if so, we will allocate kv cache
     // this params are dynamic
     //const LLaMAAttentionDynParams attn_dyn_params;
@@ -42,8 +41,7 @@ public:
                     int inter_size,
                     cudaStream_t stream,
                     cublasWrapper* cublas_wrapper,
-                    BaseAllocator* allocator,
-                    bool is_free_buffer_after_fwd);
+                    BaseAllocator* allocator);
 
     void allocForForward(LLaMAAttentionDynParams& params);
     void allocForForward(int batch_size);

@@ -51,6 +51,7 @@ int main(){
     int h_layer_id = 0;
     bool* h_finished = (bool*) malloc(sizeof(bool) * attn_dyn_params.batch_size);
     bool* d_finished;
+    cudaMalloc((void**)&d_finished, sizeof(bool) * attn_dyn_params.batch_size);
     for(int i = 0; i < attn_dyn_params.batch_size; i++){
         h_finished[i] = static_cast<bool>(0);
     }
@@ -79,13 +80,13 @@ int main(){
     float* d_attention_output;
     cudaMalloc((void**)&d_attention_output, sizeof(float) * q_hidden_units * attn_dyn_params.batch_size);
 
-    cudaMemcpy(d_attention_input, h_attention_input, sizeof(float) * q_hidden_units * attn_dyn_params.batch_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_finished, h_finished, sizeof(bool) * q_hidden_units * hidden_units, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_all_k_cache, h_all_k_cache, sizeof(float) * num_layers * attn_dyn_params.batch_size * kv_head_num * max_seq_len * head_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_all_v_cache, h_all_v_cache, sizeof(float) * num_layers * attn_dyn_params.batch_size * kv_head_num * max_seq_len * head_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_qkv_weights, h_qkv_weights, sizeof(float) * q_hidden_units * hidden_units, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_qkv_bias, h_qkv_bias, sizeof(float) * hidden_units, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_output_weights, h_output_weights, sizeof(float) * q_hidden_units * q_hidden_units, cudaMemcpyHostToDevice);
+    CHECK(cudaMemcpy(d_attention_input, h_attention_input, sizeof(float) * q_hidden_units * attn_dyn_params.batch_size, cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(d_finished, h_finished, sizeof(bool) * attn_dyn_params.batch_size, cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(d_all_k_cache, h_all_k_cache, sizeof(float) * num_layers * attn_dyn_params.batch_size * kv_head_num * max_seq_len * head_size, cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(d_all_v_cache, h_all_v_cache, sizeof(float) * num_layers * attn_dyn_params.batch_size * kv_head_num * max_seq_len * head_size, cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(d_qkv_weights, h_qkv_weights, sizeof(float) * q_hidden_units * hidden_units, cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(d_qkv_bias, h_qkv_bias, sizeof(float) * hidden_units, cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(d_output_weights, h_output_weights, sizeof(float) * q_hidden_units * q_hidden_units, cudaMemcpyHostToDevice));
 
     DataType type = getTensorType<float>(); // note: the type should be as a class data member!
     DataType type_int = getTensorType<int>();
@@ -142,8 +143,8 @@ int main(){
     };
     TensorMap masked_attn_outputs{
         {"attention_output", attention_output},
-        {"key_cache", key_cache},
-        {"value_cache", value_cache}
+        {"all_k_cache", key_cache},
+        {"all_v_cache", value_cache}
     };
 
     LLaMASelfAttentionLayer<float>* self_attn_layer = new LLaMASelfAttentionLayer<float>( head_num,
