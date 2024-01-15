@@ -64,11 +64,11 @@ void LlamaWeight<T>::loadWeightsFromDummy() {
     T* h_dummy_post_decoder_embedding_weight = (T*)malloc(sizeof(T) * hidden_units * vocab_size); 
     T* h_dummy_pre_decoder_embedding_weight = (T*)malloc(sizeof(T) * hidden_units * vocab_size);  
     for (int i = 0; i < hidden_units; i++){
-        h_dummy_out_rmsnorm_weight_gamma[i] = (T)1;
+        h_dummy_out_rmsnorm_weight_gamma[i] = (T)1.0f;
     }
     for (int i = 0; i < hidden_units * vocab_size; i++) {
-        h_dummy_post_decoder_embedding_weight[i] = (T)1; 
-        h_dummy_pre_decoder_embedding_weight[i] = (T)1; 
+        h_dummy_post_decoder_embedding_weight[i] = (T)1.0f; 
+        h_dummy_pre_decoder_embedding_weight[i] = (T)1.0f; 
     } 
     cudaMemcpy(d_dummy_out_rmsnorm_weight_gamma, h_dummy_out_rmsnorm_weight_gamma, sizeof(T) * hidden_units, cudaMemcpyHostToDevice);
     cudaMemcpy(d_dummy_post_decoder_embedding_weight, h_dummy_post_decoder_embedding_weight, sizeof(T) * hidden_units * vocab_size, cudaMemcpyHostToDevice);

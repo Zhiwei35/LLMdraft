@@ -1,5 +1,19 @@
 #include "src/utils/weight_utils.h"
 
+template<typename T_OUT, typename T_IN>
+inline __device__ T_OUT type_cast(T_IN val) {
+    return val;
+}
+template<>
+inline __device__ float type_cast(half val) {
+    return __half2float(val);
+}
+
+template<>
+inline __device__ half type_cast(float val) {
+    return __float2half(val); //还有ru和rd两种舍入方式
+}
+
 template<typename T>
 void GPUMalloc(T** ptr, size_t size)
 {
@@ -94,7 +108,9 @@ std::vector<T> loadWeightFromBinHelper(std::vector<size_t> shape, std::string fi
     return host_array;
 }
 ///home/ubuntu/hzw/llamaweight/tmp/layers.0.attention.wq.weight
-
+//template <typename T_OUT, typename T_FILE, bool is_same>
+//struct loadWeightFromBin
+//{};
 template <typename T_OUT, typename T_FILE>
 struct loadWeightFromBin<T_OUT, T_FILE, true>
 {
