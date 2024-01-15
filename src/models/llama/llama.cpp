@@ -146,7 +146,6 @@ void Llama<T>::free(){
     allocator->Free(token_ids->data);
     allocator->Free(is_finished->data);
     allocator->Free(probs->data);
-    allocator->Free(topk_workspace->data);
     DeviceSyncAndCheckCudaError();
 }
 template<typename T>

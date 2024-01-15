@@ -154,7 +154,7 @@ public:
                                                     rmsnorm_eps,
                                                     stream,
                                                     cublas_wrapper,
-                                                    allocator;
+                                                    allocator);
         //only need to allocate buffer in initialize llama class
         //and the buffer value change can be finished by CUDA kernel
         //so we dont need to reallocate in multi epoch conversation
