@@ -358,19 +358,27 @@ std::string Llama<T>::Response(const std::tuple<std::string, int, int>& input, C
         std::string genString = tokenizer.Decode({ret}).c_str();
         retString += genString;
         PrintRes(index, genString.c_str());
-        index++; //生成的token数量
         // deep copy
         // for ctx decoder, input_ids.shape = [max_context_token_nums]
         // for self decoder, input_ids.shape = [1]
         // but  input_ids->data.size = [max_context_token_nums]
         // input_ids->shape = {1};
-        TensorWrapper<int> tmp = TensorWrapper<int>(CPU, getTensorType<int>(), {1}, &ret);
-        ONELLM_CHECK(tmp.shape != input_ids->shape);
-        ONELLM_CHECK(tmp.dtype == input_ids->dtype);
-        ONELLM_CHECK(tmp.location != input_ids->location);
-        allocator->Free(input_ids->data);
-        input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * 1, false);
-        CHECK(cudaMemcpy(input_ids->data, tmp.data, sizeof(int) * 1, cudaMemcpyHostToDevice)); //但是这个我不希望对齐32b啊，看来allocator还是得改一下
+        if (index == 0) {
+            TensorWrapper<int> tmp = TensorWrapper<int>(CPU, getTensorType<int>(), {1}, &ret);
+            ONELLM_CHECK(tmp.shape != input_ids->shape);
+            ONELLM_CHECK(tmp.dtype == input_ids->dtype);
+            ONELLM_CHECK(tmp.location != input_ids->location);
+            allocator->Free(input_ids->data);
+            input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * 1, false);
+            CHECK(cudaMemcpy(input_ids->data, tmp.data, sizeof(int) * 1, cudaMemcpyHostToDevice)); 
+        } else {
+            CHECK(cudaMemcpy(input_ids->data, &ret, sizeof(int) * 1, cudaMemcpyHostToDevice)); 
+        }
+        index++; //生成的token数量
+        // 但是这个我不希望对齐32b啊，看来allocator还是得改一下!!
+        // lmdeploy对齐了32b，但是fastllm没有，我感觉也没有必要对齐32b
+        // 但是至少目前对齐32b的情况下，所有kernel是正确的，后面考虑单单llama.cpp里面这些或者就input_ids不对齐32b
+
         // 把input_ids这块[max_context_token_nums]大小得buf输进self decoder是有问题得，应该输入一块decoder_input_buf.shape=[bs, hiddenunits]
         // 或者把input ids这块tensorwrapper的buffer重新allocate并重定义shape，参考fastllm.cpp#261-277
         // input_ids->shape = {1,1};[bs, max seq len]
