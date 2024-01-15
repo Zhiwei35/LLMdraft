@@ -291,10 +291,11 @@ struct Tokenizer {
     }
 
     // 这里的data可以换成模型的输出
-    std::string Decode(std::vector<float> ret){
+    // DecodeTokens反正都是接int数组，于是我干脆把强转float给删了
+    std::string Decode(std::vector<int> ret){
         std::vector <int> tokens;
         for (int i = 0; i < ret.size(); i++) {//data.Count(0)
-            tokens.push_back((int) ((float*) ret.data())[i]);
+            tokens.push_back((int)ret.data()[i]);
         }
         return DecodeTokens(tokens);
     } // 解码
