@@ -44,11 +44,9 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
     //int h_token_num{};//output 
     launchCalPaddingoffset(//h_pinned_token_num_ptr, //pinned host mem alloced in h file
                            //&h_token_num, //out
-                           padding_offset->data, //out
-                           cum_seqlens->data, //out
-                           seq_lens->as<int>()->data, // in
-                           dyn_params.batch_size,
-                           dyn_params.max_q_len);
+                           padding_offset, //out
+                           cum_seqlens, //out
+                           seq_lens->as<int>()); // in
     DeviceSyncAndCheckCudaError();
     //2.
     // Tensor* attention_mask = input_tensors["attention_mask"];

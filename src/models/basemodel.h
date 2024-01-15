@@ -4,7 +4,7 @@
 #include "src/utils/tensor.h"
 #include "src/models/common_params.h"
 #include "src/memory/allocator/base_allocator.h"
-#include "src/kernels/cublas_wrapper.h"
+#include "src/kernels/cublas_utils.h"
 
 using CallBack = std::function<void(int index, const char* GenerateContent)>;
 
