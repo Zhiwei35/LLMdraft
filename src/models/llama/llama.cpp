@@ -80,7 +80,6 @@ void Llama<T>::allocateGPUBuffer(int batch_size)
     is_finished = new TensorWrapper<bool>(GPU, getTensorType<bool>(), {batch_size});
     output_rmsnorm_weight = new TensorWrapper<T>(GPU, getTensorType<T>(), {hidden_units}, llama_weights->out_rmsnorm_weight.gamma);
     probs = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, vocab_size});
-    topk_workspace = new TensorWrapper<T>(GPU, getTensorType<T>(), {});
 
     context_decoder_input->data =
         allocator->Malloc(context_decoder_input->data, sizeof(T) * max_context_token_num_ * hidden_units, false); //512x4x32
@@ -110,7 +109,6 @@ void Llama<T>::allocateGPUBuffer(int batch_size)
     // seq_limit_len_ = (uint32_t*)allocator->Malloc(seq_limit_len_, sizeof(uint32_t) * batch_size, false);
     probs->data = allocator->Malloc(probs->data, sizeof(T) * batch_size * vocab_size, false);
     // 两个中间top ids和vals，和两个final topk ids和vals
-    topk_workspace->data = allocator->Malloc(topk_workspace->data, sizeof(T) * (2 * batch_size * K + 2 * batch_size * K * 8/*max block per beam*/ * K), false);
     topk_id = new TensorWrapper<int>(GPU, getTensorType<int>(),
                                                              {batch_size, beamwidth, BlockPerBeam, K});
     topk_val = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, beamwidth, BlockPerBeam, K});
@@ -207,7 +205,7 @@ std::string Llama<T>::MakeHistory(const std::string &history, int round, const s
 }
 template<typename T>
 void Llama<T>::inputEmbedding(TensorWrapper<int>* input_ids, TensorWrapper<T>* decoder_input){
-    launchInputEmbedding<T>(input_ids, decoder_input, &(llama_weights->pre_decoder_embedding_weight), vocab_size);
+    launchInputEmbedding<T>(input_ids, decoder_input, &(llama_weights->pre_decoder_embedding_weight));
     DeviceSyncAndCheckCudaError();
 }
 //每轮对话的1st token
@@ -295,12 +293,12 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap& decoder_outputs){
                             final_topk_id,
                             final_topk_val);//output，这个属于是中间buffer，定义在allocatebuffer就行
     DeviceSyncAndCheckCudaError();
+    int_params_of_sample.insert({"step", *step->data});
     launchSampling(/*Tensor**/ final_topk_id, // in
                    /*Tensor**/ final_topk_val,//in
                    /*Tensor**/ sequence_lengths,//out, +1
                    /*Tensor**/ is_finished,//out, 判断一下是否结束
                    /*Tensor**/ token_ids, //out, 新生成的token ids
-                   step,
                    /*IntDict&*/int_params_of_sample); //in, including step vocabsize endid
     DeviceSyncAndCheckCudaError();
 
@@ -367,13 +365,13 @@ std::string Llama<T>::Response(const std::tuple<std::string, int, int>& input, C
         // for self decoder, input_ids.shape = [1]
         // but  input_ids->data.size = [max_context_token_nums]
         // input_ids->shape = {1};
-        TensorWrapper<int> tmp = TensorWrapper<int>(GPU, getTensorType<int>(), {1}, &ret);
+        TensorWrapper<int> tmp = TensorWrapper<int>(CPU, getTensorType<int>(), {1}, &ret);
         ONELLM_CHECK(tmp.shape != input_ids->shape);
         ONELLM_CHECK(tmp.dtype == input_ids->dtype);
-        ONELLM_CHECK(tmp.location == input_ids->location);
+        ONELLM_CHECK(tmp.location != input_ids->location);
         allocator->Free(input_ids->data);
         input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * 1, false);
-        CHECK(cudaMemcpy(input_ids->data, tmp.data, sizeof(int) * 1)); //但是这个我不希望对齐32b啊，看来allocator还是得改一下
+        CHECK(cudaMemcpy(input_ids->data, tmp.data, sizeof(int) * 1, cudaMemcpyHostToDevice)); //但是这个我不希望对齐32b啊，看来allocator还是得改一下
         // 把input_ids这块[max_context_token_nums]大小得buf输进self decoder是有问题得，应该输入一块decoder_input_buf.shape=[bs, hiddenunits]
         // 或者把input ids这块tensorwrapper的buffer重新allocate并重定义shape，参考fastllm.cpp#261-277
         // input_ids->shape = {1,1};[bs, max seq len]

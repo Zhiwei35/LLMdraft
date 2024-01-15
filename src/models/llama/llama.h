@@ -122,7 +122,6 @@ public:
     //h_step(h_step),
     hidden_units(head_num * head_size),
     max_seq_len(max_seq_len) {
-        //int_params_of_sample.insert({"step", h_step});
         int_params_of_sample.insert({"vocab_size", vocab_size});
         int_params_of_sample.insert({"end_id", eos_token_id});
         layer = new TensorWrapper<int>(CPU, DataType::INT32, {1}, &layer_id);
@@ -144,8 +143,7 @@ public:
                                         rmsnorm_eps,
                                         stream,
                                         cublas_wrapper,
-                                        allocator,
-                                        is_free_buffer_after_forward);
+                                        allocator);
 
         context_decoder = new LlamaContextDecoder<T>(head_num,
                                                     kv_head_num,
@@ -156,8 +154,7 @@ public:
                                                     rmsnorm_eps,
                                                     stream,
                                                     cublas_wrapper,
-                                                    allocator,
-                                                    is_free_buffer_after_forward);
+                                                    allocator;
         //only need to allocate buffer in initialize llama class
         //and the buffer value change can be finished by CUDA kernel
         //so we dont need to reallocate in multi epoch conversation
