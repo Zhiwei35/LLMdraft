@@ -55,23 +55,52 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
         printf("%f\n",decoder_out[0]);
         printf("%f\n",decoder_out[1]);
     }
+    //T zero = static_cast<T>(0.0f);
    // printf("in kernel\n");    
     T thread_accm = static_cast<T>(0);
-    if (residual != nullptr && bias != nullptr){
-        rsd = reinterpret_cast<Vec_t*>(residual + batch_id * hidden_units);//note the offset     should divide vec size
-        bia = reinterpret_cast<Vec_t*>(const_cast<T*>(bias));
+    if (residual != nullptr) {
+	rsd = reinterpret_cast<Vec_t*>(residual + batch_id * hidden_units);//note the offset     should divide vec size
     }
+    if (bias != nullptr){
+        bia = reinterpret_cast<Vec_t*>(const_cast<T*>(bias));
+    } 
+    //if (residual == nullptr) {
+	//*rsd = scalar_cast_vec<Vec_t, T>(zero);
+   // }
+
+    //if (bias == nullptr) {
+    //	*bia = scalar_cast_vec<Vec_t, T>(zero);
+    //}
+
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
         //if (residual != nullptr && bias != nullptr){
            // rsd = reinterpret_cast<Vec_t*>(residual)[batch_id * hidden_units / vec_size + i];//note the offset should divide vec size
           //  bia = reinterpret_cast<Vec_t*>(const_cast<T*>(bias))[i];
         //}
         dout = reinterpret_cast<Vec_t*>(decoder_out)[batch_id * hidden_units / vec_size + i];// note the offset should divide vec size
-        tmp.x = dout.x + rsd[i].x + bia[i].x;
-        tmp.y = dout.y + rsd[i].y + bia[i].y;
-        tmp.z = dout.z + rsd[i].z + bia[i].z;
-        tmp.w = dout.w + rsd[i].w + bia[i].w;
-        thread_accm += tmp.x * tmp.x + tmp.y * tmp.y + 
+        //if (residual != nullptr && bias != nullptr) {
+	//    tmp.x = dout.x rsd[i].x + bia[i].x;
+        //    tmp.y = dout.y + rsd[i].y + bia[i].y;
+        //    tmp.z = dout.z + rsd[i].z + bia[i].z;
+        //    tmp.w = dout.w + rsd[i].w + bia[i].w;
+	//}
+	tmp.x = dout.x;
+	tmp.y = dout.y;
+	tmp.z = dout.z;
+	tmp.w = dout.w;
+	if (residual != nullptr) {
+	    tmp.x += rsd[i].x;
+	    tmp.y += rsd[i].y;
+	    tmp.z += rsd[i].z;
+	    tmp.w += rsd[i].w;
+	}
+	if (bias != nullptr) {
+	    tmp.x += bia[i].x;
+            tmp.y += bia[i].y;
+            tmp.z += bia[i].z;
+            tmp.w += bia[i].w;
+        }	    
+	thread_accm += tmp.x * tmp.x + tmp.y * tmp.y + 
                        tmp.z * tmp.z + tmp.w * tmp.w;
     } // addresidual
   //  printf("in kernel 1\n");

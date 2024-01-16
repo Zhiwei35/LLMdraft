@@ -112,7 +112,7 @@ int main() {
                                                                         {num_tokens, hidden_units}, 
                                                                         d_residual);                                                                        
     BaseWeight<float> norm;
-    norm.bias = d_bias;
+//    norm.bias = d_bias;
     LayerNormWeight<float> scale;
     scale.gamma = d_scale;
     // debug info, better to retain: 
