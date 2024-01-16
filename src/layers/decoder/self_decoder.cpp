@@ -76,7 +76,7 @@ void LlamaSelfDecoder<T>::forward(TensorMap& input_tensors, const std::vector<Ll
                                           gamma,//rmsnorm weights, [hidden_units]
                                           rmsnorm_eps);
         DeviceSyncAndCheckCudaError();
-        decoder_input = decoder_output; // for next iter
+        self_attn_inputs.insert("attention_input", decoder_output); // for next iter
     }
     // no intermedia buffer to free, so ignore call free
 }

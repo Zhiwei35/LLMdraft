@@ -126,7 +126,8 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
                                         gamma,//rmsnorm weights, [hidden_units]
                                         rmsnorm_eps);
         DeviceSyncAndCheckCudaError();
-        decoder_input = decoder_output; // for next iter
+        ctx_attn_inputs.insert("attention_input", decoder_output);
+	//decoder_input = decoder_output; // for next iter
     }
     freeBuf();
     DeviceSyncAndCheckCudaError();

@@ -12,12 +12,12 @@
 //4.ctxattn and ffn, the device free function, must pass right params type
 int main(int argc, char** argv)
 {
-    int head_num = 4;
-    int kv_head_num = 2;
-    int head_size = 8;
+    int head_num = 32;
+    int kv_head_num = 32;
+    int head_size = 128;
     int inter_size = 12;
-    int num_layers = 2;
-    int max_seq_len = 12;
+    int num_layers = 32;
+    int max_seq_len = 64;
     int hidden_units = (head_num + 2 * kv_head_num) * head_size;
     int q_hidden_units = head_num * head_size;
     float rmsnorm_eps = 1e-16;
