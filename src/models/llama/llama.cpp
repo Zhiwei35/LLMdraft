@@ -200,7 +200,8 @@ std::tuple<std::string, int, int> Llama<T>::MakeInput(const std::string &history
 }
 template<typename T>
 std::string Llama<T>::MakeHistory(const std::string &history, int round, const std::string &input, const std::string &output) {
-    return (round == 0 ? prompt : history) + user_role + input + bot_role + output;// + history_sep;
+    // return (round == 0 ? prompt : history) + user_role + input + bot_role + output;// + history_sep;
+    return (round == 0 ? prompt : history) + input + output;// + history_sep;
 }
 template<typename T>
 void Llama<T>::inputEmbedding(TensorWrapper<int>* input_ids, TensorWrapper<T>* decoder_input){
