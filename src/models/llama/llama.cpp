@@ -348,11 +348,11 @@ std::string Llama<T>::Response(const std::tuple<std::string, int, int>& input, C
         // TODO move all needed data to GPU
         // no need input attnmask and positionid like fastllm, cause we build attnmask and dont support abili now
             ret = continueTokenGen(attn_dyn_params);
-            *step->data++;
             if (ret == eos_token_id) {
                 break;
             }
         }
+        *step->data++;
         std::cout << "generated index: " << ret << "\n";
 
         //results.push_back(ret);
