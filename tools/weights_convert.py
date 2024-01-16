@@ -82,46 +82,46 @@ if __name__ == "__main__":
         #     continue
 #        import pdb;pdb.set_trace()
         if name.find('model.embed_tokens.weight') != -1:
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"model.embed_tokens.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.embed_tokens.weight.bin")
         elif name.find('model.norm.weight') != -1:
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"model.norm.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.norm.weight.bin")
         elif name.find('lm_head.weight') != -1:
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"lm_head.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"lm_head.weight.bin")
         elif name.find('self_attn.q_proj.weight') != -1 or name.find('self_attn.k_proj.weight') != -1 or name.find('self_attn.v_proj.weight') != -1:
             layer = name.split(".")[2]
             if name.find('self_attn.q_proj.weight') != -1:
-                q = param.detach().cpu().numpy()
+                q = param.detach().cpu().float().numpy()
             elif name.find('self_attn.k_proj.weight') != -1:
-                k = param.detach().cpu().numpy()
+                k = param.detach().cpu().float().numpy()
             elif name.find('self_attn.v_proj.weight') != -1:
-                v = param.detach().cpu().numpy()
+                v = param.detach().cpu().float().numpy()
                 qkv = np.hstack((q, k, v))
                 qkv.astype(np_weight_data_type).tofile(f"model.layers.{layer}.self_attn.qkv.weight.bin")
                 print("qkv shape: ", qkv.shape)
             # if cur_layer == layer:
-            #     np.concat(param.detach().cpu().numpy())
+            #     np.concat(param.detach().cpu().float().numpy())
             # else:
             #     cur_layer = layer
                 
         elif name.find('self_attn.o_proj.weight') != -1:
             layer = name.split(".")[2]
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.self_attn.o_proj.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.self_attn.o_proj.weight.bin")
         
         elif name.find('mlp.gate_proj.weight') != -1:
             layer = name.split(".")[2]
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.gate_proj.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.gate_proj.weight.bin")
         elif name.find('mlp.up_proj.weight') != -1:
             layer = name.split(".")[2]
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.up_proj.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.up_proj.weight.bin")
         elif name.find('mlp.down_proj.weight') != -1:
             layer = name.split(".")[2]
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.down_proj.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.down_proj.weight.bin")
         elif name.find('input_layernorm.weight') != -1:
             layer = name.split(".")[2]
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.input_layernorm.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.input_layernorm.weight.bin")
         elif name.find('post_attention_layernorm.weight') != -1:
             layer = name.split(".")[2]
-            param.detach().cpu().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.post_attention_layernorm.weight.bin")
+            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.post_attention_layernorm.weight.bin")
 
         # else:
             
