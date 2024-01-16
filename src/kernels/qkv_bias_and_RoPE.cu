@@ -122,29 +122,35 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
     if (is_data)
     {
         q = *reinterpret_cast<Vec_t *>(&QKV[q_id]);
-        Vec_t q_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size]));
-        for (int i = 0; i < vec_size; i++)
-        {
-            reinterpret_cast<float *>(&q)[i] += reinterpret_cast<float *>(&q_bias)[i];
-        }
+	if (qkv_bias != nullptr){
+	    Vec_t q_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size]));
+            for (int i = 0; i < vec_size; i++)
+            {
+            	reinterpret_cast<float *>(&q)[i] += reinterpret_cast<float *>(&q_bias)[i];
+            }
+	}
     }
     // note: kv judge condition is add a item that head_id<kv_head_id in case of GQA and MQA
     if (is_data && head_id < kv_head_num)
     {
         k = *reinterpret_cast<Vec_t *>(&QKV[k_id]);
         // note: I missed a vec_size about the bias offset causing memcpyd2h misaligned address
-        Vec_t k_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size + head_num * head_size]));
-        for (int i = 0; i < vec_size; i++)
-        {
-            reinterpret_cast<float *>(&k)[i] += reinterpret_cast<float *>(&k_bias)[i];
-        }
+        if (qkv_bias != nullptr){
+	    Vec_t k_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size + head_num * head_size]));
+            for (int i = 0; i < vec_size; i++)
+            {
+                reinterpret_cast<float *>(&k)[i] += reinterpret_cast<float *>(&k_bias)[i];
+            }
+	}
 
         v = *reinterpret_cast<Vec_t *>(&QKV[v_id]);
-        Vec_t v_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]));
-        for (int i = 0; i < vec_size; i++)
-        {
-            reinterpret_cast<float *>(&v)[i] += reinterpret_cast<float *>(&v_bias)[i];
-        }
+        if (qkv_bias != nullptr){
+	    Vec_t v_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]));
+            for (int i = 0; i < vec_size; i++)
+            {
+                reinterpret_cast<float *>(&v)[i] += reinterpret_cast<float *>(&v_bias)[i];
+            }
+	}
     }
 
     // 3. RoPE
