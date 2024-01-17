@@ -187,3 +187,4 @@ public:
 template struct loadWeightFromBin<float, float, true>;
 template struct loadWeightFromBin<half, half, true>;
 template struct loadWeightFromBin<float, half, false>;
+template struct loadWeightFromBin<half, float, false>;

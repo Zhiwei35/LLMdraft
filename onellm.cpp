@@ -2,8 +2,8 @@
 #include "src/utils/model_utils.h"
 
 struct Config {
-	std::string dir = "../llamaweight/"; // 模型文件路径
-    std::string tokenizer_file = "../llama2-7b-tokenizer.bin";
+    std::string dir = "/home/hzw/"; // 模型文件路径
+    std::string tokenizer_file = "/home/llama2-7b-tokenizer.bin";
     int max_seq_len = -1; //输出句子的最大长度，超出即退出
 };
 
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     }
     // 加载模型到自定义的model data structure，这一块去看看ft的实现，我感觉那一块更好
     // auto model = onellm::CreateOneLLMModelFromDummy<float>(model_path.tokenizer_file);//model.cpp拿到对应model class的pointer，同时load weight到该class的数据结构中
-    auto model = onellm::CreateOneLLMModelFromFile<half>(model_path.dir, model_path.tokenizer_file);//model.cpp拿到对应model class的pointer，同时load weight到该class的数据结构中
+    auto model = onellm::CreateOneLLMModelFromFile<float>(model_path.dir, model_path.tokenizer_file);//model.cpp拿到对应model class的pointer，同时load weight到该class的数据结构中
     std::string model_name = model->model_name;
     // exist when generate end token or reach max seq
     while (true) {
