@@ -50,11 +50,11 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     int tid = threadIdx.x;
     Vec_t *rsd, *bia, *s;
     Vec_t dout, tmp;
-    if(batch_id == 0 && tid == 0) {
-        printf("ctx attn output: \n");
-        printf("%f\n",decoder_out[0]);
-        printf("%f\n",decoder_out[1]);
-    }
+    //if(batch_id == 0 && tid == 0) {
+    //    printf("addresidualnorm input: \n");
+    //    printf("%f\n",decoder_out[0]);
+    //    printf("%f\n",decoder_out[1]);
+    //}
     //T zero = static_cast<T>(0.0f);
    // printf("in kernel\n");    
     T thread_accm = static_cast<T>(0);
@@ -123,11 +123,11 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
         out[i].y = s[i].y * out[i].y * inv_fenmu;
         out[i].z = s[i].z * out[i].z * inv_fenmu;
         out[i].w = s[i].w * out[i].w * inv_fenmu;
-        if(i == 0) {
-            printf("ctx attn residual rmsnorm top2 res: \n");
-            printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",out[i].x, s[i].x, inv_fenmu);
-            printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",out[i].y, s[i].y);
-        }
+        //if(blockIdx.x == 0 && i == 0) {
+        //    printf("ctx attn residual rmsnorm top2 res: \n");
+        //    printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",out[i].x, s[i].x, inv_fenmu);
+        //    printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",out[i].y, s[i].y);
+        //}
     } 
 
 //    printf("in kernel 2\n");

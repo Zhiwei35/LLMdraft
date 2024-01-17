@@ -290,9 +290,12 @@ void launchScaleMaskAndSoftmax(TensorWrapper<T> *qk,
     int head_nums = qk->shape[1];
     int k_length = qk->shape[3];
     bool is_half = sizeof(T) == 2;
+    printf("softmax problem size: \n");
+    printf("[bs,headnum,qlen,klen]=%d,%d,%d,%d\n",batch_size,head_nums,q_length,k_length);
     // TODO: should enhance it by padding to support odd ones
-    ONELLM_CHECK_WITH_INFO(k_length % 2 == 0, "K_len should be divided by 2!");
-
+    if (is_half) {
+    	ONELLM_CHECK_WITH_INFO(k_length % 2 == 0, "Currently, K_len should be divided by 2 under half type!");
+    }
     dim3 grid(q_length, batch_size, head_nums);
     dim3 block((k_length + 32 - 1) / 32 * 32); // align with 32x threads
     // printf("calling softmax kernel\n");

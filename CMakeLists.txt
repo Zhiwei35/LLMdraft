@@ -90,8 +90,8 @@ add_library(onellm OBJECT
            ${ONELLM_CUDA_SOURCES}
            )
 
-# add_subdirectory(src)
-# add_subdirectory(tests)
+add_subdirectory(src)
+add_subdirectory(tests)
 # add_subdirectory(examples)
 
 add_executable(main onellm.cpp)
