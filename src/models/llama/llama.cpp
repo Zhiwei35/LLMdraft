@@ -193,9 +193,10 @@ void Llama<T>::InitializeForSelfDecoder(){
 
 }
 
+// 返回所有轮次总共的input、总共input中的history部分、总共input中的当前轮次input部分
 template<typename T>
-std::tuple<std::string, int, int> Llama<T>::MakeInput(const std::string &history, int round, const std::string &input) {
-    std::tuple<std::string, int, int> ret(std::make_tuple((round == 0 ? "" : history) + input, history.length(), input.length()));
+std::tuple<std::string, std::string, std::string> Llama<T>::MakeInput(const std::string &history, int round, const std::string &input) {
+    std::tuple<std::string, std::string, std::string> ret(std::make_tuple((round == 0 ? "" : history) + input, history, input));
     return ret;
 }
 template<typename T>
@@ -308,13 +309,25 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap& decoder_outputs){
 }
 
 // 单轮对话, batch size = 1
+// 返回所有轮次总共的input、总共input中的history部分、总共input中的当前轮次input部分
 template<typename T>
-std::string Llama<T>::Response(const std::tuple<std::string, int, int>& input, CallBack PrintRes) {
+std::string Llama<T>::Response(const std::tuple<std::string, std::string, std::string>& input, CallBack PrintRes) {
     // this input already include self-defined pre prompt
     // printf("input= %s", std::get<0>(input));
     std::cout << "input = " << std::get<0>(input) << "\n";
-    std::vector<int> res = tokenizer.Encode(std::get<0>(input));
+    std::vector<int> res = tokenizer.Encode(std::get<2>(input));
+    
+    std::string history_str = std::get<1>(input);
+    std::vector<int> history_input_ids;
+    if (!history_str.empty()) {
+        history_input_ids = tokenizer.Encode(history_str);
+    }
     //h_input_ids_buf_ = res.data();// warning: dont use this method, should use for travese assign, or the former will generate trash val out of vector's scope
+    std::string total_str = std::get<0>(input);
+    std::vector<int> context_ids;
+    if (!total_str.empty()) {
+        context_ids = tokenizer.Encode(total_str);
+    }
     for(int i = 0; i < res.size(); i++) {
         h_input_ids_buf_[i] = res[i]; // [max_context_token_nums_]
     }
@@ -324,9 +337,8 @@ std::string Llama<T>::Response(const std::tuple<std::string, int, int>& input, C
     // ensure prepared all needed input buffer
     int index = 0;
     int ret;
-    int context_length = std::get<0>(input).length();
-    int history_length = std::get<1>(input);
-    //int cur_input_length = std::get<2>(input);
+    int context_length = context_ids.size();
+    int history_length = history_input_ids.size();
     int cur_input_length = res.size(); // res.size() is the input ids len, which is the real input len, rather not len of input string
     IntDict int_params_first_token;
     int_params_first_token["context_length"] = context_length;
