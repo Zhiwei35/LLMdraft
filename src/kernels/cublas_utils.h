@@ -19,7 +19,7 @@ class cublasWrapper {
         cudaDataType_t Atype_;
         cudaDataType_t Btype_;
         cudaDataType_t Ctype_;
-        cublasComputeType_t computeType_;   
+        cudaDataType_t computeType_;   
 
         //cudaStream_t   stream_;
         // void* cublas_workspace = nullptr;

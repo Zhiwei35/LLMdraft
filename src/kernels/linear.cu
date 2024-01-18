@@ -73,36 +73,40 @@ void launchLinearStridedBatchGemm(TensorWrapper<T> *input1,
                                   bool trans_a,
                                   bool trans_b)
 {
+    // B.T A.T = C.T
     // TODO:currently only consider trans_b
-    int Am = input1->shape[2];
-    int Ak = input1->shape[3];
-    int Bk = input2->shape[2];
-    int Bn = input2->shape[3];
-    int lda = Am;
-    int ldb = Bk;
-    int ldc = Am;
-    int64_t strideA = Am * Ak;
-    int64_t strideB = Bk * Bn;
-    int64_t strideC = Am * Bn;
+    int Bm = input1->shape[2]; // len q       // len q
+    int Bk = input1->shape[3]; // head size   // len k
+    int Ak = input2->shape[2]; // len k       // len k
+    int An = input2->shape[3]; // head size   // head size
+    int Cm = output->shape[2]; // len q       // len q
+    int Cn = output->shape[3]; // len k       // head size
+    int lda = An;
+    int ldb = Bk; // ld should be val before transpose
+    int ldc = Cn;
+    int64_t strideA = Ak * An; // stride should be val after transpose
+    int64_t strideB = Bm * Bk;
+    int64_t strideC = Cm * Cn;
     // TODO:check 4nd dim of input = 3rd dim of weight
     // TODO:check batchCount of two matrix is equal
     int batchCount = input1->shape[0] * input1->shape[1];
 
     // std::cout << "calling batch gemm" << "\n";
-    cublasOperation_t transA = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-    cublasOperation_t transB = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N;
+    cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N;
+    cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
+
     cublas_wrapper->stridedBatchedGemm(transA,
                                        transB,
-                                       Am,
-                                       trans_b ? Bk : Bn,
-                                       Ak,
-                                       input1->data, // A
+                                       Cn,           // m
+                                       Cm,           // n
+                                       Bk,           // k
+                                       input2->data, // A,[Bk, Bn]=[bs, head num,  head size,max k len]
                                        lda,
                                        strideA,
-                                       input2->data, // B
+                                       input1->data, // B [Ak, An]=[bs, head num,  head size,max q len]
                                        ldb,
                                        strideB,
-                                       output->data, // C
+                                       output->data, // C [[bs, head num,  max k len, max q len]
                                        ldc,
                                        strideC,
                                        batchCount,

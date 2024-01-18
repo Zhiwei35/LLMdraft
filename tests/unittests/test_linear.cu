@@ -22,7 +22,10 @@ void CPUlinear(float* input, float* weight, float* output,
 
 bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
     for(int i = 0; i < output_size; i++) {
-        if(fabs(CPUoutput[i] - GPUoutput[i]) > 1e-6){
+	if (i == 0) {
+	    printf("0th res, CPUoutput = %f, GPUoutput = %f\n", CPUoutput[i], GPUoutput[i]);
+	}
+  	if(fabs(CPUoutput[i] - GPUoutput[i]) > 1e-6){
             printf("the %dth res is wrong, CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], GPUoutput[i]);
             return false;
         }
