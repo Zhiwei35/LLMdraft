@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     int in_size = 0;
     int w_size = 0;
     int output_size = 0;
-    if (argv[1] == 1) {// enable trans_b for test lmhead linear
+    if (argv[1]) {// enable trans_b for test lmhead linear
         in_size = batch_size * head_num * seqlen_in * head_size; // q
         w_size = batch_size * head_num * seqlen_w * head_size; // k
         output_size = batch_size * head_num * seqlen_in * seqlen_w; //q k
@@ -77,17 +77,14 @@ int main(int argc, char *argv[]) {
     DataType type = getTensorType<float>();
     WeightType wtype = getWeightType<float>(); 
     TensorWrapper<float>* in;
-    if (argv[1] == 1) {
+    if (argv[1]) {
         in = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_in, head_size}, d_in);
     } else {
         in = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_in, seqlen_w}, d_in);
     }
-    BaseWeight<float> weight;
-    weight.shape = {batch_size, head_num, seqlen_w, head_size};
-    weight.data = d_w;
-    weight.type = wtype;
+    TensorWrapper<float>* weight = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_w, head_size}, d_w);
     TensorWrapper<float>* out;
-    if (argv[1] == 1) {// enable trans_b for test lmhead linear
+    if (argv[1]) {// enable trans_b for test lmhead linear
         out = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_in, seqlen_w}, d_out);
     } else {
         out = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_in, head_size}, d_out);
@@ -100,7 +97,7 @@ int main(int argc, char *argv[]) {
     cublas_wrapper->setFP32GemmConfig();  
     // debug info, better to retain: 
     std::cout << "before launch kernel" << std::endl;
-    if (argv[1] == 1) {// enable trans_b for test lmhead linear
+    if (argv[1]) {// enable trans_b for test lmhead linear
         launchLinearStridedBatchGemm(in, weight, out, cublas_wrapper, false, true);
     } else {
         launchLinearStridedBatchGemm(in, weight, out, cublas_wrapper);
@@ -112,7 +109,7 @@ int main(int argc, char *argv[]) {
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
     CHECK(cudaMemcpy(h_out, d_out, sizeof(float) * output_size, cudaMemcpyDeviceToHost));
     float* CPUout = (float*) malloc(sizeof(float) * output_size);
-    if (argv[1] == 1) {// enable trans_b for test lmhead linear
+    if (argv[1]) {// enable trans_b for test lmhead linear
         CPUlinear(h_in, h_w, CPUout, seqlen_in, head_size, seqlen_w, batch_size * head_num);
     } else {
         CPUlinear(h_in, h_w, CPUout, seqlen_in, seqlen_w, head_size, batch_size * head_num);
