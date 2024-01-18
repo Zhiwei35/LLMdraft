@@ -195,8 +195,8 @@ void Llama<T>::InitializeForSelfDecoder(){
 
 // 返回所有轮次总共的input、总共input中的history部分、总共input中的当前轮次input部分
 template<typename T>
-std::tuple<std::string, std::string, std::string> Llama<T>::MakeInput(const std::string &history, int round, const std::string &input) {
-    std::tuple<std::string, std::string, std::string> ret(std::make_tuple((round == 0 ? "" : history) + input, history, input));
+std::vector<std::string> Llama<T>::MakeInput(const std::string &history, int round, const std::string &input) {
+    std::vector<std::string> ret = {(round == 0 ? "" : history) + input, history, input};
     return ret;
 }
 template<typename T>
@@ -311,19 +311,19 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap& decoder_outputs){
 // 单轮对话, batch size = 1
 // 返回所有轮次总共的input、总共input中的history部分、总共input中的当前轮次input部分
 template<typename T>
-std::string Llama<T>::Response(const std::tuple<std::string, std::string, std::string>& input, CallBack PrintRes) {
+std::string Llama<T>::Response(const std::vector<std::string>& input, CallBack PrintRes) {
     // this input already include self-defined pre prompt
     // printf("input= %s", std::get<0>(input));
-    std::cout << "input = " << std::get<0>(input) << "\n";
-    std::vector<int> res = tokenizer.Encode(std::get<2>(input));
+    std::cout << "input = " << input[0] << "\n";
+    std::vector<int> res = tokenizer.Encode(input[2]);
     
-    std::string history_str = std::get<1>(input);
+    std::string history_str = input[1];
     std::vector<int> history_input_ids;
     if (!history_str.empty()) {
         history_input_ids = tokenizer.Encode(history_str);
     }
     //h_input_ids_buf_ = res.data();// warning: dont use this method, should use for travese assign, or the former will generate trash val out of vector's scope
-    std::string total_str = std::get<0>(input);
+    std::string total_str = input[0];
     std::vector<int> context_ids;
     if (!total_str.empty()) {
         context_ids = tokenizer.Encode(total_str);

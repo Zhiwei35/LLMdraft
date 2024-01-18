@@ -182,11 +182,11 @@ public:
     //weights在common_utils里面已经load好了
     //void loadWeights(std::string file);
 
-    std::tuple<std::string, int, int> MakeInput(const std::string &history, int round, const std::string &input); // 根据历史信息和当前输入生成prompt
+    std::vector<std::string> MakeInput(const std::string &history, int round, const std::string &input); // 根据历史信息和当前输入生成prompt
 
     std::string MakeHistory(const std::string &history, int round, const std::string &input, const std::string &output); // 根据当前轮次回复更新history
     // single request response
-    std::string Response(const std::tuple<std::string, int, int>& input, CallBack PrintRes);
+    std::string Response(const std::vector<std::string>& input, CallBack PrintRes);
 
     //copy token ids to CPU(h_token_ids), 暂时不需要，因为反正也是bs=1
     int MakeOutput();
