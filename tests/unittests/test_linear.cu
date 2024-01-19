@@ -33,7 +33,7 @@ bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
     }
     return true;
 }
-//(wrong)2 fusedGateUpGemm =>{seqlen, hidden_units} * {hidden_units, 2 * inter_size} = [16, 16] * 2*[16, 8]
+//(right)2 fusedGateUpGemm / down =>{seqlen, hidden_units} * {2 * inter_size, hidden_units} = [16, 16] * [10*2, 16]
 //(right)1 trans b => {seqlen, hidden_units} * {vocab_size, hidden_units} = [16, 16] * [32, 16]
 //(right)0 most cases => {seqlen, hidden_units} * {hidden_units, hidden_units} = [16, 16] * [16, 16]
 int main(int argc, char *argv[]) {

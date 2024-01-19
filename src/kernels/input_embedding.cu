@@ -15,9 +15,10 @@ __global__ void embeddingFunctor(const int* input_ids,
         output[index] = embed_table[id * hidden_size + index % hidden_size];
         index += blockDim.x * gridDim.x;
     }
-    if (index == 0){
+    if (blockIdx.x == 0 && threadIdx.x == 0){
         printf("embedding res: \n");
-        printf("%f\n",output[index]);
+        printf("%f\n",output[0]);
+        printf("%f\n",output[1]);
     }
 }
 
