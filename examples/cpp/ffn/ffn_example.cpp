@@ -55,8 +55,8 @@ int main(int argc, char** argv)
     CHECK(cudaMemcpy(d_down, h_down, sizeof(float) * hidden_units * inter_size, cudaMemcpyHostToDevice));
     DataType type = getTensorType<float>(); // note: the type should be as a class data member!
     LLaMAFFNWeights<float> ffn_weights;
-    ffn_weights.gate_up.data = d_gate_up;
-    ffn_weights.gate_up.shape = {hidden_units, 2 * inter_size};
+    ffn_weights.gateAndup.data = d_gate_up;
+    ffn_weights.gateAndup.shape = {hidden_units, 2 * inter_size};
    //  ffn_weights.up.data = d_up;
    //  ffn_weights.up.shape = {hidden_units, inter_size};
     ffn_weights.down.data = d_down;
