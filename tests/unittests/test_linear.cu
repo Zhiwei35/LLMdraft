@@ -36,12 +36,12 @@ bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
 
 int main(int argc, char *argv[]) {
     const int seqlen = 16;
-    const int hidden_units = 4096;
-    const int vocab_size = 32000;
-    const int inter_size = 11008;
+    const int hidden_units = 16;
+    const int vocab_size = 32;
+    const int inter_size = 8;
     int hidden_units_2 = 0;
     int output_size = 0;
-    if (atoi(argv[1]) == 2) {
+    if (atoi(argv[1]) == 2) { // shared out buf
         hidden_units_2 = inter_size * hidden_units;
         output_size = 2 * seqlen * inter_size;
     } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
@@ -57,14 +57,14 @@ int main(int argc, char *argv[]) {
     h_w = (float*)malloc(sizeof(float) * hidden_units_2);
     cudaMalloc((void**)&d_w, sizeof(float) * hidden_units_2);
     for(int i = 0; i < hidden_units_2; i++) { 
-       h_w[i] = 1.0f;
+       h_w[i] = (float)(i % 2 + 1); // 1 2 1 2
     }
 
     float* h_in = (float*) malloc(sizeof(float) * hidden_units * seqlen);
     float* d_in;
     cudaMalloc((void**)&d_in, sizeof(float) * seqlen *  hidden_units);
     for(int i = 0; i < hidden_units * seqlen; i++) { 
-       h_in[i] = 1.0f;
+       h_in[i] = (float)(i % 2 + 1);
     }
 
     float* h_out = (float*) malloc(sizeof(float) * output_size);

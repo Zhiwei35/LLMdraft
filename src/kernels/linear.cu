@@ -1,9 +1,15 @@
 #include <iostream>
 #include "src/kernels/linear.h"
 // TODO: when abstracted weight class, replace T with class
-// weight * input
-// weight shape = [hidden_units, hidden_units]
-// input shape = [hidden_units, seqlen]
+// all matmul cases:
+// ctx qkv lienar: [num_tokens, qhiddenunits] * [qhiddenunits, hiddenunits] = {num_tokens, qkv_head_num,  head_size}
+// ctx attn output linear: {num_tokens, head_num, head_size} * {q hidden units, q hidden units} = {num_tokens, q hidden units}
+// self qkv linear: [bs, q hidden units] * [qhiddenunits, hiddenunits] = {bs, qkv_head_num,  head_size}}
+// self attn output linear: {batch_size, q hidden_units} * [qhiddenunits, qhiddenunits] = [bs, q hiddenunits]
+// lmhead linear: [bs, q hidden units] * [vocab size, q hiden units], need transpose B
+// gate:[bs/token nums, q hidden units] * [q hidden units, inter size] = [bs/token nums, inter size]
+// up:[bs/token nums, q hidden units] * [q hidden units, inter size] = [bs/token nums, inter size]
+// down:[bs/token nums, inter size] * [inter size, q hidden units] = [bs/token nums, q hidden units]
 template <typename T>
 void launchLinearGemm(TensorWrapper<T> *input,
                       BaseWeight<T> &weight,
@@ -11,60 +17,118 @@ void launchLinearGemm(TensorWrapper<T> *input,
                       cublasWrapper *cublas_wrapper,
                       bool trans_a,
                       bool trans_b,
-                      bool shared_out_buf,
-                      int cur_input_len)
+                      bool shared_out_buf)
 {
-    int input_lda = cur_input_len > 1 ? 1 : input->shape[0];
-    int weight_ldb = weight.shape[0];
-    int weight_1st_dim = weight.shape[0];
-    int weight_2nd_dim = weight.shape[1];
+    int Am = weight.shape[1];
+    int Ak = weight.shape[0];
+    int Bk = input->shape[1];
+    int Bn = input->shape[0];
+    int Cm = output->shape[1];
+    int Cn = output->shape[0];
 
-    int output_ldc = input_lda;
-    int n = output->shape.size() == 3 ? output->shape[2] : output->shape[1];
-    cublasOperation_t transA = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-    cublasOperation_t transB = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N;
+    // for ctx attn and self attn qkv linear
+    Cm = output->shape.size() == 3 && !shared_out_buf ? output->shape[1] * output->shape[2] : output->shape[1];
+    // for gate & up linear
+    Cm = output->shape.size() == 3 && shared_out_buf ? output->shape[2] : output->shape[1];
+    Cn = output->shape.size() == 3 && shared_out_buf ? output->shape[1] : output->shape[0];
+    // for ctx attn output linear
+    Bk = input->shape.size() == 3 ? input->shape[1] * input->shape[2] : input->shape[1];
+    int lda = Am;
+    int ldb = Bk;
+    int ldc = Cm;
+    // input length > 1 表示当前为first token的lmhead, 参考自fastllm, 去[maxlen-1,maxlen)范围的tensor参与lmhead即可，反之为second token的lmhead
+    // transformers里面是不是和fastllm一样的做法还有待确认，没有在causaloutputwithpast里面找到
+
+    cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N; // for lmhead linear
+    cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
     int offset = 0;
     if (shared_out_buf)
     {
         ONELLM_CHECK_WITH_INFO(output->shape.size() == 3, "output shape should be 3 dims, that is [2, num tokens, hidden units]");
-        offset = input_lda * output->shape[2]; // num tokes * inter size, need to modify activate kernel input shape to [2, num tokens, inter size] and buf shape
+        offset = output->shape[1] * output->shape[2]; // num tokes * inter size, need to modify activate kernel input shape to [2, num tokens, inter size] and buf shape
     }
-    //std::cout << "shared offset: " << offset << std::endl;
-    // std::cout << "m: " << input_lda
-    //           << "n: " << n << " or " << weight_1st_dim
-    //           << "k: " << weight_ldb << "\n" // 32
-    //           << "weight shape: " << weight.shape[0] << "," << weight.shape[1] << "\n"
-    //           << "output shape: " << output->shape[0] << "," << output->shape[1] << "\n";
+    // std::cout << "shared offset: " << offset << std::endl;
+    //  std::cout << "m: " << input_lda
+    //            << "n: " << n << " or " << weight_1st_dim
+    //            << "k: " << weight_ldb << "\n" // 32
+    //            << "weight shape: " << weight.shape[0] << "," << weight.shape[1] << "\n"
+    //            << "output shape: " << output->shape[0] << "," << output->shape[1] << "\n";
     if (!trans_a && !trans_b)
     {
-        ONELLM_CHECK_WITH_INFO(weight.shape[0] == weight_ldb, "2nd dim of input MUST = 1st dim of weight");
-    }
-    else if (trans_b)
-    {
-        if (input->shape.size() > 2)
-        {
-            ONELLM_CHECK_WITH_INFO(input->shape[2] == weight.shape[1], "when trans_b, 2nd dim of input MUST = 2nd dim of weight");
-        }
-        else
-        {
-            ONELLM_CHECK_WITH_INFO(input->shape[1] == weight.shape[1], "when trans_b, 2nd dim of input MUST = 2nd dim of weight");
-        }
+        ONELLM_CHECK_WITH_INFO(Ak == Bk, "2nd dim of input MUST = 1st dim of weight");
     }
 
     cublas_wrapper->Gemm(transA,
                          transB,
-                         input_lda,                                      // m
-                         trans_b ? weight_1st_dim : n,                   // n, when load real weight, lmhead weight is same as pre embedding, which shape = [vocab, hidden], so here should transpose b
-                         trans_b ? weight_2nd_dim : weight_ldb,          // k
-                         input->data + (cur_input_len - 1) * weight_ldb, // A, cur_input_len is for context decoder lmhead
-                         input_lda,                                      // lda
-                         weight.data,                                    // B
-                         weight_ldb,                                     // ldb
-                         output->data + offset,                          // C
-                         output_ldc,                                     // ldc
+                         trans_b ? Ak : Am, // m
+                         Cn,                // n, when load real weight, lmhead weight is same as pre embedding, which shape = [vocab, hidden], so here should transpose b
+                         Bk,
+                         weight.data,                     // A, cur_input_len is for context decoder lmhead
+                         lda,                             // lda
+                         input->data, // B
+                         ldb,                             // ldb
+                         output->data + offset,           // C
+                         ldc,                             // ldc
                          1.0f,
                          0.0f);
 }
+
+template <typename T>
+void launchLinearGemmForCtxDecoderLMhead(TensorWrapper<T> *input,
+                                        BaseWeight<T> &weight,
+                                        TensorWrapper<T> *output,
+                                        cublasWrapper *cublas_wrapper,
+                                        bool trans_a,
+                                        bool trans_b,)
+{
+    int Am = weight.shape[1];
+    int Ak = weight.shape[0];
+    int Bk = input->shape[1];
+    int Bn = input->shape[0];
+    int Cm = output->shape[1];
+    int Cn = output->shape[0];
+
+    int lda = Am;
+    int ldb = Bk;
+    int ldc = Cm;
+    // > 1 表示当前为first token的lmhead, 参考自fastllm, 去[maxlen-1,maxlen)范围的tensor参与lmhead即可，反之为second token的lmhead
+    // transformers里面是不是和fastllm一样的做法还有待确认，没有在causaloutputwithpast里面找到
+    // ldb = cur_input_len > 1 ? 1 : Bk; 不需要修改ldb，此时ldb为hiddenunits，seqlen维度在第二维
+        int outer = input.Count(0) / input.Count(axis); // dims[0] * strides[0] / dims[axis] * strides[axis]
+        int inputStride = input.Count(axis);
+        int outputStride = output.Count(axis);
+        int channels = input.dims[axis];
+        int inner = input.strides[axis];
+        int unitSize = (int)sizeof(T);// sizeof(T)
+
+        cudaMemcpy2D((void*)output.cudaData, outputStride * unitSize,
+                                          (void*)input.cudaData + start * inner * unitSize, inputStride * unitSize,
+                                          (cur_input_len - (cur_input_len - 1)) * inner * unitSize, outer, cudaMemcpyDeviceToDevice);// height rows of width bytes
+
+    cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N; // for lmhead linear
+    cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
+    // std::cout << "shared offset: " << offset << std::endl;
+    //  std::cout << "m: " << input_lda
+    //            << "n: " << n << " or " << weight_1st_dim
+    //            << "k: " << weight_ldb << "\n" // 32
+    //            << "weight shape: " << weight.shape[0] << "," << weight.shape[1] << "\n"
+    //            << "output shape: " << output->shape[0] << "," << output->shape[1] << "\n";
+
+    cublas_wrapper->Gemm(transA,
+                         transB,
+                         trans_b ? Ak : Am, // m
+                         Cn,                // n, when load real weight, lmhead weight is same as pre embedding, which shape = [vocab, hidden], so here should transpose b
+                         Bk,
+                         weight.data,                     // A, cur_input_len is for context decoder lmhead
+                         lda,                             // lda
+                         input->data + cur_input_len - 1, // B
+                         ldb,                             // ldb
+                         output->data,           // C
+                         ldc,                             // ldc
+                         1.0f,
+                         0.0f);
+}
+
 template <typename T>
 void launchLinearStridedBatchGemm(TensorWrapper<T> *input1,
                                   TensorWrapper<T> *input2,

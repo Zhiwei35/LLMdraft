@@ -48,7 +48,7 @@ private:
     //T*   context_decoder_output_buf_{};  // CTXDEC
     TensorWrapper<T>* context_decoder_output;
     //int* context_decoder_ids_buf_{}; //这个倒没见过
-
+    TensorWrapper<T>* context_decoder_lmhead_input;
     //T* decoder_input_buf_{};   // CTXDEC, GENERATE
     TensorWrapper<T>* decoder_input;
     //T* decoder_output_buf_{};  // CTXDEC, GENERATE
