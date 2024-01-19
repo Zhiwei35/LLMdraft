@@ -56,7 +56,7 @@ int main(int argc, char** argv)
     DataType type = getTensorType<float>(); // note: the type should be as a class data member!
     LLaMAFFNWeights<float> ffn_weights;
     ffn_weights.gateAndup.data = d_gate_up;
-    ffn_weights.gateAndup.shape = {hidden_units, 2 * inter_size};
+    ffn_weights.gateAndup.shape = {2 * inter_size, hidden_units};
    //  ffn_weights.up.data = d_up;
    //  ffn_weights.up.shape = {hidden_units, inter_size};
     ffn_weights.down.data = d_down;

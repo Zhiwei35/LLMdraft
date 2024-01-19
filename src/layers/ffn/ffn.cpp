@@ -55,7 +55,7 @@ void LLaMAFFNLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, LLaMAFFNWe
     Tensor* ffn_input = inputs["ffn_input"];
     Tensor* ffn_output = outputs["ffn_output"];
     // fusedGateUp proj
-    launchLinearGemm(ffn_input->as<T>(), weights.gateAndup, SwiGLU_input, cublas_wrapper);
+    launchLinearGemm(ffn_input->as<T>(), weights.gateAndup, SwiGLU_input, cublas_wrapper, false, true);
     // // up proj
     // launchLinearGemm(ffn_input->as<T>(), weights.up, SwiGLU_input, cublas_wrapper, false, false, true);
 
@@ -63,7 +63,7 @@ void LLaMAFFNLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, LLaMAFFNWe
     //down proj
     // error, output should be ffn output
     // launchLinearGemm(down_proj_input, weights.down, down_proj_output);
-    launchLinearGemm(down_proj_input, weights.down, ffn_output->as<T>(), cublas_wrapper);
+    launchLinearGemm(down_proj_input, weights.down, ffn_output->as<T>(), cublas_wrapper, false, true);
 
     this->freeBuf();
 };

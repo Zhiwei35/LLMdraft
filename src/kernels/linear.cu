@@ -10,7 +10,7 @@
 // gate:[bs/token nums, q hidden units] * [q hidden units, inter size] = [bs/token nums, inter size]
 // up:[bs/token nums, q hidden units] * [q hidden units, inter size] = [bs/token nums, inter size]
 // fusedGateUpGemm: [bs/token nums, q hidden units] * [q hidden units, 2 * inter size] = [bs/token nums, 2 * inter size]
-// down:[bs/token nums, inter size] * [inter size, q hidden units] = [bs/token nums, q hidden units]
+// down:[bs/token nums, inter size] * [q hidden units, inter size] = [bs/token nums, q hidden units]
 template <typename T>
 void launchLinearGemm(TensorWrapper<T> *input,
                       BaseWeight<T> &weight,
@@ -37,8 +37,9 @@ void launchLinearGemm(TensorWrapper<T> *input,
     int ldc = Cm;
     // input length > 1 表示当前为first token的lmhead, 参考自fastllm, 去[maxlen-1,maxlen)范围的tensor参与lmhead即可，反之为second token的lmhead
     // transformers里面是不是和fastllm一样的做法还有待确认，没有在causaloutputwithpast里面找到
-
-    cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N; // for lmhead linear
+    
+    // for lmhead linear and ffn all lieanrs
+    cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N; 
     cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
     // int offset = 0;
     // if (shared_out_buf)

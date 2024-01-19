@@ -115,17 +115,18 @@ int main(){
         h_out_bias[i] = 2.0f;
     }
     float* d_ffn_gate, *d_ffn_up, *d_ffn_down, *d_ffn_down_bias;
-    float* h_ffn_gate = (float*) malloc(sizeof(float) * hidden_units * inter_size);
-    float* h_ffn_up = (float*) malloc(sizeof(float) * hidden_units * inter_size);
+    float* h_ffn_gate_up = (float*) malloc(sizeof(float) * hidden_units * 2 * inter_size);
+    // float* h_ffn_up = (float*) malloc(sizeof(float) * hidden_units * inter_size);
     float* h_ffn_down = (float*) malloc(sizeof(float) * hidden_units * inter_size);
     float* h_ffn_down_bias = (float*) malloc(sizeof(float) * hidden_units);
-    cudaMalloc((void**)&d_ffn_gate, sizeof(float) * hidden_units * inter_size);
-    cudaMalloc((void**)&d_ffn_up, sizeof(float) * hidden_units * inter_size);
+    cudaMalloc((void**)&d_ffn_gate, sizeof(float) * hidden_units * 2 * inter_size);
+    // cudaMalloc((void**)&d_ffn_up, sizeof(float) * hidden_units * inter_size);
     cudaMalloc((void**)&d_ffn_down, sizeof(float) * hidden_units * inter_size);
     cudaMalloc((void**)&d_ffn_down_bias, sizeof(float) * hidden_units);
+    for(int i = 0; i < hidden_units * 2 * inter_size; i++){
+        h_ffn_gate_up[i] = 2.0f;
+    }
     for(int i = 0; i < hidden_units * inter_size; i++){
-        h_ffn_gate[i] = 2.0f;
-        h_ffn_up[i] = 1.0f;
         h_ffn_down[i] = 2.0f;
         if (i < hidden_units){
             h_ffn_down_bias[i] = 0.0f;

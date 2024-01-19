@@ -34,9 +34,9 @@ LlamaLayerWeight<T>::LlamaLayerWeight(int     head_num,
     // ffn_weight.up.type = weight_type;
     ffn_weight.gateAndup.type = weight_type;
     ffn_weight.down.type = weight_type;
-    ffn_weight.gateAndup.shape = {hidden_units, 2 * inter_size};
+    ffn_weight.gateAndup.shape = {2 * inter_size, hidden_units};
     // ffn_weight.up.shape = {hidden_units, inter_size};
-    ffn_weight.down.shape = {inter_size, hidden_units};
+    ffn_weight.down.shape = {hidden_units, inter_size};
     GPUMalloc(&ffn_weight.gateAndup.data, hidden_units * 2 * inter_size);
     // GPUMalloc(&ffn_weight.up.data, hidden_units * inter_size);
     GPUMalloc(&ffn_weight.down.data, hidden_units * inter_size);
@@ -52,9 +52,9 @@ void LlamaLayerWeight<T>::loadWeights(std::string weight_path, WeightType weight
 
     loadWeightFromBin<T, float>::internalFunc(self_attn_weight.qkv.data, {hidden_units, (head_num + 2 * kv_head_num) * head_size}, weight_path + ".self_attn.qkv.weight.bin");
     loadWeightFromBin<T, float>::internalFunc(self_attn_weight.output.data, {hidden_units, hidden_units}, weight_path + ".self_attn.o_proj.weight.bin");
-    loadWeightFromBin<T, float>::internalFunc(ffn_weight.gateAndup.data, {hidden_units, 2 * inter_size}, weight_path + ".mlp.gate_up_proj.weight.bin");
+    loadWeightFromBin<T, float>::internalFunc(ffn_weight.gateAndup.data, {2 * inter_size, hidden_units}, weight_path + ".mlp.gate_up_proj.weight.bin");
     // loadWeightFromBin<T, float>::internalFunc(ffn_weight.up.data, {hidden_units, inter_size}, weight_path + ".mlp.up_proj.weight.bin");
-    loadWeightFromBin<T, float>::internalFunc(ffn_weight.down.data, {inter_size, hidden_units}, weight_path + ".mlp.down_proj.weight.bin");
+    loadWeightFromBin<T, float>::internalFunc(ffn_weight.down.data, {hidden_units, inter_size}, weight_path + ".mlp.down_proj.weight.bin");
     if (attn_bias) {//TODO
         loadWeightFromBin<T, float>::internalFunc(self_attn_weight.qkv.bias, {(head_num + 2 * kv_head_num) * head_size}, weight_path + ".attention.wqkv.bias.bin");
         loadWeightFromBin<T, float>::internalFunc(self_attn_weight.output.bias, {head_num *  head_size}, weight_path + ".attention.wo.bias.bin");

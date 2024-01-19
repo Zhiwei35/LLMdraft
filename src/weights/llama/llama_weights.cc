@@ -32,7 +32,7 @@ LlamaWeight<T>::LlamaWeight(
     GPUMalloc(&post_decoder_embedding_weight.data, vocab_size * hidden_units);
     GPUMalloc(&pre_decoder_embedding_weight.data, vocab_size * hidden_units);
     pre_decoder_embedding_weight.shape = {vocab_size, hidden_units};
-    post_decoder_embedding_weight.shape = {hidden_units, vocab_size};
+    post_decoder_embedding_weight.shape = {vocab_size, hidden_units};
     pre_decoder_embedding_weight.type = weight_type;
     post_decoder_embedding_weight.type = weight_type;
 }
@@ -43,7 +43,7 @@ void LlamaWeight<T>::loadWeights(std::string weight_path) {
     // weight from HF is always half type
     loadWeightFromBin<T, float>::internalFunc(out_rmsnorm_weight.gamma, {(size_t)hidden_units}, weight_path + "model.norm.weight.bin");
     std::cout << "loaded norm weight " << weight_path <<"\n";
-    loadWeightFromBin<T, float>::internalFunc(post_decoder_embedding_weight.data, {(size_t)hidden_units, (size_t)vocab_size}, weight_path + "lm_head.weight.bin");
+    loadWeightFromBin<T, float>::internalFunc(post_decoder_embedding_weight.data, {(size_t)vocab_size, (size_t)hidden_units}, weight_path + "lm_head.weight.bin");
     std::cout << "loaded lmhead weight " << weight_path <<"\n";
     loadWeightFromBin<T, float>::internalFunc(pre_decoder_embedding_weight.data, {(size_t)vocab_size, (size_t)hidden_units}, weight_path + "model.embed_tokens.weight.bin");
     std::cout << "loaded embed tokens weight " << weight_path <<"\n";
