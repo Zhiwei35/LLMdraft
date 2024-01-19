@@ -107,12 +107,17 @@ if __name__ == "__main__":
             layer = name.split(".")[2]
             param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.self_attn.o_proj.weight.bin")
         
-        elif name.find('mlp.gate_proj.weight') != -1:
+        elif name.find('mlp.gate_proj.weight') != -1 or name.find('mlp.up_proj.weight') != -1:
             layer = name.split(".")[2]
-            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.gate_proj.weight.bin")
-        elif name.find('mlp.up_proj.weight') != -1:
-            layer = name.split(".")[2]
-            param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.up_proj.weight.bin")
+            if name.find('mlp.gate_proj.weight') != -1:
+                gate = param.detach().cpu().float().numpy()
+            elif name.find('mlp.up_proj.weight') != -1:
+                up = param.detach().cpu().float().numpy()
+                gate_up = np.hstack((gate, up))
+                gate_up.astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.gate_up_proj.weight.bin")
+        # elif name.find('mlp.up_proj.weight') != -1:
+        #     layer = name.split(".")[2]
+        #     param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.up_proj.weight.bin")
         elif name.find('mlp.down_proj.weight') != -1:
             layer = name.split(".")[2]
             param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.down_proj.weight.bin")

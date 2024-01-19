@@ -33,7 +33,9 @@ bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
     }
     return true;
 }
-
+//(wrong)2 fusedGateUpGemm =>{seqlen, hidden_units} * {hidden_units, 2 * inter_size} = [16, 16] * 2*[16, 8]
+//(right)1 trans b => {seqlen, hidden_units} * {vocab_size, hidden_units} = [16, 16] * [32, 16]
+//(right)0 most cases => {seqlen, hidden_units} * {hidden_units, hidden_units} = [16, 16] * [16, 16]
 int main(int argc, char *argv[]) {
     const int seqlen = 16;
     const int hidden_units = 16;
@@ -41,8 +43,8 @@ int main(int argc, char *argv[]) {
     const int inter_size = 8;
     int hidden_units_2 = 0;
     int output_size = 0;
-    if (atoi(argv[1]) == 2) { // shared out buf
-        hidden_units_2 = inter_size * hidden_units;
+    if (atoi(argv[1]) == 2) { // fusedGateUpGemm
+        hidden_units_2 = 2 * inter_size * hidden_units;
         output_size = 2 * seqlen * inter_size;
     } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
         hidden_units_2 = vocab_size * hidden_units;
@@ -78,7 +80,7 @@ int main(int argc, char *argv[]) {
     TensorWrapper<float>* in = new TensorWrapper<float>(Device::GPU, type, {seqlen, hidden_units}, d_in);
     BaseWeight<float> weight;
     if (atoi(argv[1]) == 2) {
-        weight.shape = {hidden_units, inter_size};
+        weight.shape = {hidden_units, 2 * inter_size};
     } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
         weight.shape = {vocab_size, hidden_units};
     } else {
@@ -88,7 +90,7 @@ int main(int argc, char *argv[]) {
     weight.type = wtype;
     TensorWrapper<float>* out;
     if (atoi(argv[1]) == 2) {
-        out = new TensorWrapper<float>(Device::GPU, type, {2, seqlen, inter_size}, d_out);
+        out = new TensorWrapper<float>(Device::GPU, type, {seqlen, 2, inter_size}, d_out);
     } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
         out = new TensorWrapper<float>(Device::GPU, type, {seqlen, vocab_size}, d_out);
     } else {
@@ -104,7 +106,6 @@ int main(int argc, char *argv[]) {
     std::cout << "before launch kernel" << std::endl;
     if (atoi(argv[1]) == 2) {
         launchLinearGemm(in, weight, out, cublas_wrapper);
-        launchLinearGemm(in, weight, out, cublas_wrapper, false, false, true);
     } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
         launchLinearGemm(in, weight, out, cublas_wrapper, false, true);
     } else {
@@ -118,8 +119,7 @@ int main(int argc, char *argv[]) {
     CHECK(cudaMemcpy(h_out, d_out, sizeof(float) * output_size, cudaMemcpyDeviceToHost));
     float* CPUout = (float*) malloc(sizeof(float) * output_size);
     if (atoi(argv[1]) == 2) {
-        CPUlinear(h_in, h_w, CPUout, seqlen, hidden_units, inter_size);
-        CPUlinear(h_in, h_w, CPUout + seqlen * inter_size, seqlen, hidden_units, inter_size);
+        CPUlinear(h_in, h_w, CPUout, seqlen, hidden_units, 2 * inter_size);
     } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
         CPUlinear(h_in, h_w, CPUout, seqlen, hidden_units, vocab_size);
     } else {

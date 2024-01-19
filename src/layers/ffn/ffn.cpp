@@ -19,7 +19,7 @@ template<typename T>
 void LLaMAFFNLayer<T>::allocForForward(LLaMAAttentionDynParams& params){
     int num_tokens = params.num_tokens;
     DataType type = getTensorType<T>(); 
-    SwiGLU_input = new TensorWrapper<T>(Device::GPU, type, {2, num_tokens, inter_size});
+    SwiGLU_input = new TensorWrapper<T>(Device::GPU, type, {num_tokens, 2, inter_size});
     down_proj_input = new TensorWrapper<T>(Device::GPU, type, {num_tokens, inter_size});
     // down_proj_output = new TensorWrapper<T>(Device::GPU, type, {num_tokens, hidden_units});
     SwiGLU_input->data = allocator->Malloc(SwiGLU_input->data, sizeof(T) * num_tokens * 2 * inter_size, false);
@@ -29,7 +29,7 @@ void LLaMAFFNLayer<T>::allocForForward(LLaMAAttentionDynParams& params){
 template<typename T>
 void LLaMAFFNLayer<T>::allocForForward(int batch_size){
     DataType type = getTensorType<T>(); 
-    SwiGLU_input = new TensorWrapper<T>(Device::GPU, type, {2, batch_size, inter_size});
+    SwiGLU_input = new TensorWrapper<T>(Device::GPU, type, {batch_size, 2, inter_size});
     down_proj_input = new TensorWrapper<T>(Device::GPU, type, {batch_size, inter_size});
     // down_proj_output = new TensorWrapper<T>(Device::GPU, type, {batch_size, hidden_units});
     SwiGLU_input->data = allocator->Malloc(SwiGLU_input->data, sizeof(T) * batch_size * 2 * inter_size, false);
@@ -54,10 +54,10 @@ void LLaMAFFNLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, LLaMAFFNWe
     }
     Tensor* ffn_input = inputs["ffn_input"];
     Tensor* ffn_output = outputs["ffn_output"];
-    // gate proj
-    launchLinearGemm(ffn_input->as<T>(), weights.gate, SwiGLU_input, cublas_wrapper);
-    // up proj
-    launchLinearGemm(ffn_input->as<T>(), weights.up, SwiGLU_input, cublas_wrapper, false, false, true);
+    // fusedGateUp proj
+    launchLinearGemm(ffn_input->as<T>(), weights.gateAndup, SwiGLU_input, cublas_wrapper);
+    // // up proj
+    // launchLinearGemm(ffn_input->as<T>(), weights.up, SwiGLU_input, cublas_wrapper, false, false, true);
 
     launchAct(SwiGLU_input, down_proj_input);// down_proj_input maybe can reuse swiglu_input buf, will validate it later
     //down proj

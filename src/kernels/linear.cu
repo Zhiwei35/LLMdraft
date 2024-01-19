@@ -9,6 +9,7 @@
 // lmhead linear: [bs, q hidden units] * [vocab size, q hiden units], need transpose B
 // gate:[bs/token nums, q hidden units] * [q hidden units, inter size] = [bs/token nums, inter size]
 // up:[bs/token nums, q hidden units] * [q hidden units, inter size] = [bs/token nums, inter size]
+// fusedGateUpGemm: [bs/token nums, q hidden units] * [q hidden units, 2 * inter size] = [bs/token nums, 2 * inter size]
 // down:[bs/token nums, inter size] * [inter size, q hidden units] = [bs/token nums, q hidden units]
 template <typename T>
 void launchLinearGemm(TensorWrapper<T> *input,
@@ -16,8 +17,7 @@ void launchLinearGemm(TensorWrapper<T> *input,
                       TensorWrapper<T> *output,
                       cublasWrapper *cublas_wrapper,
                       bool trans_a,
-                      bool trans_b,
-                      bool shared_out_buf)
+                      bool trans_b)
 {
     int Am = weight.shape[1];
     int Ak = weight.shape[0];
@@ -26,11 +26,10 @@ void launchLinearGemm(TensorWrapper<T> *input,
     int Cm = output->shape[1];
     int Cn = output->shape[0];
 
-    // for ctx attn and self attn qkv linear
-    Cm = output->shape.size() == 3 && !shared_out_buf ? output->shape[1] * output->shape[2] : output->shape[1];
-    // for gate & up linear
-    Cm = output->shape.size() == 3 && shared_out_buf ? output->shape[2] : output->shape[1];
-    Cn = output->shape.size() == 3 && shared_out_buf ? output->shape[1] : output->shape[0];
+    // for ctx attn and self attn qkv linear, assume [bs/token nums, qkv h ead num, head size]
+    // for gate & up linear, assume weight.shape=[hidden,2*intersize], output.shape=[bs, 2, inter size]
+    Cm = output->shape.size() == 3 ? output->shape[1] * output->shape[2] : output->shape[1];
+
     // for ctx attn output linear
     Bk = input->shape.size() == 3 ? input->shape[1] * input->shape[2] : input->shape[1];
     int lda = Am;
@@ -41,12 +40,12 @@ void launchLinearGemm(TensorWrapper<T> *input,
 
     cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N; // for lmhead linear
     cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-    int offset = 0;
-    if (shared_out_buf)
-    {
-        ONELLM_CHECK_WITH_INFO(output->shape.size() == 3, "output shape should be 3 dims, that is [2, num tokens, hidden units]");
-        offset = output->shape[1] * output->shape[2]; // num tokes * inter size, need to modify activate kernel input shape to [2, num tokens, inter size] and buf shape
-    }
+    // int offset = 0;
+    // if (shared_out_buf)
+    // {
+    //     ONELLM_CHECK_WITH_INFO(output->shape.size() == 3, "output shape should be 3 dims, that is [2, num tokens, hidden units]");
+    //     offset = output->shape[1] * output->shape[2]; // num tokes * inter size, need to modify activate kernel input shape to [2, num tokens, inter size] and buf shape
+    // }
     // std::cout << "shared offset: " << offset << std::endl;
     //  std::cout << "m: " << input_lda
     //            << "n: " << n << " or " << weight_1st_dim
@@ -67,7 +66,7 @@ void launchLinearGemm(TensorWrapper<T> *input,
                          lda,                             // lda
                          input->data, // B
                          ldb,                             // ldb
-                         output->data + offset,           // C
+                         output->data,           // C
                          ldc,                             // ldc
                          1.0f,
                          0.0f);
