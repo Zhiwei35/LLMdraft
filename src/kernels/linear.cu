@@ -79,7 +79,7 @@ void launchLinearGemmForCtxDecoderLMhead(TensorWrapper<T> *input,
                                         TensorWrapper<T> *output,
                                         cublasWrapper *cublas_wrapper,
                                         bool trans_a,
-                                        bool trans_b,)
+                                        bool trans_b)
 {
     int Am = weight.shape[1];
     int Ak = weight.shape[0];
@@ -94,16 +94,16 @@ void launchLinearGemmForCtxDecoderLMhead(TensorWrapper<T> *input,
     // > 1 表示当前为first token的lmhead, 参考自fastllm, 去[maxlen-1,maxlen)范围的tensor参与lmhead即可，反之为second token的lmhead
     // transformers里面是不是和fastllm一样的做法还有待确认，没有在causaloutputwithpast里面找到
     // ldb = cur_input_len > 1 ? 1 : Bk; 不需要修改ldb，此时ldb为hiddenunits，seqlen维度在第二维
-        int outer = input.Count(0) / input.Count(axis); // dims[0] * strides[0] / dims[axis] * strides[axis]
-        int inputStride = input.Count(axis);
-        int outputStride = output.Count(axis);
-        int channels = input.dims[axis];
-        int inner = input.strides[axis];
-        int unitSize = (int)sizeof(T);// sizeof(T)
+    // int outer = input.Count(0) / input.Count(axis); // dims[0] * strides[0] / dims[axis] * strides[axis]
+    // int inputStride = input.Count(axis);
+    // int outputStride = output.Count(axis);
+    // int channels = input.dims[axis];
+    // int inner = input.strides[axis];
+    // int unitSize = (int)sizeof(T);// sizeof(T)
 
-        cudaMemcpy2D((void*)output.cudaData, outputStride * unitSize,
-                                          (void*)input.cudaData + start * inner * unitSize, inputStride * unitSize,
-                                          (cur_input_len - (cur_input_len - 1)) * inner * unitSize, outer, cudaMemcpyDeviceToDevice);// height rows of width bytes
+    // cudaMemcpy2D((void*)output.cudaData, outputStride * unitSize,
+    //                                   (void*)input.cudaData + start * inner * unitSize, inputStride * unitSize,
+    //                                   (cur_input_len - (cur_input_len - 1)) * inner * unitSize, outer, cudaMemcpyDeviceToDevice);// height rows of width bytes
 
     cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N; // for lmhead linear
     cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
@@ -121,7 +121,7 @@ void launchLinearGemmForCtxDecoderLMhead(TensorWrapper<T> *input,
                          Bk,
                          weight.data,                     // A, cur_input_len is for context decoder lmhead
                          lda,                             // lda
-                         input->data + cur_input_len - 1, // B
+                         input->data, // B
                          ldb,                             // ldb
                          output->data,           // C
                          ldc,                             // ldc
@@ -185,8 +185,7 @@ template void launchLinearGemm(TensorWrapper<float> *input,
                                cublasWrapper *cublas_wrapper,
                                bool trans_a,
                                bool trans_b,
-                               bool shared_out_buf,
-                               int cur_input_len);
+                               bool shared_out_buf);
 
 template void launchLinearGemm(TensorWrapper<half> *input,
                                BaseWeight<half> &weight,
@@ -194,8 +193,7 @@ template void launchLinearGemm(TensorWrapper<half> *input,
                                cublasWrapper *cublas_wrapper,
                                bool trans_a,
                                bool trans_b,
-                               bool shared_out_buf,
-                               int cur_input_len);
+                               bool shared_out_buf);
 
 template void launchLinearStridedBatchGemm(TensorWrapper<float> *input1,
                                            TensorWrapper<float> *input2,
