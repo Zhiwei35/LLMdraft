@@ -43,10 +43,10 @@ int main(int argc, char *argv[]) {
     const int inter_size = 8;
     int hidden_units_2 = 0;
     int output_size = 0;
-    if (atoi(argv[1]) == 2) { // fusedGateUpGemm
+    if (atoi(argv[1]) == 2) { // fusedGateUpGemm and trans_b
         hidden_units_2 = 2 * inter_size * hidden_units;
         output_size = 2 * seqlen * inter_size;
-    } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
+    } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear and down linear
         hidden_units_2 = vocab_size * hidden_units;
         output_size = seqlen * vocab_size;
     } else {
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
     TensorWrapper<float>* in = new TensorWrapper<float>(Device::GPU, type, {seqlen, hidden_units}, d_in);
     BaseWeight<float> weight;
     if (atoi(argv[1]) == 2) {
-        weight.shape = {hidden_units, 2 * inter_size};
+        weight.shape = {2 * inter_size, hidden_units};
     } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
         weight.shape = {vocab_size, hidden_units};
     } else {
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
     // debug info, better to retain: 
     std::cout << "before launch kernel" << std::endl;
     if (atoi(argv[1]) == 2) {
-        launchLinearGemm(in, weight, out, cublas_wrapper);
+        launchLinearGemm(in, weight, out, cublas_wrapper, false, true);
     } else if (atoi(argv[1]) == 1) {// enable trans_b for test lmhead linear
         launchLinearGemm(in, weight, out, cublas_wrapper, false, true);
     } else {
