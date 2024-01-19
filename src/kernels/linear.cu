@@ -183,16 +183,14 @@ template void launchLinearGemm(TensorWrapper<float> *input,
                                TensorWrapper<float> *output,
                                cublasWrapper *cublas_wrapper,
                                bool trans_a,
-                               bool trans_b,
-                               bool shared_out_buf);
+                               bool trans_b);
 
 template void launchLinearGemm(TensorWrapper<half> *input,
                                BaseWeight<half> &weight,
                                TensorWrapper<half> *output,
                                cublasWrapper *cublas_wrapper,
                                bool trans_a,
-                               bool trans_b,
-                               bool shared_out_buf);
+                               bool trans_b);
 
 template void launchLinearStridedBatchGemm(TensorWrapper<float> *input1,
                                            TensorWrapper<float> *input2,
