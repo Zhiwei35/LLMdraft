@@ -101,65 +101,65 @@ int main(int argc, char** argv)
         h_output_norm_weight[i] = rand() % 100 / (float)100000;
     }
 
-    float* h_attn_norm_weight = (float*)malloc(sizeof(float) * q_hidden_units);
-    float* d_attn_norm_weight;
-    cudaMalloc((void**)&d_attn_norm_weight, sizeof(float) * q_hidden_units);
-    for(int i = 0; i < q_hidden_units; i++){
-        h_attn_norm_weight[i] = rand() % 100 / (float)100000;
-    }
+    // float* h_attn_norm_weight = (float*)malloc(sizeof(float) * q_hidden_units);
+    // float* d_attn_norm_weight;
+    // cudaMalloc((void**)&d_attn_norm_weight, sizeof(float) * q_hidden_units);
+    // for(int i = 0; i < q_hidden_units; i++){
+    //     h_attn_norm_weight[i] = rand() % 100 / (float)100000;
+    // }
 
-    float* h_ffn_norm_weight = (float*)malloc(sizeof(float) * q_hidden_units);
-    float* d_ffn_norm_weight;
-    cudaMalloc((void**)&d_ffn_norm_weight, sizeof(float) * q_hidden_units);
-    for(int i = 0; i < q_hidden_units; i++){
-        h_ffn_norm_weight[i] = rand() % 100 / (float)100000;
-    }
+    // float* h_ffn_norm_weight = (float*)malloc(sizeof(float) * q_hidden_units);
+    // float* d_ffn_norm_weight;
+    // cudaMalloc((void**)&d_ffn_norm_weight, sizeof(float) * q_hidden_units);
+    // for(int i = 0; i < q_hidden_units; i++){
+    //     h_ffn_norm_weight[i] = rand() % 100 / (float)100000;
+    // }
 
-    float* h_qkv_weights = (float*) malloc(sizeof(float) * hidden_units * q_hidden_units);
-    float* d_qkv_weights;
-    cudaMalloc((void**)&d_qkv_weights, sizeof(float) * hidden_units * q_hidden_units);
-    for(int i = 0; i < hidden_units * q_hidden_units; i++) { 
-       h_qkv_weights[i] = rand() % 100 / (float)100000;
-    }
+    // float* h_qkv_weights = (float*) malloc(sizeof(float) * hidden_units * q_hidden_units);
+    // float* d_qkv_weights;
+    // cudaMalloc((void**)&d_qkv_weights, sizeof(float) * hidden_units * q_hidden_units);
+    // for(int i = 0; i < hidden_units * q_hidden_units; i++) { 
+    //    h_qkv_weights[i] = rand() % 100 / (float)100000;
+    // }
 
-    float* h_qkv_bias = (float*) malloc(sizeof(float) * hidden_units);
-    float* d_qkv_bias;
-    cudaMalloc((void**)&d_qkv_bias, sizeof(float) * hidden_units);// wehn add bias to k, we ensure head_id < kv_head_num
-    for(int i = 0; i < hidden_units; i++){
-        h_qkv_bias[i] = rand() % 100 / (float)100000;
-    }
+    // float* h_qkv_bias = (float*) malloc(sizeof(float) * hidden_units);
+    // float* d_qkv_bias;
+    // cudaMalloc((void**)&d_qkv_bias, sizeof(float) * hidden_units);// wehn add bias to k, we ensure head_id < kv_head_num
+    // for(int i = 0; i < hidden_units; i++){
+    //     h_qkv_bias[i] = rand() % 100 / (float)100000;
+    // }
 
-    float* h_output_weights = (float*) malloc(sizeof(float) * q_hidden_units * q_hidden_units);
-    float* d_output_weights;
-    cudaMalloc((void**)&d_output_weights, sizeof(float) * q_hidden_units * q_hidden_units);
-    for(int i = 0; i < q_hidden_units * q_hidden_units; i++) { 
-       h_output_weights[i] = rand() % 100 / (float)100000;
-    }
+    // float* h_output_weights = (float*) malloc(sizeof(float) * q_hidden_units * q_hidden_units);
+    // float* d_output_weights;
+    // cudaMalloc((void**)&d_output_weights, sizeof(float) * q_hidden_units * q_hidden_units);
+    // for(int i = 0; i < q_hidden_units * q_hidden_units; i++) { 
+    //    h_output_weights[i] = rand() % 100 / (float)100000;
+    // }
 
-    float* h_out_bias = (float*) malloc(sizeof(float) * head_num* head_size);
-    float* d_out_bias;
-    cudaMalloc((void**)&d_out_bias, sizeof(float) * head_num * head_size);// wehn add bias to k, we ensure head_id < kv_head_num
-    for(int i = 0; i < head_num * head_size; i++){
-        h_out_bias[i] = rand() % 100 / (float)100000;
-    }
-    float* d_ffn_gate_up, *d_ffn_down, *d_ffn_down_bias;
-    float* h_ffn_gate_up = (float*) malloc(sizeof(float) * hidden_units * 2 * inter_size);
-    // float* h_ffn_up = (float*) malloc(sizeof(float) * hidden_units * inter_size);
-    float* h_ffn_down = (float*) malloc(sizeof(float) * hidden_units * inter_size);
-    float* h_ffn_down_bias = (float*) malloc(sizeof(float) * hidden_units);
-    cudaMalloc((void**)&d_ffn_gate_up, sizeof(float) * hidden_units * 2 * inter_size);
-    // cudaMalloc((void**)&d_ffn_up, sizeof(float) * hidden_units * inter_size);
-    cudaMalloc((void**)&d_ffn_down, sizeof(float) * hidden_units * inter_size);
-    cudaMalloc((void**)&d_ffn_down_bias, sizeof(float) * hidden_units);
-    for(int i = 0; i < hidden_units * 2 * inter_size; i++){
-        h_ffn_gate_up[i] = rand() % 100 / (float)100000;
-    }
-    for(int i = 0; i < hidden_units * inter_size; i++){
-        h_ffn_down[i] = rand() % 100 / (float)100000;
-        if (i < hidden_units){
-            h_ffn_down_bias[i] = 0.0f;
-        }
-    }    
+    // float* h_out_bias = (float*) malloc(sizeof(float) * head_num* head_size);
+    // float* d_out_bias;
+    // cudaMalloc((void**)&d_out_bias, sizeof(float) * head_num * head_size);// wehn add bias to k, we ensure head_id < kv_head_num
+    // for(int i = 0; i < head_num * head_size; i++){
+    //     h_out_bias[i] = rand() % 100 / (float)100000;
+    // }
+    // float* d_ffn_gate_up, *d_ffn_down, *d_ffn_down_bias;
+    // float* h_ffn_gate_up = (float*) malloc(sizeof(float) * hidden_units * 2 * inter_size);
+    // // float* h_ffn_up = (float*) malloc(sizeof(float) * hidden_units * inter_size);
+    // float* h_ffn_down = (float*) malloc(sizeof(float) * hidden_units * inter_size);
+    // float* h_ffn_down_bias = (float*) malloc(sizeof(float) * hidden_units);
+    // cudaMalloc((void**)&d_ffn_gate_up, sizeof(float) * hidden_units * 2 * inter_size);
+    // // cudaMalloc((void**)&d_ffn_up, sizeof(float) * hidden_units * inter_size);
+    // cudaMalloc((void**)&d_ffn_down, sizeof(float) * hidden_units * inter_size);
+    // cudaMalloc((void**)&d_ffn_down_bias, sizeof(float) * hidden_units);
+    // for(int i = 0; i < hidden_units * 2 * inter_size; i++){
+    //     h_ffn_gate_up[i] = rand() % 100 / (float)100000;
+    // }
+    // for(int i = 0; i < hidden_units * inter_size; i++){
+    //     h_ffn_down[i] = rand() % 100 / (float)100000;
+    //     if (i < hidden_units){
+    //         h_ffn_down_bias[i] = 0.0f;
+    //     }
+    // }    
     // h2d
     cudaMemcpy(d_decoder_input, h_decoder_input, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens, cudaMemcpyHostToDevice);
     cudaMemcpy(d_all_k_cache, h_all_k_cache, sizeof(float) * num_layers * attn_dyn_params.batch_size * kv_head_num * max_seq_len * head_size, cudaMemcpyHostToDevice);
@@ -294,12 +294,12 @@ int main(int argc, char** argv)
     free(h_output_norm_weight);
     cudaFree(d_output_norm_weight);
     DeviceSyncAndCheckCudaError();
-    free(h_attn_norm_weight);
-    free(h_ffn_norm_weight);
-    free(h_qkv_weights);
-    free(h_qkv_bias);
-    free(h_output_weights);
-    free(h_out_bias);
-    free(h_ffn_down);
-    free(h_ffn_down_bias);
+    // free(h_attn_norm_weight);
+    // free(h_ffn_norm_weight);
+    // free(h_qkv_weights);
+    // free(h_qkv_bias);
+    // free(h_output_weights);
+    // free(h_out_bias);
+    // free(h_ffn_down);
+    // free(h_ffn_down_bias);
 }
