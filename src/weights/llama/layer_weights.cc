@@ -18,17 +18,17 @@ LlamaLayerWeight<T>::LlamaLayerWeight(int     head_num,
     attn_bias(attn_bias)
 {
     // init weights structure and cudamalloc for weights
-    GPUMalloc(&attn_norm_weight.gamma, hidden_units);
-    GPUMalloc(&ffn_norm_weight.gamma, hidden_units);
+    CHECK(cudaMalloc((void**)&attn_norm_weight.gamma, sizeof(T) * hidden_units));
+    CHECK(cudaMalloc((void**)&ffn_norm_weight.gamma, sizeof(T) * hidden_units));
     self_attn_weight.qkv.type = weight_type;
     self_attn_weight.qkv.shape = {hidden_units, (head_num + 2 * kv_head_num) * head_size};
-    GPUMalloc(&self_attn_weight.qkv.data, hidden_units * (head_num + 2 * kv_head_num) * head_size);
+    CHECK(cudaMalloc((void**)&self_attn_weight.qkv.data, sizeof(T) * hidden_units * (head_num + 2 * kv_head_num) * head_size));
     self_attn_weight.output.type = weight_type;
     self_attn_weight.output.shape = {hidden_units, hidden_units};
-    GPUMalloc(&self_attn_weight.output.data, hidden_units * hidden_units);
+    CHECK(cudaMalloc((void**)&self_attn_weight.output.data, sizeof(T) * hidden_units * hidden_units));
     if (attn_bias) {
-        GPUMalloc(&self_attn_weight.qkv.bias, (head_num + 2 * kv_head_num) * head_size);
-        GPUMalloc(&self_attn_weight.output.bias, hidden_units);
+        CHECK(cudaMalloc((void**)&self_attn_weight.qkv.bias, sizeof(T) * (head_num + 2 * kv_head_num) * head_size));
+        CHECK(cudaMalloc((void**)&self_attn_weight.output.bias, sizeof(T) * hidden_units));
     }
 
     // ffn_weight.gate.type = weight_type;
@@ -38,9 +38,9 @@ LlamaLayerWeight<T>::LlamaLayerWeight(int     head_num,
     ffn_weight.gateAndup.shape = {2 * inter_size, hidden_units};
     // ffn_weight.up.shape = {hidden_units, inter_size};
     ffn_weight.down.shape = {hidden_units, inter_size};
-    GPUMalloc(&ffn_weight.gateAndup.data, hidden_units * 2 * inter_size);
-    // GPUMalloc(&ffn_weight.up.data, hidden_units * inter_size);
-    GPUMalloc(&ffn_weight.down.data, hidden_units * inter_size);
+    CHECK(cudaMalloc((void**)&ffn_weight.gateAndup.data, sizeof(T) * hidden_units * 2 * inter_size));
+    // CHECK(cudaMalloc((void**)&ffn_weight.up.data, hidden_units * inter_size));
+    CHECK(cudaMalloc((void**)&ffn_weight.down.data, sizeof(T) * hidden_units * inter_size));
 }
 //model file type用来控制loadweightfrombin的第二个模板类型参数T_IN,如果T_IN和第一个模板参数不一致，需要将T_IN的weight使用ptx cast转换为T
 // weight_path = weight_path + "layers." + std::to_string(layer)
@@ -99,16 +99,16 @@ void LlamaLayerWeight<T>::loadWeights() // 这个改动可能会影响一些exam
     T* d_dummy_ffn_down_bias;
     T* d_dummy_ffn_gate_up;
     // T* d_dummy_ffn_up;
-    GPUMalloc(&d_dummy_attn_norm_weight, sizeof(T) * hidden_units);
-    GPUMalloc(&d_dummy_ffn_norm_weight, sizeof(T) * hidden_units);
-    GPUMalloc(&d_dummy_qkv_weights, sizeof(T) * hidden_units * (head_num + 2 * kv_head_num) * head_size);
-    GPUMalloc(&d_dummy_qkv_bias, sizeof(T) * (head_num + 2 * kv_head_num) * head_size);
-    GPUMalloc(&d_dummy_output_weights, sizeof(T) * hidden_units * hidden_units);
-    GPUMalloc(&d_dummy_output_bias, sizeof(T) * hidden_units);
-    GPUMalloc(&d_dummy_ffn_down, sizeof(T) * hidden_units * inter_size);
-    GPUMalloc(&d_dummy_ffn_down_bias, sizeof(T) * hidden_units);
-    GPUMalloc(&d_dummy_ffn_gate_up, sizeof(T) * hidden_units * 2 * inter_size);
-    // GPUMalloc(&d_dummy_ffn_up, sizeof(T) * hidden_units * inter_size);
+    CHECK(cudaMalloc((void**)&d_dummy_attn_norm_weight, sizeof(T) * hidden_units));
+    CHECK(cudaMalloc((void**)&d_dummy_ffn_norm_weight, sizeof(T) * hidden_units));
+    CHECK(cudaMalloc((void**)&d_dummy_qkv_weights, sizeof(T) * hidden_units * (head_num + 2 * kv_head_num) * head_size));
+    CHECK(cudaMalloc((void**)&d_dummy_qkv_bias, sizeof(T) * (head_num + 2 * kv_head_num) * head_size));
+    CHECK(cudaMalloc((void**)&d_dummy_output_weights, sizeof(T) * hidden_units * hidden_units));
+    CHECK(cudaMalloc((void**)&d_dummy_output_bias, sizeof(T) * hidden_units));
+    CHECK(cudaMalloc((void**)&d_dummy_ffn_down, sizeof(T) * hidden_units * inter_size));
+    CHECK(cudaMalloc((void**)&d_dummy_ffn_down_bias, sizeof(T) * hidden_units));
+    CHECK(cudaMalloc((void**)&d_dummy_ffn_gate_up, sizeof(T) * hidden_units * 2 * inter_size));
+    // CHECK(cudaMalloc(&d_dummy_ffn_up, sizeof(T) * hidden_units * inter_size));
 
     T* h_dummy_attn_norm_weight = (T*)malloc(sizeof(T) * hidden_units);
     T* h_dummy_ffn_norm_weight = (T*)malloc(sizeof(T) * hidden_units);

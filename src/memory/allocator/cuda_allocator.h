@@ -36,7 +36,8 @@ private:
     //{device id: block}
     std::map<int, std::vector<CudaSmallBlock> > cudaSmallBlocksMap;    
     std::map<int, std::vector<CudaBigBlock> > cudaBigBlocksMap;
-    std::map<int, size_t> FreeSize;    
+    std::map<int, size_t> FreeSize;  
+    size_t total_allocated_size = 0;  
     int dev_id;
 public:
     CudaAllocator() {
@@ -92,9 +93,10 @@ public:
             // 没找到空闲的再cudaMalloc，并插进block pool
             void* new_buffer;
             cudaMalloc(&new_buffer, size);
-            // std::cout << "allocate a new big block from OS using cudaMalloc, size = "
-            //                                     << size << "B"
-            //                                     << std::endl;
+            total_allocated_size += size;
+            std::cout << "allocate a new big block from OS using cudaMalloc, size = "
+                                                << size << "B, total allocated size " << total_allocated_size << "B"
+                                                << std::endl;
             BigBlocks.push_back(CudaBigBlock(new_buffer, size, true));
             return new_buffer;
         }
@@ -115,9 +117,9 @@ public:
         void* new_buffer = (void*)ptr;
         CHECK(cudaMalloc(&new_buffer, size));
         CHECK(cudaMemset(new_buffer, 0, size));
-        // std::cout << "allocate a new small block from OS using cudaMalloc, size = "
-        //                                     << size  << "B"
-        //                                     << std::endl;
+        std::cout << "allocate a new small block from OS using cudaMalloc, size = "
+                                            << size  << "B, total allocated size " << total_allocated_size << "B"
+                                            << std::endl;
 
         SmallBlocks.push_back(CudaSmallBlock(new_buffer, size, true));
         return new_buffer;
@@ -128,7 +130,7 @@ public:
             return;
         }
         if (is_host) {
-            cudaFreeHost(ptr);
+            free(ptr);
             return;
         }
         // 清理碎片：当累计的小buf超出了1G时，清理未分配出去的smallblocks, 已分配的还是保留在smallmap
