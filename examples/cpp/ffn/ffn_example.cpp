@@ -10,7 +10,7 @@ int main(int argc, char** argv)
     int head_size = 8;
     int inter_size = 12;
     int hidden_units = head_num * head_size;
-    bool is_free_buffer_after_fwd = true;
+    
     cublasHandle_t cublas_handle;
     cublasLtHandle_t cublaslt_handle;
     cudaStream_t stream;
@@ -26,13 +26,13 @@ int main(int argc, char** argv)
     float* d_ffn_input;
     cudaMalloc((void**)&d_ffn_input, sizeof(float) * hidden_units * attn_dyn_params.num_tokens);
     for(int i = 0; i < hidden_units * attn_dyn_params.num_tokens; i++) { 
-       h_ffn_input[i] = 1.0f;
+       h_ffn_input[i] = (float)(i % 2 + 1);
     }    
     float* h_gate_up = (float*) malloc(sizeof(float) * hidden_units * 2 * inter_size);
     float* d_gate_up;
     cudaMalloc((void**)&d_gate_up, sizeof(float) * hidden_units * 2 * inter_size);
     for(int i = 0; i < hidden_units * 2 * inter_size; i++) { 
-       h_gate_up[i] = 1.0f;
+       h_gate_up[i] = (float)(i % 2 + 1);
     }  
    //  float* h_up = (float*) malloc(sizeof(float) * hidden_units * inter_size);
    //  float* d_up;
@@ -44,7 +44,7 @@ int main(int argc, char** argv)
     float* d_down;
     cudaMalloc((void**)&d_down, sizeof(float) * hidden_units * inter_size);
     for(int i = 0; i < hidden_units * inter_size; i++) { 
-       h_down[i] = 1.0f;
+       h_down[i] = (float)(i % 2 + 1);
     }  
     float* d_ffn_output;
     cudaMalloc((void**)&d_ffn_output, sizeof(float) * attn_dyn_params.num_tokens * hidden_units);
@@ -60,7 +60,7 @@ int main(int argc, char** argv)
    //  ffn_weights.up.data = d_up;
    //  ffn_weights.up.shape = {hidden_units, inter_size};
     ffn_weights.down.data = d_down;
-    ffn_weights.down.shape = {inter_size, hidden_units};
+    ffn_weights.down.shape = {hidden_units, inter_size};
     TensorWrapper<float>* ffn_input = new TensorWrapper<float>(GPU, 
                                                                type, 
                                                                {attn_dyn_params.num_tokens, hidden_units}, 

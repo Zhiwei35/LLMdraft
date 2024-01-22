@@ -91,8 +91,8 @@ add_library(onellm OBJECT
            )
 
 add_subdirectory(src)
-add_subdirectory(tests)
-# add_subdirectory(examples)
+#add_subdirectory(tests)
+add_subdirectory(examples)
 
 add_executable(main onellm.cpp)
 target_link_libraries(main PUBLIC -lcublas -lcudart -lcudadevrt onellm)

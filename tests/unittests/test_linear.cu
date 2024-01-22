@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     const int seqlen = 16;
     const int hidden_units = 16;
     const int vocab_size = 32;
-    const int inter_size = 8;
+    const int inter_size = 10;
     int hidden_units_2 = 0;
     int output_size = 0;
     if (atoi(argv[1]) == 2) { // fusedGateUpGemm and trans_b

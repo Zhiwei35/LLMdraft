@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <random>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "src/layers/decoder/self_decoder.h"
@@ -13,11 +14,11 @@ int main(){
     int kv_head_num = 2;
     int head_size = 8;
     int inter_size = 12;
-    int num_layers = 2;
+    int num_layers = 32;
     int max_seq_len = 12;
     int hidden_units = (head_num + 2 * kv_head_num) * head_size;
     int q_hidden_units = head_num * head_size;
-    float rmsnorm_eps = 1e-16;
+    float rmsnorm_eps = 1e-6;
     LLaMAAttentionStaticParams attn_static_params;
     attn_static_params.rotary_embedding_dim = 128;
     attn_static_params.rotary_embedding_base = 10000;
@@ -39,7 +40,7 @@ int main(){
     float* d_decoder_input;
     cudaMalloc((void**)&d_decoder_input, sizeof(float) * q_hidden_units * attn_dyn_params.batch_size);
     for(int i = 0; i < q_hidden_units * attn_dyn_params.batch_size; i++) { 
-       h_decoder_input[i] = 1.0f;
+       h_decoder_input[i] = rand() % 100 / (float)1000;
     }
 
     float* d_decoder_output;

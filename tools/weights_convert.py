@@ -115,6 +115,7 @@ if __name__ == "__main__":
                 up = param.detach().cpu().float().numpy()
                 gate_up = np.hstack((gate, up))
                 gate_up.astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.gate_up_proj.weight.bin")
+                print("fused gate_up shape: ", gate_up.shape)
         # elif name.find('mlp.up_proj.weight') != -1:
         #     layer = name.split(".")[2]
         #     param.detach().cpu().float().numpy().astype(np_weight_data_type).tofile(f"model.layers.{layer}.mlp.up_proj.weight.bin")

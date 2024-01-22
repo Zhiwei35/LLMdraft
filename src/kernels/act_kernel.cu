@@ -21,9 +21,20 @@ __global__ void silu_and_mul_kernel(
   const int intermedia_size) {
   const int batch_idx = blockIdx.x;
   for (int idx = threadIdx.x; idx < intermedia_size; idx += blockDim.x) {
+    if(batch_idx == 0 && idx == 0){
+        printf("gate up linear output:\n");
+        printf("%f\n",input[0]);
+        printf("%f\n",input[1]);
+    }    
     const T x = input[batch_idx * 2 * intermedia_size + idx];
     const T y = input[batch_idx * 2 * intermedia_size + intermedia_size + idx];
     out[batch_idx * intermedia_size + idx] = silu<T>(x) * y;
+    if(batch_idx == 0 && idx == 0){
+        printf("swiglu output:\n");
+        printf("%f\n",out[0]);
+        printf("%f\n",out[1]);
+    }
+    
   }
 }
 
@@ -37,10 +48,21 @@ __global__ void silu_and_mul_kernel<half>(
   using Vec_t = typename Vec<half>::Type;
   // Vec_t x_vec;
   for (int idx = threadIdx.x * vec_size; idx < intermedia_size; idx += blockDim.x) {
+    if(batch_idx == 0 && idx == 0){
+    	printf("gate up linear output:\n");
+	printf("%f\n",input[0]);
+	printf("%f\n",input[1]);
+    }
     const Vec_t x = *reinterpret_cast<Vec_t*>(const_cast<half*>(&input[batch_idx * 2 * intermedia_size + idx]));
     const Vec_t y = *reinterpret_cast<Vec_t*>(const_cast<half*>(&input[batch_idx * 2 * intermedia_size + intermedia_size + idx]));
     *reinterpret_cast<Vec_t*>(&out[batch_idx * intermedia_size + idx]) = __hmul2(silu<Vec_t>(x), y);
+    if(batch_idx == 0 && idx == 0){
+        printf("swiglu output:\n");
+        printf("%f\n",out[0]);
+        printf("%f\n",out[1]);
+    }
   }
+
 }
 
 template<typename T>

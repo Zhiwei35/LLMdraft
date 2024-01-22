@@ -50,11 +50,11 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     int tid = threadIdx.x;
     Vec_t *rsd, *bia, *s;
     Vec_t dout, tmp;
-    //if(batch_id == 0 && tid == 0) {
-    //    printf("addresidualnorm input: \n");
-    //    printf("%f\n",decoder_out[0]);
-    //    printf("%f\n",decoder_out[1]);
-    //}
+    if(batch_id == 0 && tid == 0) {
+        printf("fusedaddresidualnorm top2 input: \n");
+        printf("%f\n",decoder_out[0]);
+        printf("%f\n",decoder_out[1]);
+    }
     //T zero = static_cast<T>(0.0f);
    // printf("in kernel\n");    
     T thread_accm = static_cast<T>(0);
@@ -108,8 +108,10 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     T blocksum = blockReduceSum<T>(thread_accm);
     __shared__ float inv_fenmu;
     if(tid == 0){
-        //debug info printf("blocksum on GPU is %f\n", blocksum);
-        inv_fenmu = rsqrt(blocksum / hidden_units + eps);
+	if(batch_id == 0) {
+            printf("blocksum=%f\n", blocksum);
+	}
+	inv_fenmu = rsqrt(blocksum / hidden_units + eps);
         //debug info printf("inv_fenmu on GPU is %f\n", inv_fenmu);
     }
     // rmsnorm
@@ -128,6 +130,12 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
         //    printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",out[i].x, s[i].x, inv_fenmu);
         //    printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",out[i].y, s[i].y);
         //}
+    }
+    if(blockIdx.x == 0 && tid == 0) {
+        printf("fusedaddresidualnorm top2 res: \n");
+        printf("out=%f,inv_fenmu=%f,scale=%f\n",decoder_out[0],inv_fenmu,scale[0]);
+	
+    	printf("out=%f,inv_fenmu=%f,scale=%f\n",decoder_out[1],inv_fenmu,scale[0]);
     } 
 
 //    printf("in kernel 2\n");

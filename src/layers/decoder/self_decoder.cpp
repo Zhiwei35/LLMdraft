@@ -49,7 +49,7 @@ void LlamaSelfDecoder<T>::forward(TensorMap& input_tensors, const std::vector<Ll
     for(int layer_id = 0; layer_id < num_layer; layer_id++) {
         if (layer_id > 0){
             TensorWrapper<int>* layer = new TensorWrapper<int>(Device::CPU, type_int, {1}, &layer_id);
-            self_attn_inputs.insert({"layer_id", layer});
+            self_attn_inputs.insert("layer_id", layer);
         }
         std::cout << "layer: "<< layer_id << " in self decoder"<<"\n";
         //TODO: context_attention.cpp#105, qkv bias should be changed to layerWeights[layer_id].self_attn_weight.qkv.bias

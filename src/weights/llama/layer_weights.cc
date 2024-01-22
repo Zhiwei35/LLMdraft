@@ -1,3 +1,4 @@
+#include <random>
 #include "src/weights/llama/layer_weights.h"
 #include "src/utils/macro.h"
 template<typename T>
@@ -121,26 +122,26 @@ void LlamaLayerWeight<T>::loadWeights() // 这个改动可能会影响一些exam
     // T* h_dummy_ffn_up = (T*)malloc(sizeof(T) * hidden_units * inter_size);
 
     for (int i = 0; i < hidden_units; i++){
-        h_dummy_attn_norm_weight[i] = (T)1.0f;
-        h_dummy_ffn_norm_weight[i] = (T)1.0f;
-        h_dummy_output_bias[i] = (T)1.0f;
-        h_dummy_ffn_down_bias[i] = (T)0.0f;
+        h_dummy_attn_norm_weight[i] = (T)(rand() % 100 / (float)100000);
+        h_dummy_ffn_norm_weight[i] = (T)(rand() % 100 / (float)100000);
+        h_dummy_output_bias[i] = (T)(rand() % 100 / (float)100000);
+        h_dummy_ffn_down_bias[i] = (T)(rand() % 100 / (float)100000);
     }
     for (int i = 0; i < (head_num + 2 * kv_head_num) * head_size; i++) {
-        h_dummy_qkv_bias[i] = (T)1.0f;
+        h_dummy_qkv_bias[i] = (T)(rand() % 100 / (float)100000);
     }
     for (int i = 0; i < hidden_units * inter_size; i++) {
-        h_dummy_ffn_down[i] = (T)1.0f;
+        h_dummy_ffn_down[i] = (T)(rand() % 100 / (float)100000);
     }
     for (int i = 0; i < hidden_units * 2 * inter_size; i++) {   
-        h_dummy_ffn_gate_up[i] = (T)1.0f;
+        h_dummy_ffn_gate_up[i] = (T)(rand() % 100 / (float)100000);
         // h_dummy_ffn_up[i] = (T)1.0f;
     }
     for (int i = 0; i < hidden_units * hidden_units; i++) {
-        h_dummy_output_weights[i] = (T)1.0f;
+        h_dummy_output_weights[i] = (T)(rand() % 100 / (float)100000);
     }
     for (int i = 0; i < hidden_units * (head_num + 2 * kv_head_num) * head_size; i++) {
-        h_dummy_qkv_weights[i] = (T)1.0f;
+        h_dummy_qkv_weights[i] = (T)(rand() % 100 / (float)100000);
     }
     CHECK(cudaMemcpy(d_dummy_attn_norm_weight, h_dummy_attn_norm_weight, sizeof(T) * hidden_units, cudaMemcpyHostToDevice));
     CHECK(cudaMemcpy(d_dummy_ffn_norm_weight, h_dummy_ffn_norm_weight, sizeof(T) * hidden_units, cudaMemcpyHostToDevice));

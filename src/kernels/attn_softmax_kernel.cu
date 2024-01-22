@@ -42,7 +42,7 @@ __inline__ __device__ T blockReduce(T val)
         warp[warp_id] = val;
     }
     __syncthreads();
-    float warp_val = tid < warp_nums ? warp[warp_id] : 0;
+    float warp_val = tid < warp_nums ? warp[tid] : 0;
     return warpReduce<ReductionOp, T>(warp_val);
 }
 
@@ -108,6 +108,15 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
         for (int col_start = 0; col_start < NUMS_PER_THREAD_PER_ROW; col_start++)
         {
             // debug info to see useless threads if its available,printf("blockIdx.x=%d, threadIdx.x=%d\n",blockIdx.x, threadIdx.x);
+	    if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
+            {
+                printf("attn softmax before exp top2 data:\n");
+                printf("data[col_start]=%f,s_max=%f\n", data[col_start], s_max);
+            }
+            if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 1)
+            {
+                printf("data[col_start]=%f,s_max=%f\n", data[col_start], s_max);
+            }
 
             qk_offset = batch_id * head_nums * q_len * k_len + head_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
             mask_offset = batch_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
@@ -131,8 +140,11 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
             if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
             {
                 printf("attn softmax output top2 data:\n");
-                printf("%f\n", attn_score[0]);
-                printf("%f\n", attn_score[1]);
+                printf("out=%f,data[col_start]=%f,inv_sum=%f\n", attn_score[0], data[col_start], inv_sum);
+	    }
+            if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 1)
+            {
+	    	printf("out=%f,data[col_start]=%f,inv_sum=%f\n", attn_score[1], data[col_start], inv_sum);
             }
         }
     }
