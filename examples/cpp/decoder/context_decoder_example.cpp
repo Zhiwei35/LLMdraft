@@ -5,6 +5,27 @@
 #include <random>
 #include "src/layers/decoder/context_decoder.h"
 #include "src/utils/macro.h"
+#include "src/models/tokenizer.h"
+#include "src/kernels/input_embedding.h"
+#include "src/weights/llama/embedding_weights.h"
+
+// template <typename T>
+// void Llama<T>::InitializeForContextDecoder(IntDict &int_params_first_token)
+// {
+//     h_input_length_buf_[0] = int_params_first_token["cur_input_length"];
+//     h_history_length_buf_[0] = int_params_first_token["history_length"];
+//     h_context_length_buf_[0] = int_params_first_token["context_length"];
+//     CHECK(cudaMemcpy(input_ids->data,                                    //
+//                      h_input_ids_buf_,                                   // get from encode
+//                      RoundUpTo32x(sizeof(int) * h_input_length_buf_[0]), // h_input_length_buf = 0B, cause allocation occurs before line137
+//                      cudaMemcpyHostToDevice));
+
+//     CHECK(cudaMemcpy(input_length->data, h_input_length_buf_, RoundUpTo32x(sizeof(int) * batch_size), cudaMemcpyHostToDevice));
+//     CHECK(cudaMemcpy(history_length->data, h_history_length_buf_, RoundUpTo32x(sizeof(int) * batch_size), cudaMemcpyHostToDevice));
+//     CHECK(cudaMemcpy(context_length->data, h_context_length_buf_, RoundUpTo32x(sizeof(int) * batch_size), cudaMemcpyHostToDevice));
+//     CHECK(cudaMemcpy(is_finished->data, h_finished_buf_, RoundUpTo32x(sizeof(bool) * batch_size), cudaMemcpyHostToDevice));
+// }
+
 //TODO: enhance the gpu memory deallocation so that we dont need to mannually cudaFree
 //bugs summary
 //1.rmsnorm kernel replace fusedrmsnorm, because cant pass nullptr to initialize  float*
@@ -27,11 +48,55 @@ int main(int argc, char** argv)
     attn_static_params.rotary_embedding_base = 10000;
     attn_static_params.max_position_embeddings = 2048;
     attn_static_params.use_dynamic_ntk = false; // for dyn scaling rope
+    float *h_input_ids_buf_;
+    h_input_ids_buf_ =
+        allocator->Malloc(h_input_ids_buf_, sizeof(int) * 64, true);
+    std::string input = "how old are you"
+    std::vector<int> res = tokenizer.Encode(input);
+    std::string total_str = input[0];
+    for (int i = 0; i < res.size(); i++)
+    {
+        h_input_ids_buf_[i] = res[i]; // [max_context_token_nums_]
+    }
+    // ensure prepared all needed input buffer
+    int index = 0;
+    int ret;
+    int context_length_ = res.size();
+    int history_length_ = 0;
+    int cur_input_length = res.size(); // res.size() is the input ids len, which is the real input len, rather not len of input string
+    // IntDict int_params_first_token;
+    // int_params_first_token["context_length"] = context_length_;
+    // int_params_first_token["history_length"] = 0;
+    // int_params_first_token["cur_input_length"] = cur_input_length;
     LLaMAAttentionDynParams attn_dyn_params;
     attn_dyn_params.batch_size = 1;
-    attn_dyn_params.num_tokens = 12;
-    attn_dyn_params.max_q_len = 16;
-    attn_dyn_params.max_k_len = 16;
+    attn_dyn_params.num_tokens = cur_input_length;          // 这个此时还是0
+    attn_dyn_params.max_q_len = attn_dyn_params.num_tokens; // 这个指一个batch中的q的最大长度，因为此时不支持batch，所以就等于cur input len
+    attn_dyn_params.max_k_len = context_length_;             // max_seq_len; //这个指max context len，指当前batch的动态最大上下文长度
+    // step->data = &context_length;                           //
+    // retString为当前轮次对话的所有token string
+    std::string retString = "";
+
+    TensorWrapper<int>* input_ids = new TensorWrapper<int>(GPU, getTensorType<int>(), {64});
+    CHECK(cudaMemcpy(input_ids->data,                                    //
+                     h_input_ids_buf_,                                   // get from encode
+                     RoundUpTo32x(sizeof(int) * 16), // h_input_length_buf = 0B, cause allocation occurs before line137
+                     cudaMemcpyHostToDevice));
+    TensorWrapper<float>* decoder_input = new TensorWrapper<T>(GPU, getTensorType<float>(), {/*token num*/ 64, hidden_units});
+    
+    float* embedding = (float*)malloc(sizeof(float) * 32000 * 4096);
+    for(int i = 0; i < 32000 * 4096; i++){
+        embedding[i] = rand() % 100 / (float)100000;
+    }
+    float* d_embedding;
+    CHECK(cudaMalloc((void**)d_embedding, sizeof(float) * 32000 * 4096));
+    CHECK(cudaMemcpy(d_embedding, embedding, sizeof(float) * 32000 * 4096, cudaMemcpyHostToDevice));
+    EmbeddingWeight<float> embed_table;
+    WeightType wtype = getWeightType<float>();
+    embed_table.shape = {32000, 4096};
+    embed_table.type = wtype;
+    embed_table.data = d_embedding;
+    launchInputEmbedding(input_ids, decoder_input, &embed_table);
 
     cublasHandle_t cublas_handle;
     cublasLtHandle_t cublaslt_handle;
@@ -41,16 +106,16 @@ int main(int argc, char** argv)
     cublasWrapper* cublas_wrapper = new cublasWrapper(cublas_handle, cublaslt_handle);
     BaseAllocator* allocator = new CudaAllocator;
 
-    float* h_decoder_input = (float*) malloc(sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
-    float* d_decoder_input;
-    cudaMalloc((void**)&d_decoder_input, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
+    // float* h_decoder_input = (float*) malloc(sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
+    // float* d_decoder_input;
+    // cudaMalloc((void**)&d_decoder_input, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
     
-    for(int i = 0; i < q_hidden_units * attn_dyn_params.num_tokens; i++) { 
-       h_decoder_input[i] = rand() % 100 / (float)(100000);
-    }
+    // for(int i = 0; i < q_hidden_units * attn_dyn_params.num_tokens; i++) { 
+    //    h_decoder_input[i] = rand() % 100 / (float)(100000);
+    // }
     
-    float* d_decoder_output;
-    cudaMalloc((void**)&d_decoder_output, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
+    // float* d_decoder_output;
+    // cudaMalloc((void**)&d_decoder_output, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
 
     float* h_mask = (float*) malloc(sizeof(float) * attn_dyn_params.batch_size * attn_dyn_params.max_q_len * attn_dyn_params.max_k_len);
     float* d_mask;
@@ -89,8 +154,10 @@ int main(int argc, char** argv)
     cudaMalloc((void**)&d_ctx_len, sizeof(int) * attn_dyn_params.batch_size);
     for(int i = 0; i < attn_dyn_params.batch_size; i++){
         h_history_len[i] = 0; // for kv cache cumsum seqlen and rope's timestep compute
-        h_input_len[i] = 8; // corresponding to padding offset
-        h_ctx_len[i] = h_history_len[i] + h_input_len[i];
+        // h_input_len[i] = 8; // corresponding to padding offset
+        // h_ctx_len[i] = h_history_len[i] + h_input_len[i];
+        h_input_len[i] = cur_input_length;
+        h_ctx_len[i] = context_length_;
     }
     // weight
     // this weight is belong to llamaweight
@@ -100,68 +167,9 @@ int main(int argc, char** argv)
     for(int i = 0; i < q_hidden_units; i++){
         h_output_norm_weight[i] = rand() % 100 / (float)100000;
     }
-
-    // float* h_attn_norm_weight = (float*)malloc(sizeof(float) * q_hidden_units);
-    // float* d_attn_norm_weight;
-    // cudaMalloc((void**)&d_attn_norm_weight, sizeof(float) * q_hidden_units);
-    // for(int i = 0; i < q_hidden_units; i++){
-    //     h_attn_norm_weight[i] = rand() % 100 / (float)100000;
-    // }
-
-    // float* h_ffn_norm_weight = (float*)malloc(sizeof(float) * q_hidden_units);
-    // float* d_ffn_norm_weight;
-    // cudaMalloc((void**)&d_ffn_norm_weight, sizeof(float) * q_hidden_units);
-    // for(int i = 0; i < q_hidden_units; i++){
-    //     h_ffn_norm_weight[i] = rand() % 100 / (float)100000;
-    // }
-
-    // float* h_qkv_weights = (float*) malloc(sizeof(float) * hidden_units * q_hidden_units);
-    // float* d_qkv_weights;
-    // cudaMalloc((void**)&d_qkv_weights, sizeof(float) * hidden_units * q_hidden_units);
-    // for(int i = 0; i < hidden_units * q_hidden_units; i++) { 
-    //    h_qkv_weights[i] = rand() % 100 / (float)100000;
-    // }
-
-    // float* h_qkv_bias = (float*) malloc(sizeof(float) * hidden_units);
-    // float* d_qkv_bias;
-    // cudaMalloc((void**)&d_qkv_bias, sizeof(float) * hidden_units);// wehn add bias to k, we ensure head_id < kv_head_num
-    // for(int i = 0; i < hidden_units; i++){
-    //     h_qkv_bias[i] = rand() % 100 / (float)100000;
-    // }
-
-    // float* h_output_weights = (float*) malloc(sizeof(float) * q_hidden_units * q_hidden_units);
-    // float* d_output_weights;
-    // cudaMalloc((void**)&d_output_weights, sizeof(float) * q_hidden_units * q_hidden_units);
-    // for(int i = 0; i < q_hidden_units * q_hidden_units; i++) { 
-    //    h_output_weights[i] = rand() % 100 / (float)100000;
-    // }
-
-    // float* h_out_bias = (float*) malloc(sizeof(float) * head_num* head_size);
-    // float* d_out_bias;
-    // cudaMalloc((void**)&d_out_bias, sizeof(float) * head_num * head_size);// wehn add bias to k, we ensure head_id < kv_head_num
-    // for(int i = 0; i < head_num * head_size; i++){
-    //     h_out_bias[i] = rand() % 100 / (float)100000;
-    // }
-    // float* d_ffn_gate_up, *d_ffn_down, *d_ffn_down_bias;
-    // float* h_ffn_gate_up = (float*) malloc(sizeof(float) * hidden_units * 2 * inter_size);
-    // // float* h_ffn_up = (float*) malloc(sizeof(float) * hidden_units * inter_size);
-    // float* h_ffn_down = (float*) malloc(sizeof(float) * hidden_units * inter_size);
-    // float* h_ffn_down_bias = (float*) malloc(sizeof(float) * hidden_units);
-    // cudaMalloc((void**)&d_ffn_gate_up, sizeof(float) * hidden_units * 2 * inter_size);
-    // // cudaMalloc((void**)&d_ffn_up, sizeof(float) * hidden_units * inter_size);
-    // cudaMalloc((void**)&d_ffn_down, sizeof(float) * hidden_units * inter_size);
-    // cudaMalloc((void**)&d_ffn_down_bias, sizeof(float) * hidden_units);
-    // for(int i = 0; i < hidden_units * 2 * inter_size; i++){
-    //     h_ffn_gate_up[i] = rand() % 100 / (float)100000;
-    // }
-    // for(int i = 0; i < hidden_units * inter_size; i++){
-    //     h_ffn_down[i] = rand() % 100 / (float)100000;
-    //     if (i < hidden_units){
-    //         h_ffn_down_bias[i] = 0.0f;
-    //     }
-    // }    
+ 
     // h2d
-    cudaMemcpy(d_decoder_input, h_decoder_input, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens, cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_decoder_input, h_decoder_input, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens, cudaMemcpyHostToDevice);
     cudaMemcpy(d_all_k_cache, h_all_k_cache, sizeof(float) * num_layers * attn_dyn_params.batch_size * kv_head_num * max_seq_len * head_size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_all_v_cache, h_all_v_cache, sizeof(float) * num_layers * attn_dyn_params.batch_size * kv_head_num * max_seq_len * head_size, cudaMemcpyHostToDevice);
     cudaMemcpy(d_padding_offset, h_padding_offset, sizeof(int) * attn_dyn_params.num_tokens, cudaMemcpyHostToDevice);
@@ -183,10 +191,10 @@ int main(int argc, char** argv)
                                                /*attn_bias*/false);
         layerWeights[i]->loadWeights();
     }
-    TensorWrapper<float>* decoder_input = new TensorWrapper<float>(GPU, 
-                                                                    type, 
-                                                                    {attn_dyn_params.num_tokens, q_hidden_units}, 
-                                                                    d_decoder_input);
+    // TensorWrapper<float>* decoder_input = new TensorWrapper<float>(GPU, 
+    //                                                                 type, 
+    //                                                                 {attn_dyn_params.num_tokens, q_hidden_units}, 
+    //                                                                 d_decoder_input);
     TensorWrapper<int>* padding_offset = new TensorWrapper<int>(GPU, 
                                                               type_int, 
                                                               {attn_dyn_params.num_tokens}, 
@@ -267,8 +275,8 @@ int main(int argc, char** argv)
     ctxDecoder->forward(decoder_inputs, layerWeights, decoder_outputs, attn_dyn_params);
     cudaDeviceSynchronize();
     // gpu buffer can be released in corresponding class
-    free(h_decoder_input);
-    cudaFree(d_decoder_input);
+    // free(h_decoder_input);
+    // cudaFree(d_decoder_input);
     DeviceSyncAndCheckCudaError();
     free(h_all_k_cache);
     cudaFree(d_all_k_cache);
@@ -294,6 +302,9 @@ int main(int argc, char** argv)
     free(h_output_norm_weight);
     cudaFree(d_output_norm_weight);
     DeviceSyncAndCheckCudaError();
+    free(h_input_ids_buf_);
+    free(embedding);
+    cudaFree(d_embedding);
     // free(h_attn_norm_weight);
     // free(h_ffn_norm_weight);
     // free(h_qkv_weights);
