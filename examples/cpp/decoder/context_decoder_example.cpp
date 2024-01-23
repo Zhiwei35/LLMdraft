@@ -34,6 +34,14 @@
 //4.ctxattn and ffn, the device free function, must pass right params type
 int main(int argc, char** argv)
 {
+    cublasHandle_t cublas_handle;
+    cublasLtHandle_t cublaslt_handle;
+    cudaStream_t stream;
+    cublasCreate(&cublas_handle);
+    cublasSetMathMode(cublas_handle, CUBLAS_DEFAULT_MATH);
+    cublasWrapper* cublas_wrapper = new cublasWrapper(cublas_handle, cublaslt_handle);
+    BaseAllocator* allocator = new CudaAllocator;
+    
     int head_num = 32;
     int kv_head_num = 32;
     int head_size = 128;
@@ -51,7 +59,7 @@ int main(int argc, char** argv)
     float *h_input_ids_buf_;
     h_input_ids_buf_ =
         allocator->Malloc(h_input_ids_buf_, sizeof(int) * 64, true);
-    std::string input = "how old are you"
+    std::string input = "how old are you";
     std::vector<int> res = tokenizer.Encode(input);
     std::string total_str = input[0];
     for (int i = 0; i < res.size(); i++)
@@ -82,7 +90,7 @@ int main(int argc, char** argv)
                      h_input_ids_buf_,                                   // get from encode
                      RoundUpTo32x(sizeof(int) * 16), // h_input_length_buf = 0B, cause allocation occurs before line137
                      cudaMemcpyHostToDevice));
-    TensorWrapper<float>* decoder_input = new TensorWrapper<T>(GPU, getTensorType<float>(), {/*token num*/ 64, hidden_units});
+    TensorWrapper<float>* decoder_input = new TensorWrapper<float>(GPU, getTensorType<float>(), {/*token num*/ 64, hidden_units});
     
     float* embedding = (float*)malloc(sizeof(float) * 32000 * 4096);
     for(int i = 0; i < 32000 * 4096; i++){
@@ -98,14 +106,6 @@ int main(int argc, char** argv)
     embed_table.data = d_embedding;
     launchInputEmbedding(input_ids, decoder_input, &embed_table);
 
-    cublasHandle_t cublas_handle;
-    cublasLtHandle_t cublaslt_handle;
-    cudaStream_t stream;
-    cublasCreate(&cublas_handle);
-    cublasSetMathMode(cublas_handle, CUBLAS_DEFAULT_MATH);
-    cublasWrapper* cublas_wrapper = new cublasWrapper(cublas_handle, cublaslt_handle);
-    BaseAllocator* allocator = new CudaAllocator;
-
     // float* h_decoder_input = (float*) malloc(sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
     // float* d_decoder_input;
     // cudaMalloc((void**)&d_decoder_input, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
@@ -114,8 +114,8 @@ int main(int argc, char** argv)
     //    h_decoder_input[i] = rand() % 100 / (float)(100000);
     // }
     
-    // float* d_decoder_output;
-    // cudaMalloc((void**)&d_decoder_output, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
+    float* d_decoder_output;
+    cudaMalloc((void**)&d_decoder_output, sizeof(float) * q_hidden_units * attn_dyn_params.num_tokens);
 
     float* h_mask = (float*) malloc(sizeof(float) * attn_dyn_params.batch_size * attn_dyn_params.max_q_len * attn_dyn_params.max_k_len);
     float* d_mask;
@@ -183,7 +183,6 @@ int main(int argc, char** argv)
     DataType type = getTensorType<float>(); // note: the type should be as a class data member!
     DataType type_int = getTensorType<int>();
     std::vector<LlamaLayerWeight<float>*> layerWeights;
-    WeightType wtype = getWeightType<float>();
     layerWeights.reserve(num_layers);
     for(int i = 0; i < num_layers; i++) {
         layerWeights[i] = new LlamaLayerWeight<float>(head_num, kv_head_num,
