@@ -157,147 +157,147 @@ __global__ void masked_MHA_kernel(const T* q,
                     const int step,
                     int   rotary_embedding_dim,
                     float rotary_embedding_base){// rsqrt(dh)
-    // int tid = threadIdx.x;
-    // int q_head_id = blockIdx.x;
-    // int q_batch_id = blockIdx.y;
-    // int kv_head_id = q_head_id / head_num / kv_head_num;
-    // int kv_batch_id = q_batch_id;
-    // //int q_head_id = bid % head_num;
-    // //int q_batch_id = bid / head_num;
-    // //int kv_head_id = bid % kv_head_num;
-    // //int kv_batch_id = bid / kv_head_num;
+    int tid = threadIdx.x;
+    int q_head_id = blockIdx.x;
+    int q_batch_id = blockIdx.y;
+    int kv_head_id = q_head_id / head_num / kv_head_num;
+    int kv_batch_id = q_batch_id;
+    //int q_head_id = bid % head_num;
+    //int q_batch_id = bid / head_num;
+    //int kv_head_id = bid % kv_head_num;
+    //int kv_batch_id = bid / kv_head_num;
 
-    // int batch_stride = head_num * head_size;
-    // int kv_batch_stride = kv_head_num * head_size;
-    // int head_stride = head_size;
-    // int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
-    // int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
-    // int cache_offset = batch_size * kv_batch_stride;
+    int batch_stride = head_num * head_size;
+    int kv_batch_stride = kv_head_num * head_size;
+    int head_stride = head_size;
+    int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
+    int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
+    int cache_offset = batch_size * kv_batch_stride;
 
-    // int vec_size = Vec<T>::size;
-    // int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
-    // int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
-    // float scale = rsqrt(float(head_size));
-    // using Vec_t = typename Vec<T>::Type;
-    // Vec_t qvec, kvec, vvec;
-    // //Vec_t scale_vec = static_cast<Vec_t>(scale);
-    // //reuse q k v reg from rope
-    // const T* q_mem = q;
-    // const T* k_mem = k;
-    // const T* v_mem = v;
-    // if (tid * vec_size < head_size) {
-    //     qvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&q_mem[q_offset_vec]));
-    //     if (qkv_bias != nullptr){
-	//     Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
-    //         for(int i = 0; i < vec_size; i++) {
-    //             reinterpret_cast<float*>(&qvec)[i] += reinterpret_cast<float*>(&q_bias)[i];
-    //         }
-	// }
-    //     kvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&k_mem[k_offset_vec]));
-    //     if (qkv_bias != nullptr){
-	//     Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
-    //         for(int i = 0; i < vec_size; i++) {
-    //             reinterpret_cast<float*>(&kvec)[i] += reinterpret_cast<float*>(&k_bias)[i];
-    //         }
-	// }
-    //     vvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&v_mem[k_offset_vec]));
-    //     if (qkv_bias != nullptr){
-	//     Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
-    //         for(int i = 0; i < vec_size; i++) {
-    //             reinterpret_cast<float*>(&vvec)[i] += reinterpret_cast<float*>(&v_bias)[i];
-    //         }
-	// }
-    //     // 测试的时候关掉rope
-    //     // apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
-    // }
-    // // q k smem for block reduce
-    // // define smem type is char type!! not T
-    // // 主要展示一些dynamic smem怎么memory plan
-    // extern __shared__ char sqk[];
-    // T* sq = reinterpret_cast<T*>(sqk); // 在step行把q存进smem，之前的step-1行可以直接从smem load to reg
-    // T* sk = sq + head_size; // 不是很有必要在reg上存k
-    // T* sv = sk + head_size;
-    // float* logits = reinterpret_cast<float*>(sv + step); // 所有线程reduce的结果存到logits，需要smem
-    // //T* sv = reinterpret_cast<T*>(logits + step);
-    // //sq[tid] = q_mem[qkv_offset];
-    // if (tid * vec_size < head_size) {
-    //     *reinterpret_cast<Vec_t*>(&sq[tid * vec_size]) = qvec;
-    // }
-    // __syncthreads();
-    // // FT 2.1的写法里面，kv cache是在prompt阶段已经填充，iter=0为token gen的起始iter
-    // // FT 5.3, 一个block处理k的多行，即多个head size
-    // for(int iter = 0; iter < step; iter++) {
-    //     // every iter,  q and k's shape = [1, head size]
-    //     // reuse k cache
-    //     // float k = k_cache[iter * cache_offset + qkv_offset];
-    //     //或许可以在每个step省略掉前step-1的qk dot
-    //     sk[tid]= k_cache[iter * cache_offset + k_offset];
-    //     __syncthreads();
-    //     // when final step, update k cache
-    //     if (iter == step - 1 && tid * vec_size < head_size) {
-    //         // TODO: update k cache with k with bias add
-    //         //k_cache[iter * cache_offset + qkv_offset] = k_mem[qkv_offset];
-    //         //sk[tid] = k_mem[qkv_offset];
-    //         *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) = kvec;
-    //         *reinterpret_cast<Vec_t*>(&sk[tid * vec_size]) = kvec;         
-    //     }
-    //     // sq[tid] = q_mem[qkv_offset];
-    //     __syncthreads();
-    //     //在FT，k是从k cache加载到reg，q是从q smem加载到reg，q smem是每个新的step把新然后二者mul，这里直接用smem做mul也可以，反正compiler会帮我们load到reg
-    //     T qk = (tid < head_size) ? (float)sq[tid] * (float)sk[tid] * (float)scale : (T)0.0f;
-    //     //block reduce using multi warp reduce
-    //     //TODO: maybe broadcast the attn score to each thread of the block in blockreducesum
-    //     T attn_score = blockReduceSum<T>(qk);
-    //     if(tid == 0) {
-    //         logits[iter] = attn_score;
-    //     }
-    //     __syncthreads();
-    // }
-    // //softmax(logits), logits.shape = [bs, num heads, 1, step]
-    // T local_logits = tid < step ? (T)logits[tid] : 0;
-    // __shared__ float row_max, fenmu;
+    int vec_size = Vec<T>::size;
+    int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
+    int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
+    float scale = rsqrt(float(head_size));
+    using Vec_t = typename Vec<T>::Type;
+    Vec_t qvec, kvec, vvec;
+    //Vec_t scale_vec = static_cast<Vec_t>(scale);
+    //reuse q k v reg from rope
+    const T* q_mem = q;
+    const T* k_mem = k;
+    const T* v_mem = v;
+    if (tid * vec_size < head_size) {
+        qvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&q_mem[q_offset_vec]));
+        if (qkv_bias != nullptr){
+	    Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
+            for(int i = 0; i < vec_size; i++) {
+                reinterpret_cast<float*>(&qvec)[i] += reinterpret_cast<float*>(&q_bias)[i];
+            }
+	}
+        kvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&k_mem[k_offset_vec]));
+        if (qkv_bias != nullptr){
+	    Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
+            for(int i = 0; i < vec_size; i++) {
+                reinterpret_cast<float*>(&kvec)[i] += reinterpret_cast<float*>(&k_bias)[i];
+            }
+	}
+        vvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&v_mem[k_offset_vec]));
+        if (qkv_bias != nullptr){
+	    Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
+            for(int i = 0; i < vec_size; i++) {
+                reinterpret_cast<float*>(&vvec)[i] += reinterpret_cast<float*>(&v_bias)[i];
+            }
+	}
+        // 测试的时候关掉rope
+        apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
+    }
+    // q k smem for block reduce
+    // define smem type is char type!! not T
+    // 主要展示一些dynamic smem怎么memory plan
+    extern __shared__ char sqk[];
+    T* sq = reinterpret_cast<T*>(sqk); // 在step行把q存进smem，之前的step-1行可以直接从smem load to reg
+    T* sk = sq + head_size; // 不是很有必要在reg上存k
+    T* sv = sk + head_size;
+    float* logits = reinterpret_cast<float*>(sv + step); // 所有线程reduce的结果存到logits，需要smem
+    //T* sv = reinterpret_cast<T*>(logits + step);
+    //sq[tid] = q_mem[qkv_offset];
+    if (tid * vec_size < head_size) {
+        *reinterpret_cast<Vec_t*>(&sq[tid * vec_size]) = qvec;
+    }
+    __syncthreads();
+    // FT 2.1的写法里面，kv cache是在prompt阶段已经填充，iter=0为token gen的起始iter
+    // FT 5.3, 一个block处理k的多行，即多个head size
+    for(int iter = 0; iter < step; iter++) {
+        // every iter,  q and k's shape = [1, head size]
+        // reuse k cache
+        // float k = k_cache[iter * cache_offset + qkv_offset];
+        //或许可以在每个step省略掉前step-1的qk dot
+        sk[tid]= k_cache[iter * cache_offset + k_offset];
+        __syncthreads();
+        // when final step, update k cache
+        if (iter == step - 1 && tid * vec_size < head_size) {
+            // TODO: update k cache with k with bias add
+            //k_cache[iter * cache_offset + qkv_offset] = k_mem[qkv_offset];
+            //sk[tid] = k_mem[qkv_offset];
+            *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) = kvec;
+            *reinterpret_cast<Vec_t*>(&sk[tid * vec_size]) = kvec;         
+        }
+        // sq[tid] = q_mem[qkv_offset];
+        __syncthreads();
+        //在FT，k是从k cache加载到reg，q是从q smem加载到reg，q smem是每个新的step把新然后二者mul，这里直接用smem做mul也可以，反正compiler会帮我们load到reg
+        T qk = (tid < head_size) ? (float)sq[tid] * (float)sk[tid] * (float)scale : (T)0.0f;
+        //block reduce using multi warp reduce
+        //TODO: maybe broadcast the attn score to each thread of the block in blockreducesum
+        T attn_score = blockReduceSum<T>(qk);
+        if(tid == 0) {
+            logits[iter] = attn_score;
+        }
+        __syncthreads();
+    }
+    //softmax(logits), logits.shape = [bs, num heads, 1, step]
+    T local_logits = tid < step ? (T)logits[tid] : 0;
+    __shared__ float row_max, fenmu;
     
-    // T block_max = blockReduceMax<T>(local_logits);
-    // if (tid == 0){
-    //     row_max = block_max;
-    // }
-    // __syncthreads();
-    // T fenzi = tid < step ? expf(logits[tid] - row_max) : 0;
+    T block_max = blockReduceMax<T>(local_logits);
+    if (tid == 0){
+        row_max = block_max;
+    }
+    __syncthreads();
+    T fenzi = tid < step ? expf(logits[tid] - row_max) : 0;
     
-    // T block_fenmu = blockReduceSum<T>(fenzi);
-    // if (tid == 0){
-    //     fenmu = block_fenmu;
-    // }
-    // __syncthreads();
-    // if(tid < step) {
-    //     logits[tid] = (T)(fenzi / fenmu);
-    // }
-    // __syncthreads();
+    T block_fenmu = blockReduceSum<T>(fenzi);
+    if (tid == 0){
+        fenmu = block_fenmu;
+    }
+    __syncthreads();
+    if(tid < step) {
+        logits[tid] = (T)(fenzi / fenmu);
+    }
+    __syncthreads();
 
-    // // logits*V = [bs, num heads, 1, step] * [max_seq_len or step, bs, num heads, head size]
-    // if (tid < head_size) {
-    //     // note: here is head size ,not step, because step by step, we have to use [1, step/seqlen] from logits * [1, head size] from v
-    //     // so here we use acc O to acc the one ele logits * one ele v every step iter
-    //     T O = 0.0f;
-    //     for(int iter = 0; iter < step; iter++) {
-    //         sv[tid]= v_cache[iter * cache_offset + k_offset];
-    //         __syncthreads();
-    //         // when final step, update k cache
-    //         if (iter == step - 1) {
-    //             // TODO: update k cache with k with bias add
-    //             *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]) = vvec;
-    //             // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
-    //             sv[tid] = v_mem[k_offset];
-    //         }
-	//     __syncthreads();
-    //         //if(bid==0 && tid == 0){
-    //         //printf("when tid=0, v cache = %f\n", sv[tid]);
-    //         //在FT，v是从v cache加载到reg，logits是从logits smem加载到reg，然后二者mul
-    //         O += sv[tid] * logits[iter];
-    //         __syncthreads();
-    //     }
-    //     mha_output[q_offset] = O;
-    // }
+    // logits*V = [bs, num heads, 1, step] * [max_seq_len or step, bs, num heads, head size]
+    if (tid < head_size) {
+        // note: here is head size ,not step, because step by step, we have to use [1, step/seqlen] from logits * [1, head size] from v
+        // so here we use acc O to acc the one ele logits * one ele v every step iter
+        T O = 0.0f;
+        for(int iter = 0; iter < step; iter++) {
+            sv[tid]= v_cache[iter * cache_offset + k_offset];
+            __syncthreads();
+            // when final step, update k cache
+            if (iter == step - 1) {
+                // TODO: update k cache with k with bias add
+                *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]) = vvec;
+                // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
+                sv[tid] = v_mem[k_offset];
+            }
+	    __syncthreads();
+            //if(bid==0 && tid == 0){
+            //printf("when tid=0, v cache = %f\n", sv[tid]);
+            //在FT，v是从v cache加载到reg，logits是从logits smem加载到reg，然后二者mul
+            O += sv[tid] * logits[iter];
+            __syncthreads();
+        }
+        mha_output[q_offset] = O;
+    }
 }
 
 template<> //特化以下half类型的，不在fp32代码上改
