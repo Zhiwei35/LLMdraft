@@ -60,7 +60,7 @@ public:
     void* UnifyMalloc(void* ptr, size_t size, bool is_host) {
         // align to 32bytes to make float4 work
         // not sure if w/o it, float4 works or not
-        size = ((size + 31) / 32) * 32;
+//        size = ((size + 31) / 32) * 32;
         if (is_host) {
             //CHECK(cudaMallocHost(&ptr, size));
             ptr = malloc(size);
