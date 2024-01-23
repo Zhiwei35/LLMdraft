@@ -67,7 +67,6 @@ int main(int argc, char** argv)
     std::string input = "how old are you";
     Tokenizer tokenizer;
     std::vector<int> res = tokenizer.Encode(input);
-    std::string total_str = input[0];
     for (int i = 0; i < res.size(); i++)
     {
         h_input_ids_buf_[i] = res[i]; // [max_context_token_nums_]
