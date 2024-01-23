@@ -63,11 +63,11 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
     dout[idx].z = out.z * inv_mean * s[idx].z;
     dout[idx].w = out.w * inv_mean * s[idx].w;
   }
-  if (blockIdx.x == 0 && threadIdx.x == 0) {
-    printf("rmsnorm out:\n");
-    printf("%f\n", decoder_out[0]);
-    printf("%f\n", decoder_out[1]);
-  }
+  // if (blockIdx.x == 0 && threadIdx.x == 0) {
+  //   printf("rmsnorm out:\n");
+  //   printf("%f\n", decoder_out[0]);
+  //   printf("%f\n", decoder_out[1]);
+  // }
 }
 
 template <>
@@ -124,13 +124,13 @@ void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
     int num_threads = hidden_units / 4;//vec size // assume head size can be divided by 4 and 2
     dim3 grid(num_tokens);
     dim3 block(num_threads);
-    printf("calling RMSNorm\n");
+    // printf("calling RMSNorm\n");
     RMSNorm<T><<<grid, block>>>(decoder_out->data,
                             attn_norm_weight.gamma,
                             eps,
                             num_tokens,
                             hidden_units);
-    printf("called RMSNorm\n");
+    // printf("called RMSNorm\n");
 }
 
 template void launchRMSNorm( TensorWrapper<float>* decoder_out, // [num tokens, hidden_units]

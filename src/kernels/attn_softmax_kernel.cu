@@ -65,12 +65,12 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
     {
         return;
     }
-    if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
-    {
-        printf("attn softmax input top2 data:\n");
-        printf("%f\n", qk[0]);
-        printf("%f\n", qk[1]);
-    }
+    // if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
+    // {
+    //     printf("attn softmax input top2 data:\n");
+    //     printf("%f\n", qk[0]);
+    //     printf("%f\n", qk[1]);
+    // }
     __shared__ float inv_sum, s_max;
     for (int row_start = blockIdx.x; row_start < q_len; row_start += gridDim.x)
     {
@@ -108,15 +108,15 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
         for (int col_start = 0; col_start < NUMS_PER_THREAD_PER_ROW; col_start++)
         {
             // debug info to see useless threads if its available,printf("blockIdx.x=%d, threadIdx.x=%d\n",blockIdx.x, threadIdx.x);
-	    if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
-            {
-                printf("attn softmax before exp top2 data:\n");
-                printf("data[col_start]=%f,s_max=%f\n", data[col_start], s_max);
-            }
-            if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 1)
-            {
-                printf("data[col_start]=%f,s_max=%f\n", data[col_start], s_max);
-            }
+	    // if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
+        //     {
+        //         printf("attn softmax before exp top2 data:\n");
+        //         printf("data[col_start]=%f,s_max=%f\n", data[col_start], s_max);
+        //     }
+        //     if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 1)
+        //     {
+        //         printf("data[col_start]=%f,s_max=%f\n", data[col_start], s_max);
+        //     }
 
             qk_offset = batch_id * head_nums * q_len * k_len + head_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
             mask_offset = batch_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
@@ -137,15 +137,15 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
         {
             qk_offset = batch_id * head_nums * q_len * k_len + head_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
             attn_score[qk_offset] = (data[col_start] * inv_sum);
-            if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
-            {
-                printf("attn softmax output top2 data:\n");
-                printf("out=%f,data[col_start]=%f,inv_sum=%f\n", attn_score[0], data[col_start], inv_sum);
-	    }
-            if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 1)
-            {
-	    	printf("out=%f,data[col_start]=%f,inv_sum=%f\n", attn_score[1], data[col_start], inv_sum);
-            }
+        //     if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
+        //     {
+        //         printf("attn softmax output top2 data:\n");
+        //         printf("out=%f,data[col_start]=%f,inv_sum=%f\n", attn_score[0], data[col_start], inv_sum);
+	    // }
+        //     if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 1)
+        //     {
+	    // 	printf("out=%f,data[col_start]=%f,inv_sum=%f\n", attn_score[1], data[col_start], inv_sum);
+        //     }
         }
     }
 }
@@ -302,8 +302,8 @@ void launchScaleMaskAndSoftmax(TensorWrapper<T> *qk,
     int head_nums = qk->shape[1];
     int k_length = qk->shape[3];
     bool is_half = sizeof(T) == 2;
-    printf("softmax problem size: \n");
-    printf("[bs,headnum,qlen,klen]=%d,%d,%d,%d\n",batch_size,head_nums,q_length,k_length);
+    // printf("softmax problem size: \n");
+    // printf("[bs,headnum,qlen,klen]=%d,%d,%d,%d\n",batch_size,head_nums,q_length,k_length);
     // TODO: should enhance it by padding to support odd ones
     if (is_half) {
     	ONELLM_CHECK_WITH_INFO(k_length % 2 == 0, "Currently, K_len should be divided by 2 under half type!");

@@ -57,7 +57,7 @@ void launchLinearGemm(TensorWrapper<T> *input,
     {
         ONELLM_CHECK_WITH_INFO(Ak == Bk, "2nd dim of input MUST = 1st dim of weight");
     }
-    std::cout << "calling gemm" << "\n";
+    // std::cout << "calling gemm" << "\n";
     cublas_wrapper->Gemm(transA,
                          transB,
                          trans_b ? Ak : Am, // m
@@ -71,7 +71,7 @@ void launchLinearGemm(TensorWrapper<T> *input,
                          ldc,                             // ldc
                          1.0f,
                          0.0f);
-    std::cout << "called gemm" << "\n";
+    // std::cout << "called gemm" << "\n";
 }
 
 template <typename T>
@@ -156,7 +156,7 @@ void launchLinearStridedBatchGemm(TensorWrapper<T> *input1,
     // TODO:check batchCount of two matrix is equal
     int batchCount = input1->shape[0] * input1->shape[1];
 
-    std::cout << "calling batch gemm" << "\n";
+    // std::cout << "calling batch gemm" << "\n";
     cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N;
     cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
 	
@@ -177,7 +177,7 @@ void launchLinearStridedBatchGemm(TensorWrapper<T> *input1,
                                        batchCount,
                                        1.0f,
                                        0.0f);
-    std::cout << "called batch gemm" <<"\n";
+    // std::cout << "called batch gemm" <<"\n";
 }
 
 template void launchLinearGemm(TensorWrapper<float> *input,

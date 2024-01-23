@@ -59,7 +59,7 @@ void launchSampling(TensorWrapper<int>* topk_id,
 
     dim3 grid(batch_size);
     dim3 block(K); // K is small, so directly allocate K threads is enough
-    std::cout << "calling sampling kernel" << "\n";
+    // std::cout << "calling sampling kernel" << "\n";
     SamplingKernel<<<grid, block>>>(
         topk_id->data,
         topk_val->data,
@@ -71,7 +71,7 @@ void launchSampling(TensorWrapper<int>* topk_id,
         end_id,
         vocab_size
     );
-    std::cout << "called sampling kernel" << "\n";
+    // std::cout << "called sampling kernel" << "\n";
 }
 
 template void launchSampling(TensorWrapper<int>* topk_id,

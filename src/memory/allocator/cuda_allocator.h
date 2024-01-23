@@ -94,9 +94,9 @@ public:
             void* new_buffer;
             cudaMalloc(&new_buffer, size);
             total_allocated_size += size;
-            std::cout << "allocate a new big block from OS using cudaMalloc, size = "
-                                                << size << "B, total allocated size " << total_allocated_size << "B"
-                                                << std::endl;
+            // std::cout << "allocate a new big block from OS using cudaMalloc, size = "
+            //                                     << size << "B, total allocated size " << total_allocated_size << "B"
+            //                                     << std::endl;
             BigBlocks.push_back(CudaBigBlock(new_buffer, size, true));
             return new_buffer;
         }
@@ -117,9 +117,9 @@ public:
         void* new_buffer = (void*)ptr;
         CHECK(cudaMalloc(&new_buffer, size));
         CHECK(cudaMemset(new_buffer, 0, size));
-        std::cout << "allocate a new small block from OS using cudaMalloc, size = "
-                                            << size  << "B, total allocated size " << total_allocated_size << "B"
-                                            << std::endl;
+        // std::cout << "allocate a new small block from OS using cudaMalloc, size = "
+        //                                     << size  << "B, total allocated size " << total_allocated_size << "B"
+        //                                     << std::endl;
 
         SmallBlocks.push_back(CudaSmallBlock(new_buffer, size, true));
         return new_buffer;

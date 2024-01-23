@@ -277,7 +277,7 @@ int Llama<T>::continueTokenGen(LLaMAAttentionDynParams &dparams)
                           llama_weights->llama_layer_weight,
                           decoder_outputs,
                           dparams);
-    std::cout << "sampling..." << std::endl;
+    // std::cout << "sampling..." << std::endl;
     int res = LMHeadAndTopKSample(decoder_outputs);
     return res;
 }
@@ -329,7 +329,7 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap &decoder_outputs)
     DeviceSyncAndCheckCudaError();
 
     CHECK(cudaMemcpy(h_output_ids, token_ids->data, sizeof(int) * batch_size, cudaMemcpyDeviceToHost));
-    std::cout << "sampling done" << std::endl;
+    // std::cout << "sampling done" << std::endl;
     return h_output_ids[0]; // only for bs = 1
 }
 
@@ -340,7 +340,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
 {
     // this input already include self-defined pre prompt
     // printf("input= %s", std::get<0>(input));
-    std::cout << "input = " << input[0] << "\n";
+    // std::cout << "input = " << input[0] << "\n";
     std::vector<int> res = tokenizer.Encode(input[2]);
 
     std::string history_str = input[1];
@@ -368,10 +368,10 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
     int context_length = context_ids.size();
     int history_length = history_input_ids.size();
     int cur_input_length = res.size(); // res.size() is the input ids len, which is the real input len, rather not len of input string
-    std::cout << "context ids lenght = " << context_length
-              << "history_length = " << history_length
-              << "cur_input_length = " << cur_input_length
-              << "\n";
+    // std::cout << "context ids lenght = " << context_length
+    //           << "history_length = " << history_length
+    //           << "cur_input_length = " << cur_input_length
+    //           << "\n";
     IntDict int_params_first_token;
     int_params_first_token["context_length"] = context_length;
     int_params_first_token["history_length"] = history_length;
@@ -402,7 +402,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
             }
         }
         *step->data++;
-        std::cout << "generated index: " << ret << "\n";
+        // std::cout << "generated index: " << ret << "\n";
 
         // results.push_back(ret);
         std::string genString = tokenizer.Decode({ret}).c_str();

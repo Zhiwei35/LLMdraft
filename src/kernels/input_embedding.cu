@@ -15,11 +15,11 @@ __global__ void embeddingFunctor(const int* input_ids,
         output[index] = embed_table[id * hidden_size + index % hidden_size];
         index += blockDim.x * gridDim.x;
     }
-    if (blockIdx.x == 0 && threadIdx.x == 0){
-        printf("embedding res: \n");
-        printf("%f\n",output[0]);
-        printf("%f\n",output[1]);
-    }
+    // if (blockIdx.x == 0 && threadIdx.x == 0){
+    //     printf("embedding res: \n");
+    //     printf("%f\n",output[0]);
+    //     printf("%f\n",output[1]);
+    // }
 }
 
 template<typename T>
@@ -32,16 +32,16 @@ void launchInputEmbedding(TensorWrapper<int>* input_ids,    // INT [max context 
     const int hidden_size = output->shape[1];
     const int gridSize = 2048;
     ONELLM_CHECK_WITH_INFO(max_context_token_num == input_ids->shape[0], "input ids 1st shape should equal to 1st shape of output");
-    printf("calling input embedding\n");
-    printf("context decoder input/embedding output shape:\n");
-    printf("%d, %d\n", max_context_token_num, hidden_size);
-    printf("block num = %d, thread num = %d\n", gridSize, blockSize);
+    // printf("calling input embedding\n");
+    // printf("context decoder input/embedding output shape:\n");
+    // printf("%d, %d\n", max_context_token_num, hidden_size);
+    // printf("block num = %d, thread num = %d\n", gridSize, blockSize);
     embeddingFunctor<T><<<gridSize, blockSize>>>(input_ids->data,
                                                  output->data,
                                                  embed_table->data,
                                                  max_context_token_num,
                                                  hidden_size);
-    printf("called input embedding\n");
+    // printf("called input embedding\n");
 }
 
 template void launchInputEmbedding(TensorWrapper<int>* input_ids,    

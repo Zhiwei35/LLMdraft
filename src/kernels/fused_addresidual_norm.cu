@@ -50,11 +50,11 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     int tid = threadIdx.x;
     Vec_t *rsd, *bia, *s;
     Vec_t dout, tmp;
-    if(batch_id == 0 && tid == 0) {
-        printf("fusedaddresidualnorm top2 input: \n");
-        printf("%f\n",decoder_out[0]);
-        printf("%f\n",decoder_out[1]);
-    }
+    // if(batch_id == 0 && tid == 0) {
+    //     printf("fusedaddresidualnorm top2 input: \n");
+    //     printf("%f\n",decoder_out[0]);
+    //     printf("%f\n",decoder_out[1]);
+    // }
     //T zero = static_cast<T>(0.0f);
    // printf("in kernel\n");    
     T thread_accm = static_cast<T>(0);
@@ -108,9 +108,9 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     T blocksum = blockReduceSum<T>(thread_accm);
     __shared__ float inv_fenmu;
     if(tid == 0){
-	if(batch_id == 0) {
-            printf("blocksum=%f\n", blocksum);
-	}
+	// if(batch_id == 0) {
+    //         printf("blocksum=%f\n", blocksum);
+	// }
 	inv_fenmu = rsqrt(blocksum / hidden_units + eps);
         //debug info printf("inv_fenmu on GPU is %f\n", inv_fenmu);
     }
@@ -131,12 +131,12 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
         //    printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",out[i].y, s[i].y);
         //}
     }
-    if(blockIdx.x == 0 && tid == 0) {
-        printf("fusedaddresidualnorm top2 res: \n");
-        printf("out=%f,inv_fenmu=%f,scale=%f\n",decoder_out[0],inv_fenmu,scale[0]);
+    // if(blockIdx.x == 0 && tid == 0) {
+    //     printf("fusedaddresidualnorm top2 res: \n");
+    //     printf("out=%f,inv_fenmu=%f,scale=%f\n",decoder_out[0],inv_fenmu,scale[0]);
 	
-    	printf("out=%f,inv_fenmu=%f,scale=%f\n",decoder_out[1],inv_fenmu,scale[0]);
-    } 
+    // 	printf("out=%f,inv_fenmu=%f,scale=%f\n",decoder_out[1],inv_fenmu,scale[0]);
+    // } 
 
 //    printf("in kernel 2\n");
 }
@@ -204,8 +204,8 @@ void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_
     int num_threads = hidden_units / vec_size; // assume head size can be divided by 4 and 2
     dim3 grid(batch_size);
     dim3 block(num_threads);
-    printf("calling fusedAddBiasResidualAndRMSNorm\n");
-    printf("addresidualAndRMS blockNums = %d, threadNums = %d\n", batch_size, num_threads);
+    // printf("calling fusedAddBiasResidualAndRMSNorm\n");
+    // printf("addresidualAndRMS blockNums = %d, threadNums = %d\n", batch_size, num_threads);
     FusedAddBiasResidualRMSNorm<T><<<grid, block>>>(residual->data, 
                                                 decoder_out->data,
                                                 bias,
@@ -213,7 +213,7 @@ void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_
                                                 eps,
                                                 batch_size,
                                                 hidden_units);
-    printf("called fusedAddBiasResidualAndRMSNorm\n");
+    // printf("called fusedAddBiasResidualAndRMSNorm\n");
 }
 template void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, n_dims = hidden_units
                                     TensorWrapper<float>* residual, 

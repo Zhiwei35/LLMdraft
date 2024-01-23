@@ -34,9 +34,9 @@ __global__ void topK_kernel_round1(const T *probs, const int vocab_size,
 		int data_offset = data_id + row_id * vocab_size;
 		T data = probs[data_offset];
 		thread_topK.insertHeap(data, data_offset);
-        	if (bid == 1 && data_id < 10) {
-            		printf("ROUND1, 1st block, top1 vals = %f, top1 id = %d\n", data, data_offset);
-        	}
+        	// if (bid == 1 && data_id < 10) {
+            // 		printf("ROUND1, 1st block, top1 vals = %f, top1 id = %d\n", data, data_offset);
+        	// }
 	}
 //	typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;
 //	__shared__ typename blockreduce::TempStorage tmp_storage;
@@ -71,9 +71,9 @@ __global__ void topK_kernel_round2(const int *topK_ids, const T *topK_vals,
 		int data_offset = data_id + bid * BlockPerBeam * K;
 	
 		thread_topK.insertHeap(topK_vals[data_offset], topK_ids[data_offset]);
-        	if (bid == 0 && data_id == 0) {
-            		printf("ROUND2, 1st block, top1 vals = %f, top1 id = %d\n", topK_vals[data_offset], topK_ids[data_offset]);
-        	}
+        	// if (bid == 0 && data_id == 0) {
+            // 		printf("ROUND2, 1st block, top1 vals = %f, top1 id = %d\n", topK_vals[data_offset], topK_ids[data_offset]);
+        	// }
 	}
 
 //	typedef cub::BlockReduce<topK<T, K>, blockSize> blockreduce;

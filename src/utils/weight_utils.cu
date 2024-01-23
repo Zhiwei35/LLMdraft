@@ -50,7 +50,7 @@ __global__ void type_conversion(T_OUT* dst, const T_IN* src, const int size)
     int total_thread_nums = blockDim.x * gridDim.x;
     for (int index = gtid; index < size; index += total_thread_nums) {
         dst[index] = type_cast<T_OUT>(src[index]);
-        if(gtid == 0) {printf("1st ele after half2float: %f\n", dst[gtid]);}
+        // if(gtid == 0) {printf("1st ele after half2float: %f\n", dst[gtid]);}
     }
 }
 
@@ -117,9 +117,9 @@ struct loadWeightFromBin<T_OUT, T_FILE, true>
 public:
     static void internalFunc(T_OUT* ptr, std::vector<size_t> shape, std::string filename) {
         std::vector<T_FILE> host_array = loadWeightFromBinHelper<T_FILE>(shape, filename);
-        if(filename.find("embed") != -1) {
-            std::cout << "embed table: " << (float)host_array[0] << ", " << (float)host_array[1] << "\n";
-        }
+        // if(filename.find("embed") != -1) {
+        //     std::cout << "embed table: " << (float)host_array[0] << ", " << (float)host_array[1] << "\n";
+        // }
         if (host_array.empty()) {
             return;
         }
@@ -135,9 +135,9 @@ struct loadWeightFromBin<T_OUT, T_FILE, false>
 public:
     static void internalFunc(T_OUT* ptr, std::vector<size_t> shape, std::string filename) {
         std::vector<T_FILE> host_array = loadWeightFromBinHelper<T_FILE>(shape, filename);
-        if(filename.find("embed") != -1) {
-            std::cout << "embed table: " << (float)host_array[0] << ", " << (float)host_array[1] << "\n";
-        }
+        // if(filename.find("embed") != -1) {
+        //     std::cout << "embed table: " << (float)host_array[0] << ", " << (float)host_array[1] << "\n";
+        // }
         if (host_array.empty()) {
             return;
         }
