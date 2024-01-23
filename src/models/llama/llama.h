@@ -31,6 +31,7 @@ private:
     int batch_size = 1; //tmp var, should included in dyn params
     int beamwidth = 1;
     int BlockPerBeam = 8;
+    int index = 0;
     std::string prompt = "";
 
     Tokenizer tokenizer;

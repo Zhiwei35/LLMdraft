@@ -187,20 +187,26 @@ __global__ void masked_MHA_kernel(const T* q,
     const T* v_mem = v;
     if (tid * vec_size < head_size) {
         qvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&q_mem[q_offset_vec]));
-        Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
-        for(int i = 0; i < vec_size; i++) {
-            reinterpret_cast<float*>(&qvec)[i] += reinterpret_cast<float*>(&q_bias)[i];
-        }
+        if (qkv_bias != nullptr){
+	    Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
+            for(int i = 0; i < vec_size; i++) {
+                reinterpret_cast<float*>(&qvec)[i] += reinterpret_cast<float*>(&q_bias)[i];
+            }
+	}
         kvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&k_mem[k_offset_vec]));
-        Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
-        for(int i = 0; i < vec_size; i++) {
-            reinterpret_cast<float*>(&kvec)[i] += reinterpret_cast<float*>(&k_bias)[i];
-        }
+        if (qkv_bias != nullptr){
+	    Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
+            for(int i = 0; i < vec_size; i++) {
+                reinterpret_cast<float*>(&kvec)[i] += reinterpret_cast<float*>(&k_bias)[i];
+            }
+	}
         vvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&v_mem[k_offset_vec]));
-        Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
-        for(int i = 0; i < vec_size; i++) {
-            reinterpret_cast<float*>(&vvec)[i] += reinterpret_cast<float*>(&v_bias)[i];
-        }
+        if (qkv_bias != nullptr){
+	    Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
+            for(int i = 0; i < vec_size; i++) {
+                reinterpret_cast<float*>(&vvec)[i] += reinterpret_cast<float*>(&v_bias)[i];
+            }
+	}
         // 测试的时候关掉rope
         // apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
     }

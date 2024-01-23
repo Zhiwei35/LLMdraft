@@ -70,8 +70,9 @@ void Llama<T>::allocateGPUBuffer(int batch_size)
     context_decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 16, hidden_units});
     // split from context_decoder_output
     context_decoder_lmhead_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 1, hidden_units});
-    decoder_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, hidden_units});
-    decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, hidden_units});
+    // TODO: self decoder tmply not consider batch size dim
+    decoder_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {1, hidden_units});
+    decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {1, hidden_units});
     input_ids = new TensorWrapper<int>(GPU, getTensorType<int>(), {16}); //{batch_size, max_seq_len});//这里的seqlen应该是padding前的
     input_length = new TensorWrapper<int>(GPU, getTensorType<int>(), {batch_size});
     history_length = new TensorWrapper<int>(GPU, getTensorType<int>(), {batch_size});
@@ -285,12 +286,12 @@ template <typename T>
 int Llama<T>::LMHeadAndTopKSample(TensorMap &decoder_outputs)
 {
     Tensor *decoder_output = decoder_outputs["decoder_output"];
-    if (h_input_length_buf_[0] > 1)
+    if (index == 0)
     {
         TensorWrapper<T> *decoder_output_tensorwrapper = decoder_output->as<T>();
         auto input_length = decoder_output_tensorwrapper->shape[0];
         auto hidden_units = decoder_output_tensorwrapper->shape[1];
-        ONELLM_CHECK(h_input_length_buf_[0] == input_length);
+        //ONELLM_CHECK(h_input_length_buf_[0] == input_length);
         // follow fastllm handle ctxdecoder sampling
         auto ptr = decoder_output_tensorwrapper->data + (input_length - 1) * hidden_units;
         context_decoder_lmhead_input->data = ptr;
@@ -362,7 +363,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
     // printf("h_input_ids_vec_len = %d\n", res.size());//这个值有问题啊
     // printf("h_input_ids_buf_[1] = %d\n", h_input_ids_buf_[1]);
     // ensure prepared all needed input buffer
-    int index = 0;
+    //int index = 0;
     int ret;
     int context_length = context_ids.size();
     int history_length = history_input_ids.size();
@@ -420,7 +421,8 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
             ONELLM_CHECK(tmp.location != input_ids->location);
             allocator->Free(input_ids->data);
             input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * 1, false);
-            CHECK(cudaMemcpy(input_ids->data, tmp.data, sizeof(int) * 1, cudaMemcpyHostToDevice));
+            input_ids->shape = {1};
+	    CHECK(cudaMemcpy(input_ids->data, tmp.data, sizeof(int) * 1, cudaMemcpyHostToDevice));
         }
         else
         {
