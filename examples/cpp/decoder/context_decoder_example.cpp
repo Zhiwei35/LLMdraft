@@ -61,9 +61,7 @@ int main(int argc, char** argv)
     attn_static_params.rotary_embedding_base = 10000;
     attn_static_params.max_position_embeddings = 2048;
     attn_static_params.use_dynamic_ntk = false; // for dyn scaling rope
-    //int *h_input_ids_buf_;
-   // h_input_ids_buf_ =
-        //allocator->Malloc(h_input_ids_buf_, sizeof(int) * 64, true);
+
     std::string input = "how old are you";
     Tokenizer tokenizer;
     tokenizer.Initialize("/home/llama2-7b-tokenizer.bin");

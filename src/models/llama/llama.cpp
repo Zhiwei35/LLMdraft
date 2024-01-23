@@ -34,7 +34,7 @@ void Llama<T>::allocateCPUBuffer(int max_batch_size)
     //  h_input_ids_buf_ =
     //      allocator->Malloc(h_input_ids_buf_, sizeof(int) * max_batch_size * max_seq_len, true);
     h_input_ids_buf_ =
-        allocator->Malloc(h_input_ids_buf_, sizeof(int) * max_context_token_num_, true);
+        allocator->Malloc(h_input_ids_buf_, sizeof(int) * 16, true);
     h_input_length_buf_ =
         allocator->Malloc(h_input_length_buf_, sizeof(int) * max_batch_size, true);
     h_history_length_buf_ =
@@ -66,13 +66,13 @@ void Llama<T>::allocateGPUBuffer(int batch_size)
 {
     step = new TensorWrapper<int>(CPU, getTensorType<int>(), {1});
     layer = new TensorWrapper<int>(CPU, getTensorType<int>(), {1}, &layer_id);
-    context_decoder_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ max_context_token_num_, hidden_units});
-    context_decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ max_context_token_num_, hidden_units});
+    context_decoder_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 16, hidden_units});
+    context_decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 16, hidden_units});
     // split from context_decoder_output
     context_decoder_lmhead_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 1, hidden_units});
     decoder_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, hidden_units});
     decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, hidden_units});
-    input_ids = new TensorWrapper<int>(GPU, getTensorType<int>(), {max_context_token_num_}); //{batch_size, max_seq_len});//这里的seqlen应该是padding前的
+    input_ids = new TensorWrapper<int>(GPU, getTensorType<int>(), {16}); //{batch_size, max_seq_len});//这里的seqlen应该是padding前的
     input_length = new TensorWrapper<int>(GPU, getTensorType<int>(), {batch_size});
     history_length = new TensorWrapper<int>(GPU, getTensorType<int>(), {batch_size});
     context_length = new TensorWrapper<int>(GPU, getTensorType<int>(), {batch_size});
@@ -85,17 +85,17 @@ void Llama<T>::allocateGPUBuffer(int batch_size)
     probs = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, vocab_size});
 
     context_decoder_input->data =
-        allocator->Malloc(context_decoder_input->data, sizeof(T) * max_context_token_num_ * hidden_units, false); // 512x4x32
+        allocator->Malloc(context_decoder_input->data, sizeof(T) * 16 * hidden_units, false); // 512x4x32
     context_decoder_output->data =
-        allocator->Malloc(context_decoder_output->data, sizeof(T) * max_context_token_num_ * hidden_units, false);
+        allocator->Malloc(context_decoder_output->data, sizeof(T) * 16 * hidden_units, false);
     // context_decoder_ids->data =
-    //     (int*)allocator->Malloc(context_decoder_ids->data, sizeof(int) * max_context_token_num_, false);
+    //     (int*)allocator->Malloc(context_decoder_ids->data, sizeof(int) * 16, false);
     context_decoder_lmhead_input->data =
         allocator->Malloc(context_decoder_lmhead_input->data, sizeof(T) * 1 * hidden_units, false);
     decoder_input->data = allocator->Malloc(decoder_input->data, sizeof(T) * batch_size * hidden_units, false); // 4x32
     decoder_output->data = allocator->Malloc(decoder_output->data, sizeof(T) * batch_size * hidden_units, false);
 
-    input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * max_context_token_num_, false); // batch_size * max_seq_len, false);//4x100,进位到32x为416
+    input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * 16, false); // batch_size * max_seq_len, false);//4x100,进位到32x为416
     input_length->data = allocator->Malloc(input_length->data, sizeof(int) * batch_size, false);
     history_length->data = allocator->Malloc(history_length->data, sizeof(int) * batch_size, false);
     context_length->data = allocator->Malloc(context_length->data, sizeof(int) * batch_size, false);
@@ -166,7 +166,7 @@ void Llama<T>::InitializeForContextDecoder(IntDict &int_params_first_token)
     // printf("h_input_ids_buf_[20] = %d\n", h_input_ids_buf_[20]);
     CHECK(cudaMemcpy(input_ids->data,                                    //
                      h_input_ids_buf_,                                   // get from encode
-                     RoundUpTo32x(sizeof(int) * h_input_length_buf_[0]), // h_input_length_buf = 0B, cause allocation occurs before line137
+                     sizeof(int) * h_input_length_buf_[0],//RoundUpTo32x(sizeof(int) * h_input_length_buf_[0]), // h_input_length_buf = 0B, cause allocation occurs before line137
                      cudaMemcpyHostToDevice));
 
     // 直接使用kv cache gpu buffer
@@ -175,13 +175,13 @@ void Llama<T>::InitializeForContextDecoder(IntDict &int_params_first_token)
     // step = h_context_length_buf_[0];
     // batch size = 1
     // printf("input ids h2d is done\n");
-    CHECK(cudaMemcpy(input_length->data, h_input_length_buf_, RoundUpTo32x(sizeof(int) * batch_size), cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(input_length->data, h_input_length_buf_, sizeof(int) * batch_size, cudaMemcpyHostToDevice));
     // printf("input length h2d is done\n");
-    CHECK(cudaMemcpy(history_length->data, h_history_length_buf_, RoundUpTo32x(sizeof(int) * batch_size), cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(history_length->data, h_history_length_buf_, sizeof(int) * batch_size, cudaMemcpyHostToDevice));
     // printf("history_length h2d is done\n");
-    CHECK(cudaMemcpy(context_length->data, h_context_length_buf_, RoundUpTo32x(sizeof(int) * batch_size), cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(context_length->data, h_context_length_buf_, sizeof(int) * batch_size, cudaMemcpyHostToDevice));
     // printf("context_length is done\n");
-    CHECK(cudaMemcpy(is_finished->data, h_finished_buf_, RoundUpTo32x(sizeof(bool) * batch_size), cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(is_finished->data, h_finished_buf_, sizeof(bool) * batch_size, cudaMemcpyHostToDevice));
     // printf("InitializeForContextDecoder is done\n");
 }
 //
@@ -327,7 +327,7 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap &decoder_outputs)
                    /*IntDict&*/ int_params_of_sample); // in, including step vocabsize endid
     DeviceSyncAndCheckCudaError();
 
-    CHECK(cudaMemcpy(h_output_ids, token_ids->data, RoundUpTo32x(sizeof(int) * batch_size), cudaMemcpyDeviceToHost));
+    CHECK(cudaMemcpy(h_output_ids, token_ids->data, sizeof(int) * batch_size, cudaMemcpyDeviceToHost));
     std::cout << "sampling done" << std::endl;
     return h_output_ids[0]; // only for bs = 1
 }
@@ -361,13 +361,16 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
     }
     // printf("h_input_ids_vec_len = %d\n", res.size());//这个值有问题啊
     // printf("h_input_ids_buf_[1] = %d\n", h_input_ids_buf_[1]);
-
     // ensure prepared all needed input buffer
     int index = 0;
     int ret;
     int context_length = context_ids.size();
     int history_length = history_input_ids.size();
     int cur_input_length = res.size(); // res.size() is the input ids len, which is the real input len, rather not len of input string
+    std::cout << "context ids lenght = " << context_length
+              << "history_length = " << history_length
+              << "cur_input_length = " << cur_input_length
+              << "\n";
     IntDict int_params_first_token;
     int_params_first_token["context_length"] = context_length;
     int_params_first_token["history_length"] = history_length;
