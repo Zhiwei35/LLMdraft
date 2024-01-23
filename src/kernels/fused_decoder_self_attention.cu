@@ -347,17 +347,21 @@ __global__ void masked_MHA_kernel(const half* q,
     const half* v_mem = v;
     if (tid * vec_size < head_size) {
         qvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&q_mem[q_offset_vec]));
-        Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
-        qvec = __hadd2(qvec, q_bias);
-
+        if (qkv_bias != nullptr){
+            Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
+            qvec = __hadd2(qvec, q_bias);
+        }
         kvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&k_mem[k_offset_vec]));
-        Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
-        kvec = __hadd2(kvec, k_bias);
-
+        if (qkv_bias != nullptr){
+            Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
+            kvec = __hadd2(kvec, k_bias);
+        }
         //apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
         vvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&v_mem[k_offset_vec]));
-        Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
-        vvec = __hadd2(vvec, v_bias);
+        if (qkv_bias != nullptr){
+            Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
+            vvec = __hadd2(vvec, v_bias);
+        }
     }
     // q k smem for block reduce
     extern __shared__ char sqk[];
@@ -504,7 +508,7 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
     bool  use_dynamic_ntk = static_params.use_dynamic_ntk;
     dim3 grid(head_num, batch_size);//这里的block分配可以匹配得上lmdeploy
     dim3 block(head_size); //vec size = 4 for fp32
-    // printf("calling fused masked self attn kernel\n");
+    printf("calling fused masked self attn kernel\n");
     // printf("block nums = %d\n", grid.x);
     // printf("thread nums = %d\n", block.x);
     masked_MHA_kernel<T><<<grid, block, (3 * head_size * sizeof(T) + cur_step * sizeof(float))>>>(
@@ -523,7 +527,7 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
                                                                                 cur_step,
                                                                                 rotary_embedding_base,
                                                                                 rotary_embedding_dim);
-    // printf("called fused masked self attn kernel\n");
+    printf("called fused masked self attn kernel\n");
 }
 
 template void launchDecoderMaskedMHA(TensorWrapper<float>* qkv_buf,
