@@ -32,6 +32,11 @@
 //2.biasandrope, I forgot to define the bias ptr in example
 //3.batchgemm, k is transpose, so the lda ldb m n k must consider the trans_b=true
 //4.ctxattn and ffn, the device free function, must pass right params type
+size_t RoundUpTo32x(size_t size)
+{
+    return ((size + 31) / 32) * 32;
+}
+
 int main(int argc, char** argv)
 {
     cublasHandle_t cublas_handle;
@@ -41,7 +46,7 @@ int main(int argc, char** argv)
     cublasSetMathMode(cublas_handle, CUBLAS_DEFAULT_MATH);
     cublasWrapper* cublas_wrapper = new cublasWrapper(cublas_handle, cublaslt_handle);
     BaseAllocator* allocator = new CudaAllocator;
-    
+
     int head_num = 32;
     int kv_head_num = 32;
     int head_size = 128;
@@ -60,6 +65,7 @@ int main(int argc, char** argv)
     h_input_ids_buf_ =
         allocator->Malloc(h_input_ids_buf_, sizeof(int) * 64, true);
     std::string input = "how old are you";
+    Tokenizer tokenizer;
     std::vector<int> res = tokenizer.Encode(input);
     std::string total_str = input[0];
     for (int i = 0; i < res.size(); i++)
