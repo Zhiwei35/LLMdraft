@@ -61,12 +61,17 @@ int main(int argc, char** argv)
     attn_static_params.rotary_embedding_base = 10000;
     attn_static_params.max_position_embeddings = 2048;
     attn_static_params.use_dynamic_ntk = false; // for dyn scaling rope
-    float *h_input_ids_buf_;
-    h_input_ids_buf_ =
-        allocator->Malloc(h_input_ids_buf_, sizeof(int) * 64, true);
+    //int *h_input_ids_buf_;
+   // h_input_ids_buf_ =
+        //allocator->Malloc(h_input_ids_buf_, sizeof(int) * 64, true);
     std::string input = "how old are you";
     Tokenizer tokenizer;
+    tokenizer.Initialize("/home/llama2-7b-tokenizer.bin");
     std::vector<int> res = tokenizer.Encode(input);
+    std::cout << "input ids length is " << res.size() << "\n";
+    int *h_input_ids_buf_;
+    h_input_ids_buf_ =
+        allocator->Malloc(h_input_ids_buf_, sizeof(int) * res.size(), true);
     for (int i = 0; i < res.size(); i++)
     {
         h_input_ids_buf_[i] = res[i]; // [max_context_token_nums_]
@@ -90,19 +95,20 @@ int main(int argc, char** argv)
     // retString为当前轮次对话的所有token string
     std::string retString = "";
 
-    TensorWrapper<int>* input_ids = new TensorWrapper<int>(GPU, getTensorType<int>(), {64});
+    TensorWrapper<int>* input_ids = new TensorWrapper<int>(GPU, getTensorType<int>(), {cur_input_length});
+    input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * cur_input_length, false);
     CHECK(cudaMemcpy(input_ids->data,                                    //
                      h_input_ids_buf_,                                   // get from encode
-                     RoundUpTo32x(sizeof(int) * 16), // h_input_length_buf = 0B, cause allocation occurs before line137
+                     sizeof(int) * cur_input_length,//RoundUpTo32x(sizeof(int) * cur_input_length), // h_input_length_buf = 0B, cause allocation occurs before line137
                      cudaMemcpyHostToDevice));
-    TensorWrapper<float>* decoder_input = new TensorWrapper<float>(GPU, getTensorType<float>(), {/*token num*/ 64, hidden_units});
-    
+    TensorWrapper<float>* decoder_input = new TensorWrapper<float>(GPU, getTensorType<float>(), {/*token num*/  attn_dyn_params.num_tokens, q_hidden_units});
+    decoder_input->data = allocator->Malloc(decoder_input->data, sizeof(float) * attn_dyn_params.num_tokens * q_hidden_units, false); 
     float* embedding = (float*)malloc(sizeof(float) * 32000 * 4096);
     for(int i = 0; i < 32000 * 4096; i++){
         embedding[i] = rand() % 100 / (float)100000;
     }
     float* d_embedding;
-    CHECK(cudaMalloc((void**)d_embedding, sizeof(float) * 32000 * 4096));
+    CHECK(cudaMalloc((void**)&d_embedding, sizeof(float) * 32000 * 4096));
     CHECK(cudaMemcpy(d_embedding, embedding, sizeof(float) * 32000 * 4096, cudaMemcpyHostToDevice));
     EmbeddingWeight<float> embed_table;
     WeightType wtype = getWeightType<float>();
@@ -240,9 +246,9 @@ int main(int argc, char** argv)
                                                               {q_hidden_units}, 
                                                               d_output_norm_weight);
     ONELLM_CHECK_WITH_INFO(decoder_input->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(padding_offset->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+//    ONELLM_CHECK_WITH_INFO(padding_offset->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     ONELLM_CHECK_WITH_INFO(history_length->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(attention_mask->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+//    ONELLM_CHECK_WITH_INFO(attention_mask->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     ONELLM_CHECK_WITH_INFO(layer->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     ONELLM_CHECK_WITH_INFO(context_length->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     ONELLM_CHECK_WITH_INFO(output_norm_weight->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
@@ -250,11 +256,11 @@ int main(int argc, char** argv)
     std::cout << "in context decoder example cpp: " << layer->DeviceString() << "\n";    
     TensorMap decoder_inputs{
         {"decoder_input", decoder_input},
-        {"padding_offset", padding_offset},
+//        {"padding_offset", padding_offset},
         {"history_length", history_length},
         {"input_length", input_length},
         {"context_length", context_length},
-        {"attention_mask", attention_mask},
+ //       {"attention_mask", attention_mask},
         {"output_norm_weight", output_norm_weight},//located at llamaweights class, rather not llamalayerweigths
         {"layer_id", layer}
     };
