@@ -35,8 +35,8 @@ __global__ void topK_kernel_round1(const T* probs, const int vocab_size,
     for(int data_id = tid + block_lane * blockSize; data_id < vocab_size; data_id += BlockPerBeam * blockSize){
         int data_offset = data_id + row_id * vocab_size;
         T data = probs[data_offset];
-        //thread_topK.insertHeap(data, data_offset);
-        thread_topK.insertHeap(data, data_id); // bug
+        //thread_topK.insertHeap(data, data_offset); // bug, id should be local in bsxbm, if use this line, assume bsxbm=2, prob=1-50000,the 2nd bsxbm res topk id will be 59999,59998..., but in bsxbm internal, this id will be 29999,29998... rather than not global id
+        thread_topK.insertHeap(data, data_id); 
     }
     //block local reduce
     topK<T, K> block_topK = blockreduce(temp_storage).Reduce(thread_topK, reduce_functor<T, K>);

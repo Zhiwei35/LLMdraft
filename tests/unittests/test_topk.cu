@@ -81,7 +81,7 @@ int main() {
     cudaMemcpy(h_final_topk_ids, d_final_topk_ids, sizeof(int) * final_topK_val_buf_size, cudaMemcpyDeviceToHost);
     //float* h_topK_val = (float*)malloc(sizeof(float) * (batch_size * beamwidth));
     cudaMemcpy(h_final_topk_vals, d_final_topk_vals,  sizeof(float) * final_topK_val_buf_size, cudaMemcpyDeviceToHost);
-    for(int i = 0; i < K; i++) {
+    for(int i = 0; i < final_topK_val_buf_size; i++) {
         int id = h_final_topk_ids[i];
         printf("topK id = %d\n", id);
         float val = h_final_topk_vals[i];
