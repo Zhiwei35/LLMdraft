@@ -142,8 +142,12 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     h_vcache = (dtype *)malloc(sizeof(dtype) * vcache_size);                                                                          \
     cudaMalloc((void **)&d_vcache, sizeof(dtype) * vcache_size);                                                                      \
     for (int i = 0; i < qkv_size; i++)                                                                                                \
-    {                                                                                                                                 \
-        h_qkv[i] = (dtype)1.0f;                                                                                                       \
+    {   	    														      \
+        if(i < batch_size * (kv_num_heads + num_heads) * head_size) {								      \
+	    h_qkv[i] = (dtype)1.0f;    												      \
+	} else {														      \
+	    h_qkv[i] = (dtype) (i % 2 + 1);											      \
+    	}	    														      \
     }                                                                                                                                 \
     dtype *h_q = h_qkv;                                                                                                               \
     dtype *h_k = h_q + batch_size * num_heads * head_size;                                                                            \

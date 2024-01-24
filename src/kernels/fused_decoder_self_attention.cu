@@ -208,7 +208,7 @@ __global__ void masked_MHA_kernel(const T* q,
             }
 	}
         // 测试的时候关掉rope
-        apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
+        //apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
     }
     // q k smem for block reduce
     // define smem type is char type!! not T
@@ -251,10 +251,10 @@ __global__ void masked_MHA_kernel(const T* q,
         //在FT，k是从k cache加载到reg，q是从q smem加载到reg，q smem是每个新的step把新然后二者mul，这里直接用smem做mul也可以，反正compiler会帮我们load到reg
         // T qk = (tid < head_size) ? (float)sq[tid] * (float)sk[tid] * (float)scale : (T)0.0f;
         Vec_t qk;
-        qk.x = (tid * vec_size < head_size) ? sq[tid].x * kvec.x * scale_f4.x : zero_f4;
-        qk.y = (tid * vec_size < head_size) ? sq[tid].y * kvec.y * scale_f4.y : zero_f4;
-        qk.z = (tid * vec_size < head_size) ? sq[tid].z * kvec.z * scale_f4.z : zero_f4;
-        qk.w = (tid * vec_size < head_size) ? sq[tid].w * kvec.w * scale_f4.w : zero_f4;
+        qk.x = (tid * vec_size < head_size) ? sq[tid].x * kvec_qk.x * scale_f4.x : zero;
+        qk.y = (tid * vec_size < head_size) ? sq[tid].y * kvec_qk.y * scale_f4.y : zero;
+        qk.z = (tid * vec_size < head_size) ? sq[tid].z * kvec_qk.z * scale_f4.z : zero;
+        qk.w = (tid * vec_size < head_size) ? sq[tid].w * kvec_qk.w * scale_f4.w : zero;
         T qk_acc = qk.x + qk.y + qk.z + qk.w;
         //block reduce using multi warp reduce
         //TODO: maybe broadcast the attn score to each thread of the block in blockreducesum
@@ -262,7 +262,10 @@ __global__ void masked_MHA_kernel(const T* q,
 //        T attn_score = blockReduceSum<T>(qk);
         if(tid == 0) {
             logits[iter] = attn_score;
-        }
+	    //if(blockIdx.x == 0){
+	    printf("each block qk res = %f\n", attn_score);
+       	  
+	}
         __syncthreads();
     }
     //softmax(logits), logits.shape = [bs, num heads, 1, step]
@@ -283,6 +286,9 @@ __global__ void masked_MHA_kernel(const T* q,
     __syncthreads();
     if(tid < step) {
         logits[tid] = (T)(fenzi / fenmu);
+//	if (blockIdx.x == 0 && blockIdx.y == 0){
+	printf("after softmax, logits = %f\n", logits[tid]);
+//	}
     }
     __syncthreads();
 
@@ -401,9 +407,9 @@ __global__ void masked_MHA_kernel(const half* q,
         sq_vec[tid] = qvec;
     }
     __syncthreads();
-    float zero = 0.0f;
-    Vec_t zero_h2 = scalar_cast_vec<Vec_t, T>(zero);
-    Vec_t scale_h2 = scalar_cast_vec<Vec_t, T>(scale);
+    half zero = (half)0.0f;
+    Vec_t zero_h2 = scalar_cast_vec<Vec_t, half>(zero);
+    Vec_t scale_h2 = scalar_cast_vec<Vec_t, half>(scale);
     // FT 2.1的写法里面，kv cache是在prompt阶段已经填充，iter=0为token gen的起始iter
     for(int iter = 0; iter < step; iter++) {
         // every iter,  q and k's shape = [1, head size]
@@ -490,7 +496,7 @@ __global__ void masked_MHA_kernel(const half* q,
             //if(bid==0 && tid == 0){
             //printf("when tid=0, v cache = %f\n", sv[tid]);
             O.x += (logits[iter] * __half2float(vvec_qkv.x));
-            O.y += (logits[iter] * __half2float(vvec_qkvq.y));
+            O.y += (logits[iter] * __half2float(vvec_qkv.y));
             //O += sv[tid] * logits[iter];
             __syncthreads();
         }
