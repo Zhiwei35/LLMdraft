@@ -51,7 +51,7 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
   thread_sum = blockReduceSum<float>(thread_sum);
   __shared__ float inv_mean;
   if (threadIdx.x == 0) {
-    inv_mean = rsqrtf(thread_sum / hidden_units + eps);
+    inv_mean = rsqrtf((float)thread_sum / hidden_units + eps);
   }
   __syncthreads();
   Vec_t* s = reinterpret_cast<Vec_t*>(scale);

@@ -32,15 +32,17 @@ void CPUfusedresidandRMSNorm(float* h_decoder_out,
         float inv_fenmu = 0.0f;
         float mean = 0.0f;
         float input = 0.0f;
-        for (int i = 0; i < hidden_units; i++) {
-            input = h_decoder_out[b * hidden_units + i];
-        }
         float sum = 0.0f;
-        for (int i = 0; i < hidden_units; i++) {
-            sum += input * input;
+	for (int i = 0; i < hidden_units; i++) {
+            input = h_decoder_out[b * hidden_units + i];
+	    sum += input * input;
         }
+        //float sum = 0.0f;
+        //for (int i = 0; i < hidden_units; i++) {
+        //    sum += input * input;
+        //}
         
-        mean = (float)(sum / hidden_units);
+        mean = (float)sum / hidden_units;
         inv_fenmu = rsqrt(mean + eps);
         
         for (int i = 0; i < hidden_units; i++) {
@@ -76,14 +78,14 @@ int main(int argc, char *argv[]) {
         float* d_decoder_out;
         cudaMalloc((void**)&d_decoder_out, sizeof(float) * total_size);
         for(int i = 0; i < total_size; i++) { 
-            h_decoder_out[i] = 1.0f;
+            h_decoder_out[i] = (float)(i % 2 + 1);
         }
         //rmsnorm weights
         float* h_scale = (float*) malloc(sizeof(float) * hidden_units);
         float* d_scale;
         cudaMalloc((void**)&d_scale, sizeof(float) * hidden_units);
         for(int i = 0; i < hidden_units; i++) { 
-            h_scale[i] = (float)1;
+            h_scale[i] = (float)(i % 2 + 1);
         }
 
         CHECK(cudaMemcpy(d_decoder_out, h_decoder_out, sizeof(float) * total_size, cudaMemcpyHostToDevice));
@@ -109,11 +111,11 @@ int main(int argc, char *argv[]) {
         // 以下float不用被half替换
         float* CPUout = (float*) malloc(sizeof(float) * total_size);
         for(int i = 0; i < total_size; i++){
-            CPUout[i] = 1.0f;
+            CPUout[i] = (float)(i % 2 + 1);
         }
         float* cpu_scale = (float*) malloc(sizeof(float) * hidden_units);
         for(int i = 0; i < hidden_units; i++) { 
-            cpu_scale[i] = (float)1;
+            cpu_scale[i] = (float)(i % 2 + 1);
         }
         CPUfusedresidandRMSNorm(CPUout, cpu_scale, eps, hidden_units, num_tokens);
         bool is_right = CheckResult<float>(CPUout, decoder_out, total_size);

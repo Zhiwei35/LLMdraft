@@ -208,7 +208,7 @@ __global__ void masked_MHA_kernel(const T* q,
             }
 	}
         // 测试的时候关掉rope
-        //apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
+        apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
     }
     // q k smem for block reduce
     // define smem type is char type!! not T
@@ -263,7 +263,7 @@ __global__ void masked_MHA_kernel(const T* q,
         if(tid == 0) {
             logits[iter] = attn_score;
 	    //if(blockIdx.x == 0){
-	    printf("each block qk res = %f\n", attn_score);
+//	    printf("each block qk res = %f\n", attn_score);
        	  
 	}
         __syncthreads();
@@ -287,7 +287,7 @@ __global__ void masked_MHA_kernel(const T* q,
     if(tid < step) {
         logits[tid] = (T)(fenzi / fenmu);
 //	if (blockIdx.x == 0 && blockIdx.y == 0){
-	printf("after softmax, logits = %f\n", logits[tid]);
+//	printf("after softmax, logits = %f\n", logits[tid]);
 //	}
     }
     __syncthreads();
@@ -389,6 +389,8 @@ __global__ void masked_MHA_kernel(const half* q,
             Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
             vvec = __hadd2(vvec, v_bias);
         }
+	apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
+
     }
     // q k smem for block reduce
     extern __shared__ char sqk[];
