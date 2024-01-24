@@ -214,40 +214,52 @@ __global__ void masked_MHA_kernel(const T* q,
     // define smem type is char type!! not T
     // 主要展示一些dynamic smem怎么memory plan
     extern __shared__ char sqk[];
-    T* sq = reinterpret_cast<T*>(sqk); // 在step行把q存进smem，之前的step-1行可以直接从smem load to reg
-    T* sk = sq + head_size; // 不是很有必要在reg上存k
-    T* sv = sk + head_size;
-    float* logits = reinterpret_cast<float*>(sv + step); // 所有线程reduce的结果存到logits，需要smem
-    //T* sv = reinterpret_cast<T*>(logits + step);
+    T* sq_scalar = reinterpret_cast<T*>(sqk); // 在step行把q存进smem，之前的step-1行可以直接从smem load to reg
+    // T* sk = sq + head_size; // 不是很有必要在reg上存k
+    // T* sv = sk + head_size;
+    float* logits = reinterpret_cast<float*>(sq_scalar + head_size); // 所有线程reduce的结果存到logits，需要smem
     //sq[tid] = q_mem[qkv_offset];
+    Vec_t* sq = reinterpret_cast<Vec_t*>(sq_scalar);
     if (tid * vec_size < head_size) {
-        *reinterpret_cast<Vec_t*>(&sq[tid * vec_size]) = qvec;
+        sq[tid] = qvec;
+        //*reinterpret_cast<Vec_t*>(&sq[tid * vec_size]) = qvec;
     }
     __syncthreads();
     // FT 2.1的写法里面，kv cache是在prompt阶段已经填充，iter=0为token gen的起始iter
     // FT 5.3, 一个block处理k的多行，即多个head size
+    float zero = 0.0f;
+    Vec_t zero_f4 = scalar_cast_vec<Vec_t, T>(zero);
+    float4 scale_f4 = scalar_cast_vec<float4, float>(scale);
+
     for(int iter = 0; iter < step; iter++) {
         // every iter,  q and k's shape = [1, head size]
         // reuse k cache
         // float k = k_cache[iter * cache_offset + qkv_offset];
         //或许可以在每个step省略掉前step-1的qk dot
-        sk[tid]= k_cache[iter * cache_offset + k_offset];
-        __syncthreads();
+        Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) : zero_f4;
+        //sk[tid]= k_cache[iter * cache_offset + k_offset];
+        // __syncthreads();
         // when final step, update k cache
         if (iter == step - 1 && tid * vec_size < head_size) {
-            // TODO: update k cache with k with bias add
-            //k_cache[iter * cache_offset + qkv_offset] = k_mem[qkv_offset];
-            //sk[tid] = k_mem[qkv_offset];
+            // TODO: update k cache with k with bias add when model has qkv bias
             *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) = kvec;
-            *reinterpret_cast<Vec_t*>(&sk[tid * vec_size]) = kvec;         
+            kvec_qk = kvec;
+            // *reinterpret_cast<Vec_t*>(&sk[tid * vec_size]) = kvec;         
         }
         // sq[tid] = q_mem[qkv_offset];
-        __syncthreads();
+        // __syncthreads();
         //在FT，k是从k cache加载到reg，q是从q smem加载到reg，q smem是每个新的step把新然后二者mul，这里直接用smem做mul也可以，反正compiler会帮我们load到reg
-        T qk = (tid < head_size) ? (float)sq[tid] * (float)sk[tid] * (float)scale : (T)0.0f;
+        // T qk = (tid < head_size) ? (float)sq[tid] * (float)sk[tid] * (float)scale : (T)0.0f;
+        Vec_t qk;
+        qk.x = (tid * vec_size < head_size) ? sq[tid].x * kvec.x * scale_f4.x : zero_f4;
+        qk.y = (tid * vec_size < head_size) ? sq[tid].y * kvec.y * scale_f4.y : zero_f4;
+        qk.z = (tid * vec_size < head_size) ? sq[tid].z * kvec.z * scale_f4.z : zero_f4;
+        qk.w = (tid * vec_size < head_size) ? sq[tid].w * kvec.w * scale_f4.w : zero_f4;
+        T qk_acc = qk.x + qk.y + qk.z + qk.w;
         //block reduce using multi warp reduce
         //TODO: maybe broadcast the attn score to each thread of the block in blockreducesum
-        T attn_score = blockReduceSum<T>(qk);
+        T attn_score = blockReduceSum<T>(qk_acc);
+//        T attn_score = blockReduceSum<T>(qk);
         if(tid == 0) {
             logits[iter] = attn_score;
         }
@@ -275,28 +287,37 @@ __global__ void masked_MHA_kernel(const T* q,
     __syncthreads();
 
     // logits*V = [bs, num heads, 1, step] * [max_seq_len or step, bs, num heads, head size]
-    if (tid < head_size) {
+    if (tid * vec_size< head_size) {
         // note: here is head size ,not step, because step by step, we have to use [1, step/seqlen] from logits * [1, head size] from v
         // so here we use acc O to acc the one ele logits * one ele v every step iter
-        T O = 0.0f;
+        // T O = 0.0f;
+        Vec_t O;
         for(int iter = 0; iter < step; iter++) {
-            sv[tid]= v_cache[iter * cache_offset + k_offset];
-            __syncthreads();
+            //sv[tid]= v_cache[iter * cache_offset + k_offset];
+            // __syncthreads();
+            Vec_t vvec_qkv = *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
+            // T value = v_cache[ite * cache_offset + k_offset];
             // when final step, update k cache
             if (iter == step - 1) {
                 // TODO: update k cache with k with bias add
                 *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]) = vvec;
                 // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
-                sv[tid] = v_mem[k_offset];
+                //sv[tid] = v_mem[k_offset];
+                // kv cache does not cache cur step kv, so fetch from v of cur step
+                vvec_qkv = vvec;
             }
-	    __syncthreads();
+	    // __syncthreads();
             //if(bid==0 && tid == 0){
             //printf("when tid=0, v cache = %f\n", sv[tid]);
             //在FT，v是从v cache加载到reg，logits是从logits smem加载到reg，然后二者mul
-            O += sv[tid] * logits[iter];
-            __syncthreads();
+            // O += sv[tid] * logits[iter];
+            O.x += vvec_qkv.x * logits[iter];
+            O.y += vvec_qkv.y * logits[iter];
+            O.z += vvec_qkv.z * logits[iter];
+            O.w += vvec_qkv.w * logits[iter];
+            // __syncthreads();
         }
-        mha_output[q_offset] = O;
+        mha_output[q_offset_vec] = O;
     }
 }
 
@@ -366,40 +387,44 @@ __global__ void masked_MHA_kernel(const half* q,
     // q k smem for block reduce
     extern __shared__ char sqk[];
     half* sq = reinterpret_cast<half*>(sqk);
-    half* sk = sq + head_size;
-    //float* logits = reinterpret_cast<float*>(sk + head_size);
-    half* sv = sk + head_size;
-    float* logits = reinterpret_cast<float*>(sv + head_size);
+    // half* sk = sq + head_size;
+    // //float* logits = reinterpret_cast<float*>(sk + head_size);
+    // half* sv = sk + head_size;
+    float* logits = reinterpret_cast<float*>(sq + head_size);
     //sq[tid] = q_mem[qkv_offset];
 
     Vec_t* sq_vec = reinterpret_cast<Vec_t*>(sq);
-    Vec_t* sk_vec = reinterpret_cast<Vec_t*>(sk);
-    Vec_t* sv_vec = reinterpret_cast<Vec_t*>(sv);
+    // Vec_t* sk_vec = reinterpret_cast<Vec_t*>(sk);
+    // Vec_t* sv_vec = reinterpret_cast<Vec_t*>(sv);
     if (tid * vec_size < head_size) {
         // *reinterpret_cast<Vec_t*>(&sq[tid * vec_size]) = qvec;
         sq_vec[tid] = qvec;
     }
     __syncthreads();
+    float zero = 0.0f;
+    Vec_t zero_h2 = scalar_cast_vec<Vec_t, T>(zero);
+    Vec_t scale_h2 = scalar_cast_vec<Vec_t, T>(scale);
     // FT 2.1的写法里面，kv cache是在prompt阶段已经填充，iter=0为token gen的起始iter
     for(int iter = 0; iter < step; iter++) {
         // every iter,  q and k's shape = [1, head size]
         // reuse k cache
         // float k = k_cache[iter * cache_offset + qkv_offset];
         //或许可以在每个step省略掉前step-1的qk dot
-        sk_vec[tid]= *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]);
-        __syncthreads();
+        // sk_vec[tid]= *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]);
+        // __syncthreads();
+        Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) : zero_h2;
         // when final step, update k cache
         if (iter == step - 1 && tid * vec_size < head_size) {
             // TODO: update k cache with k with bias add
             //k_cache[iter * cache_offset + qkv_offset] = k_mem[qkv_offset];
             //sk[tid] = k_mem[qkv_offset];
             *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) = kvec;
-            sk_vec[tid] = kvec;         
+            kvec_qk = kvec;         
         }
 
         // sq[tid] = q_mem[qkv_offset];
         __syncthreads();
-        Vec_t qk = (tid * vec_size < head_size) ? __hmul2(__hmul2(sq_vec[tid], sk_vec[tid]), scale_vec) : scalar_cast_vec<Vec_t>(0.0f);
+        Vec_t qk = (tid * vec_size < head_size) ? __hmul2(__hmul2(sq_vec[tid], kvec_qk), scale_h2) : zero_h2;
         //block reduce using multi warp reduce
         float qk_fp32 = __half2float(qk.x) + __half2float(qk.y);
         float attn_score = blockReduceSum<float>(qk_fp32);
@@ -450,22 +475,22 @@ __global__ void masked_MHA_kernel(const half* q,
         //O.x = 0.0f;
         //O.y = 0.0f;
         for(int iter = 0; iter < step; iter++) {
-            sv_vec[tid]= *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
-            //sv[tid]= v_cache[iter * cache_offset + k_offset];
-            __syncthreads();
+            // sv_vec[tid]= *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
+            // __syncthreads();
+            Vec_t vvec_qkv = *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
             // when final step, update k cache
             if (iter == step - 1) {
                 // TODO: update k cache with k with bias add
                 // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
                 // sv[tid] = v_mem[k_offset];
                 *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]) = vvec;
-                sv_vec[tid] = vvec;  
+                vvec_qkv = vvec;  
             }
 	    __syncthreads();
             //if(bid==0 && tid == 0){
             //printf("when tid=0, v cache = %f\n", sv[tid]);
-            O.x += (logits[iter] * __half2float(sv_vec[tid].x));
-            O.y += (logits[iter] * __half2float(sv_vec[tid].y));
+            O.x += (logits[iter] * __half2float(vvec_qkv.x));
+            O.y += (logits[iter] * __half2float(vvec_qkvq.y));
             //O += sv[tid] * logits[iter];
             __syncthreads();
         }
@@ -494,6 +519,7 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
     const int cur_step = step->getVal();
     const int layer = layer_id->getVal();
     const int layer_offset = layer * max_seq_len * batch_size * kv_head_num * head_size;
+    size_t smem_size_bytes = head_size * sizeof(T) + cur_step * sizeof(float);
     T* qkv_data = qkv_buf->data;
     //[bs,1,qkv_head_num,head_size]
     T* q = qkv_data;
@@ -511,22 +537,21 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
     printf("calling fused masked self attn kernel\n");
     // printf("block nums = %d\n", grid.x);
     // printf("thread nums = %d\n", block.x);
-    masked_MHA_kernel<T><<<grid, block, (3 * head_size * sizeof(T) + cur_step * sizeof(float))>>>(
-                                                                                q,
-                                                                                k,
-                                                                                v,
-                                                                                /*(T*)*/qkv.bias,
-                                                                                k_cache->data + layer_offset,
-                                                                                v_cache->data + layer_offset,
-                                                                                mha_output->data,
-                                                                                batch_size,
-                                                                                head_num,
-                                                                                kv_head_num,
-                                                                                //num_heads,
-                                                                                head_size,
-                                                                                cur_step,
-                                                                                rotary_embedding_base,
-                                                                                rotary_embedding_dim);
+    masked_MHA_kernel<T><<<grid, block, smem_size_bytes>>>(q,
+                                                            k,
+                                                            v,
+                                                            /*(T*)*/qkv.bias,
+                                                            k_cache->data + layer_offset,
+                                                            v_cache->data + layer_offset,
+                                                            mha_output->data,
+                                                            batch_size,
+                                                            head_num,
+                                                            kv_head_num,
+                                                            //num_heads,
+                                                            head_size,
+                                                            cur_step,
+                                                            rotary_embedding_base,
+                                                            rotary_embedding_dim);
     printf("called fused masked self attn kernel\n");
 }
 
