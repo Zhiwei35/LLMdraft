@@ -317,7 +317,7 @@ __global__ void masked_MHA_kernel(const T* q,
             O.w += vvec_qkv.w * logits[iter];
             // __syncthreads();
         }
-        mha_output[q_offset_vec] = O;
+        *reinterpret_cast<Vec_t*>(&mha_output[q_offset_vec]) = O;
     }
 }
 
