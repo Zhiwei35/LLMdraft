@@ -31,8 +31,8 @@ __global__ void AddResidual( // residual.shape = [num tokens, hidden_units], bat
     int num_tokens,
     int hidden_units)
 {
-    int vec_size = Vec<T>::size;
-    using Vec_t = typename Vec<T>::Type;
+    int vec_size = Vec<half>::size;
+    using Vec_t = typename Vec<half>::Type;
     int batch_id = blockIdx.x;
     int tid = threadIdx.x;
     Vec_t *dout = reinterpret_cast<Vec_t *>(decoder_out + batch_id * hidden_units);
