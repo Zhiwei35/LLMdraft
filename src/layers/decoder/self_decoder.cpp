@@ -13,11 +13,12 @@ void LlamaSelfDecoder<T>::allocForForward(LLaMAAttentionDynParams& params)
 template<typename T>
 void LlamaSelfDecoder<T>::freeBuf()
 {
-    // do nothing, no intermedia buffer
+    allocator->Free(decoder_residual->data);
 }
 template<typename T>
 void LlamaSelfDecoder<T>::forward(TensorMap& input_tensors, const std::vector<LlamaLayerWeight<T>*>& layerWeights, TensorMap& output_tensors, LLaMAAttentionDynParams& dyn_params)
 {
+    allocForForward(dyn_params);
     //1. RMSNorm
     Tensor* decoder_input = input_tensors["decoder_input"];
 
