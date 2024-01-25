@@ -164,8 +164,8 @@ int main(int argc, char *argv[]) {
                                                                             type_half,
                                                                             {num_tokens, hidden_units}, 
                                                                             d_decoder_out);
-        TensorWrapper<float>* decoder_rsd= new TensorWrapper<float>(Device::GPU, 
-                                                                            type_float,
+        TensorWrapper<half>* decoder_rsd= new TensorWrapper<half>(Device::GPU, 
+                                                                            type_half,
                                                                             {num_tokens, hidden_units}, 
                                                                             d_decoder_rsd);
 
