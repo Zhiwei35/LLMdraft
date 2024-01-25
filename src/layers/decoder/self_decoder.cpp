@@ -4,7 +4,9 @@
 template<typename T>
 void LlamaSelfDecoder<T>::allocForForward(LLaMAAttentionDynParams& params)
 {
-    decoder_residual = new TensorWrapper<T>(Device::GPU, type, {batch_size, hidden_units}, &layer_id);
+    DataType type = getTensorType<T>(); 
+    int batch_size = params.batch_size;
+    decoder_residual = new TensorWrapper<T>(Device::GPU, type, {batch_size, hidden_units});
     decoder_residual->data = allocator->Malloc(decoder_residual->data, sizeof(T) * batch_size * hidden_units, false);
 
 }

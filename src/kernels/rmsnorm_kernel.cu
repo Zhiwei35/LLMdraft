@@ -151,12 +151,12 @@ void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
 }
 
 template void launchRMSNorm( TensorWrapper<float>* decoder_out, // [num tokens, hidden_units]
-                    TensorWrapper<T>* decoder_residual,
+                    TensorWrapper<float>* decoder_residual,
                     LayerNormWeight<float>& attn_norm_weight, //RMSNorm weights
                     float eps //RMSNorm eps
                     );
 template void launchRMSNorm( TensorWrapper<half>* decoder_out, // [num tokens, hidden_units]
-                    TensorWrapper<T>* decoder_residual,
+                    TensorWrapper<half>* decoder_residual,
                     LayerNormWeight<half>& attn_norm_weight, //RMSNorm weights
                     float eps //RMSNorm eps
                     );

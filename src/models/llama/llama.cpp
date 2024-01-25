@@ -288,6 +288,7 @@ int Llama<T>::continueTokenGen(LLaMAAttentionDynParams &dparams)
     // output rmsnorm
     Tensor* decoder_output = decoder_outputs["decoder_output"];
     launchRMSNorm(decoder_output->as<T>(), //in&out, [bs, q_hidden_units]
+                  unused_residual,
                   llama_weights->out_rmsnorm_weight,//rmsnorm weights, [q_hidden_units]
                   rmsnorm_eps);
     int res = LMHeadAndTopKSample(decoder_outputs);
