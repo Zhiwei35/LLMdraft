@@ -88,10 +88,10 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
             rsd[i].y = tmp.y;
             rsd[i].z = tmp.z;
             rsd[i].w = tmp.w;
-            if (blockIdx.x == 0 && i == 0) {
-                printf("residual = %f", rsd[i].x);
-                printf("residual = %f", rsd[i].y);
-            }
+            //if (blockIdx.x == 0 && i == 0) {
+            //    printf("residual = %f", rsd[i].x);
+            //    printf("residual = %f", rsd[i].y);
+            //}
         }
         //TODO: to update rsd by rsd + bias when bias is valid
         if (bias != nullptr) {

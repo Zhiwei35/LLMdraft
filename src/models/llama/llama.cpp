@@ -343,6 +343,7 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap &decoder_outputs)
 
     CHECK(cudaMemcpy(h_output_ids, token_ids->data, sizeof(int) * batch_size, cudaMemcpyDeviceToHost));
     // std::cout << "sampling done" << std::endl;
+    //std::cout << "generated index: " << h_output_ids[0] << std::endl;
     return h_output_ids[0]; // only for bs = 1
 }
 
@@ -355,7 +356,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
     // printf("input= %s", std::get<0>(input));
     // std::cout << "input = " << input[0] << "\n";
     //std::vector<int> res = tokenizer.Encode(input[2]);
-    std::vector<int> res = {1, 18637, 29892,526,366,19861, 29973,1815,366,5193,304,592,29973}
+    std::vector<int> res = {1, 18637, 29892,526,366,19861, 29973,1815,366,5193,304,592,29973};
     std::string history_str = input[1];
     std::vector<int> history_input_ids;
     if (!history_str.empty())
@@ -368,7 +369,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
     if (!total_str.empty())
     {
         //context_ids = tokenizer.Encode(total_str);
-        context_ids = {1, 18637, 29892,526,366,19861, 29973,1815,366,5193,304,592,29973}
+        context_ids = {1, 18637, 29892,526,366,19861, 29973,1815,366,5193,304,592,29973};
     }
     for (int i = 0; i < res.size(); i++)
     {
