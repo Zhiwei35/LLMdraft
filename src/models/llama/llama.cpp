@@ -249,6 +249,11 @@ int Llama<T>::firstTokenGen(LLaMAAttentionDynParams &dparams, IntDict &int_param
                              llama_weights->llama_layer_weight, // layerWeights,
                              decoder_outputs,
                              dparams);
+    // output rmsnorm
+    Tensor* decoder_output = decoder_outputs["decoder_output"];
+    launchRMSNorm(decoder_output->as<T>(), //in&out, [bs, q_hidden_units]
+                  llama_weights->out_rmsnorm_weight,//rmsnorm weights, [q_hidden_units]
+                  rmsnorm_eps);
     int res = LMHeadAndTopKSample(decoder_outputs);
     return res;
 }
@@ -277,7 +282,11 @@ int Llama<T>::continueTokenGen(LLaMAAttentionDynParams &dparams)
                           llama_weights->llama_layer_weight,
                           decoder_outputs,
                           dparams);
-    // std::cout << "sampling..." << std::endl;
+    // output rmsnorm
+    Tensor* decoder_output = decoder_outputs["decoder_output"];
+    launchRMSNorm(decoder_output->as<T>(), //in&out, [bs, q_hidden_units]
+                  llama_weights->out_rmsnorm_weight,//rmsnorm weights, [q_hidden_units]
+                  rmsnorm_eps);
     int res = LMHeadAndTopKSample(decoder_outputs);
     return res;
 }

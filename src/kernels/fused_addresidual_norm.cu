@@ -59,7 +59,7 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
    // printf("in kernel\n");    
     T thread_accm = static_cast<T>(0);
     if (residual != nullptr) {
-	rsd = reinterpret_cast<Vec_t*>(residual + batch_id * hidden_units);//note the offset     should divide vec size
+	    rsd = reinterpret_cast<Vec_t*>(residual + batch_id * hidden_units);//note the offset     should divide vec size
     }
     if (bias != nullptr){
         bia = reinterpret_cast<Vec_t*>(const_cast<T*>(bias));
@@ -73,35 +73,31 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     //}
 
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
-        //if (residual != nullptr && bias != nullptr){
-           // rsd = reinterpret_cast<Vec_t*>(residual)[batch_id * hidden_units / vec_size + i];//note the offset should divide vec size
-          //  bia = reinterpret_cast<Vec_t*>(const_cast<T*>(bias))[i];
-        //}
         dout = reinterpret_cast<Vec_t*>(decoder_out)[batch_id * hidden_units / vec_size + i];// note the offset should divide vec size
-        //if (residual != nullptr && bias != nullptr) {
-	//    tmp.x = dout.x rsd[i].x + bia[i].x;
-        //    tmp.y = dout.y + rsd[i].y + bia[i].y;
-        //    tmp.z = dout.z + rsd[i].z + bia[i].z;
-        //    tmp.w = dout.w + rsd[i].w + bia[i].w;
-	//}
-	tmp.x = dout.x;
-	tmp.y = dout.y;
-	tmp.z = dout.z;
-	tmp.w = dout.w;
-	if (residual != nullptr) {
-	    tmp.x += rsd[i].x;
-	    tmp.y += rsd[i].y;
-	    tmp.z += rsd[i].z;
-	    tmp.w += rsd[i].w;
-	}
-	if (bias != nullptr) {
-	    tmp.x += bia[i].x;
+
+        tmp.x = dout.x;
+        tmp.y = dout.y;
+        tmp.z = dout.z;
+        tmp.w = dout.w;
+        if (residual != nullptr) {
+            tmp.x += rsd[i].x;
+            tmp.y += rsd[i].y;
+            tmp.z += rsd[i].z;
+            tmp.w += rsd[i].w;
+            rsd[i].x = tmp.x;
+            rsd[i].y = tmp.y;
+            rsd[i].z = tmp.z;
+            rsd[i].w = tmp.w;
+        }
+        //TODO: to update rsd by rsd + bias when bias is valid
+        if (bias != nullptr) {
+            tmp.x += bia[i].x;
             tmp.y += bia[i].y;
             tmp.z += bia[i].z;
             tmp.w += bia[i].w;
         }	    
-	thread_accm += tmp.x * tmp.x + tmp.y * tmp.y + 
-                       tmp.z * tmp.z + tmp.w * tmp.w;
+        thread_accm += tmp.x * tmp.x + tmp.y * tmp.y + 
+                        tmp.z * tmp.z + tmp.w * tmp.w;
     } // addresidual
   //  printf("in kernel 1\n");
     // mean(x^2)

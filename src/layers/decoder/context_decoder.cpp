@@ -56,18 +56,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
                             seq_lens->as<int>(), //q, input lens, [bs]
                             context_length->as<int>());//k, context lens, [bs]
     DeviceSyncAndCheckCudaError();
-    // 3. RMSnorm
-    Tensor* decoder_input = input_tensors["decoder_input"];
-    //！！！dyn_params.num_tokens = decoder_input->shape[0]; //这种取法是max context token num，不加为好，就是实时token num
-    // todo: to enhance the (float*)nullptr
-    // std::cout << "RMSnorm shape: "<< "\n"
-    //           << "input: "<< decoder_input->shape[0] << "," << decoder_input->shape[1] <<"\n";
-
-    launchRMSNorm(decoder_input->as<T>(), //in&out, [num tokens, q_hidden_units]
-                  layerWeights[0]->attn_norm_weight,//rmsnorm weights, [q_hidden_units]
-                  rmsnorm_eps);
-    DeviceSyncAndCheckCudaError();
-    // 4. context attn
+    // 3. context attn
     Tensor* history_length = input_tensors["history_length"];
     Tensor* decoder_output = output_tensors["decoder_output"];
     Tensor* all_k_cache = output_tensors["all_k_cache"];
@@ -79,6 +68,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
     // ONELLM_CHECK_WITH_INFO(padding_offset->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     ONELLM_CHECK_WITH_INFO(history_length->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     // ONELLM_CHECK_WITH_INFO(attention_mask->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    Tensor* decoder_input = input_tensors["decoder_input"];
     TensorMap ctx_attn_inputs{
         {"attention_input", decoder_input},
         {"padding_offset", padding_offset},
@@ -101,10 +91,14 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
             TensorWrapper<int>* layer = new TensorWrapper<int>(Device::CPU, type_int, {1}, &layer_id);
             ctx_attn_inputs.insert("layer_id", layer);
         }
-        // std::cout << "layer: "<< layer_id << " in ctx decoder"<<"\n";
-        //TODO: context_attention.cpp#105, qkv bias should be changed to layerWeights[layer_id].self_attn_weight.qkv.bias
+
+        decoder_input = ctx_attn_inputs["attention_input"];
+        launchRMSNorm(decoder_input->as<T>(), //in&out, [num tokens, q_hidden_units]
+                    layerWeights[layer_id]->attn_norm_weight,//rmsnorm weights, [q_hidden_units]
+                    rmsnorm_eps);
+        DeviceSyncAndCheckCudaError();  
         ctxAttn->forward(ctx_attn_inputs, ctx_attn_outputs, layerWeights[layer_id]->self_attn_weight, dyn_params, ctxAttn->GetAttnStaticParams());
-        //decoder_output += decoder_input
+        // TODO:这里是加input rmsnorm的输入
         launchFusedAddBiasResidualRMSNorm(decoder_input->as<T>(), //in residual, [num tokens, hidden_units]
                                         decoder_output->as<T>(), //in&out, [num tokens, hidden_units]
                                         layerWeights[layer_id]->self_attn_weight.output, //bias
@@ -118,13 +112,12 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
             {"ffn_output", decoder_output}
         };
         ffn->forward(ffn_inputs, ffn_outputs, layerWeights[layer_id]->ffn_weight, dyn_params);
-        auto gamma = layer_id < num_layer - 1 ? layerWeights[layer_id + 1]->attn_norm_weight.gamma :
-                                                     input_tensors["output_norm_weight"]->as<T>()->data;//llamaweight->output_norm_weight
-        launchFusedAddBiasResidualRMSNorm(decoder_input->as<T>(), //in, [num tokens, hidden_units]
-                                        decoder_output->as<T>(), //in&out, [num tokens, hidden_units]
-                                        layerWeights[layer_id]->ffn_weight.down, //why add down bias, no bias in down proj
-                                        gamma,//rmsnorm weights, [hidden_units]
-                                        rmsnorm_eps);
+        // auto gamma = layer_id < num_layer - 1 ? layerWeights[layer_id + 1]->attn_norm_weight.gamma :
+        //                                              input_tensors["output_norm_weight"]->as<T>()->data;//llamaweight->output_norm_weight
+        // TODO:这里的residual为上一个launchFusedAddBiasResidualRMSNorm中加了redisual后的hidden states
+        launchAddResidual(decoder_input->as<T>(), //residual, [num tokens, hidden_units]
+                        decoder_output->as<T>() //in&out, [num tokens, hidden_units]
+                        );
         DeviceSyncAndCheckCudaError();
         ctx_attn_inputs.insert("attention_input", decoder_output);
 	//decoder_input = decoder_output; // for next iter
