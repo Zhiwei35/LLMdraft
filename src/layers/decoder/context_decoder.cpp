@@ -7,16 +7,17 @@
 template<typename T>
 void LlamaContextDecoder<T>::allocForForward(LLaMAAttentionDynParams& params)
 {
+    int num_tokens = params.num_tokens;
     int batch_size = params.batch_size;
     int max_q_len = params.max_q_len;
     int max_k_len = params.max_k_len;
     DataType type = getTensorType<T>(); 
     DataType type_int = getTensorType<int>(); 
-    decoder_residual = new TensorWrapper<T>(Device::GPU, type, {batch_size, hidden_units}, &layer_id);
+    decoder_residual = new TensorWrapper<T>(Device::GPU, type, {num_tokens, hidden_units}, &layer_id);
     attention_mask = new TensorWrapper<T>(Device::GPU, type, {batch_size, max_q_len, max_k_len});
     padding_offset = new TensorWrapper<int>(Device::GPU, type_int, {batch_size, max_q_len});
     cum_seqlens = new TensorWrapper<int>(Device::GPU, type_int, {batch_size + 1});
-    decoder_residual->data = allocator->Malloc(decoder_residual->data, sizeof(T) * batch_size * hidden_units, false);
+    decoder_residual->data = allocator->Malloc(decoder_residual->data, sizeof(T) * num_tokens * hidden_units, false);
     attention_mask->data = allocator->Malloc(attention_mask->data, sizeof(T) * batch_size * max_q_len * max_k_len, false);
     padding_offset->data = allocator->Malloc(padding_offset->data, sizeof(int) * batch_size * max_q_len, false);
     cum_seqlens->data = allocator->Malloc(cum_seqlens->data, sizeof(int) * (batch_size + 1), false);
@@ -63,7 +64,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
     Tensor* all_k_cache = output_tensors["all_k_cache"];
     Tensor* all_v_cache = output_tensors["all_v_cache"];
     DataType type_int = getTensorType<int>();
-    DataType type_T = getTensorType<T>();
+    DataType type = getTensorType<T>();
     Tensor* layer_id = input_tensors["layer_id"];
     Tensor* decoder_input = input_tensors["decoder_input"];
     ONELLM_CHECK_WITH_INFO(decoder_input->as<T>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
@@ -89,7 +90,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
     // same buffer between layers, reuse
     for(int layer_id = 0; layer_id < num_layer; layer_id++) {
         if (layer_id > 0){
-            TensorWrapper<int>* layer = new TensorWrapper<int>(Device::CPU, type, {1}, &layer_id);
+            TensorWrapper<int>* layer = new TensorWrapper<int>(Device::CPU, type_int, {1}, &layer_id);
             ctx_attn_inputs.insert("layer_id", layer);
         }
 
