@@ -34,7 +34,7 @@ void Llama<T>::allocateCPUBuffer(int max_batch_size)
     //  h_input_ids_buf_ =
     //      allocator->Malloc(h_input_ids_buf_, sizeof(int) * max_batch_size * max_seq_len, true);
     h_input_ids_buf_ =
-        allocator->Malloc(h_input_ids_buf_, sizeof(int) * 16, true);
+        allocator->Malloc(h_input_ids_buf_, sizeof(int) * 13, true);
     h_input_length_buf_ =
         allocator->Malloc(h_input_length_buf_, sizeof(int) * max_batch_size, true);
     h_history_length_buf_ =
@@ -66,14 +66,14 @@ void Llama<T>::allocateGPUBuffer(int batch_size)
 {
     step = new TensorWrapper<int>(CPU, getTensorType<int>(), {1});
     layer = new TensorWrapper<int>(CPU, getTensorType<int>(), {1}, &layer_id);
-    context_decoder_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 16, hidden_units});
-    context_decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 16, hidden_units});
+    context_decoder_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 13, hidden_units});
+    context_decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 13, hidden_units});
     // split from context_decoder_output
     context_decoder_lmhead_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {/*token num*/ 1, hidden_units});
     // TODO: self decoder tmply not consider batch size dim
     decoder_input = new TensorWrapper<T>(GPU, getTensorType<T>(), {1, hidden_units});
     decoder_output = new TensorWrapper<T>(GPU, getTensorType<T>(), {1, hidden_units});
-    input_ids = new TensorWrapper<int>(GPU, getTensorType<int>(), {16}); //{batch_size, max_seq_len});//这里的seqlen应该是padding前的
+    input_ids = new TensorWrapper<int>(GPU, getTensorType<int>(), {13}); //{batch_size, max_seq_len});//这里的seqlen应该是padding前的
     input_length = new TensorWrapper<int>(GPU, getTensorType<int>(), {batch_size});
     history_length = new TensorWrapper<int>(GPU, getTensorType<int>(), {batch_size});
     context_length = new TensorWrapper<int>(GPU, getTensorType<int>(), {batch_size});
@@ -88,17 +88,17 @@ void Llama<T>::allocateGPUBuffer(int batch_size)
 
     unused_residual->data = nullptr;
     context_decoder_input->data =
-        allocator->Malloc(context_decoder_input->data, sizeof(T) * 16 * hidden_units, false); // 512x4x32
+        allocator->Malloc(context_decoder_input->data, sizeof(T) * 13 * hidden_units, false); // 512x4x32
     context_decoder_output->data =
-        allocator->Malloc(context_decoder_output->data, sizeof(T) * 16 * hidden_units, false);
+        allocator->Malloc(context_decoder_output->data, sizeof(T) * 13 * hidden_units, false);
     // context_decoder_ids->data =
-    //     (int*)allocator->Malloc(context_decoder_ids->data, sizeof(int) * 16, false);
+    //     (int*)allocator->Malloc(context_decoder_ids->data, sizeof(int) * 13, false);
     context_decoder_lmhead_input->data =
         allocator->Malloc(context_decoder_lmhead_input->data, sizeof(T) * 1 * hidden_units, false);
     decoder_input->data = allocator->Malloc(decoder_input->data, sizeof(T) * batch_size * hidden_units, false); // 4x32
     decoder_output->data = allocator->Malloc(decoder_output->data, sizeof(T) * batch_size * hidden_units, false);
 
-    input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * 16, false); // batch_size * max_seq_len, false);//4x100,进位到32x为416
+    input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * 13, false); // batch_size * max_seq_len, false);//4x100,进位到32x为416
     input_length->data = allocator->Malloc(input_length->data, sizeof(int) * batch_size, false);
     history_length->data = allocator->Malloc(history_length->data, sizeof(int) * batch_size, false);
     context_length->data = allocator->Malloc(context_length->data, sizeof(int) * batch_size, false);
@@ -354,8 +354,8 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
     // this input already include self-defined pre prompt
     // printf("input= %s", std::get<0>(input));
     // std::cout << "input = " << input[0] << "\n";
-    std::vector<int> res = tokenizer.Encode(input[2]);
-
+    //std::vector<int> res = tokenizer.Encode(input[2]);
+    std::vector<int> res = {1, 18637, 29892,526,366,19861, 29973,1815,366,5193,304,592,29973}
     std::string history_str = input[1];
     std::vector<int> history_input_ids;
     if (!history_str.empty())
@@ -367,7 +367,8 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
     std::vector<int> context_ids;
     if (!total_str.empty())
     {
-        context_ids = tokenizer.Encode(total_str);
+        //context_ids = tokenizer.Encode(total_str);
+        context_ids = {1, 18637, 29892,526,366,19861, 29973,1815,366,5193,304,592,29973}
     }
     for (int i = 0; i < res.size(); i++)
     {
