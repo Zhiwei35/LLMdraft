@@ -4,7 +4,9 @@
 template<typename T>
 void LlamaSelfDecoder<T>::allocForForward(LLaMAAttentionDynParams& params)
 {
-    // do nothing, no intermedia buffer
+    decoder_residual = new TensorWrapper<T>(Device::GPU, type, {batch_size, hidden_units}, &layer_id);
+    decoder_residual->data = allocator->Malloc(decoder_residual->data, sizeof(T) * batch_size * hidden_units, false);
+
 }
 template<typename T>
 void LlamaSelfDecoder<T>::freeBuf()
@@ -50,13 +52,14 @@ void LlamaSelfDecoder<T>::forward(TensorMap& input_tensors, const std::vector<Ll
         }
         decoder_input = self_attn_inputs["attention_input"];
         launchRMSNorm(decoder_input->as<T>(), //in&out, [bs, q_hidden_units]
+                    decoder_residual, // = rmsnorm input hidden states
                     layerWeights[0]->attn_norm_weight,//rmsnorm weights, [q_hidden_units]
                     rmsnorm_eps);
         DeviceSyncAndCheckCudaError();  
         selfAttn->forward(self_attn_inputs, self_attn_outputs, layerWeights[layer_id]->self_attn_weight, dyn_params);//, selfAttn->GetAttnStaticParams());
         //decoder_output += decoder_input
-        launchFusedAddBiasResidualRMSNorm(decoder_input->as<T>(), //in residual, [bs, q hidden_units]
-                                          decoder_output->as<T>(), //in&out, [bs, q hidden_units]
+        launchFusedAddBiasResidualRMSNorm(decoder_residual, //in residual from tensor before rmsnorm and return decoder_residual + decoder_output, [bs, q hidden_units]
+                                          decoder_output->as<T>(), //in&out from attention output, [bs, q hidden_units]
                                           layerWeights[layer_id]->self_attn_weight.output, //bias
                                           layerWeights[layer_id]->ffn_norm_weight.gamma,//rmsnorm weights, [q hidden_units]
                                           rmsnorm_eps);
@@ -70,7 +73,7 @@ void LlamaSelfDecoder<T>::forward(TensorMap& input_tensors, const std::vector<Ll
         ffn->forward(ffn_inputs, ffn_outputs, layerWeights[layer_id]->ffn_weight, dyn_params);
         // auto gamma = layer_id < num_layer - 1 ? layerWeights[layer_id + 1]->attn_norm_weight.gamma :
         //                                              input_tensors["output_norm_weight"]->as<T>()->data;//llamaweight->output_norm_weight
-        launchAddResidual(decoder_input->as<T>(), //in, [bs, hidden_units]
+        launchAddResidual(decoder_residual, //in, [bs, hidden_units]
                         decoder_output->as<T>() //in&out, [bs, hidden_units]
                         );
         DeviceSyncAndCheckCudaError();

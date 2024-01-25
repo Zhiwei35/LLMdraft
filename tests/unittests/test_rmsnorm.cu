@@ -80,6 +80,9 @@ int main(int argc, char *argv[]) {
         for(int i = 0; i < total_size; i++) { 
             h_decoder_out[i] = (float)(i % 2 + 1);
         }
+        // to save residual used by fusedResidualAndRmsnorm
+        float* d_decoder_rsd;
+        cudaMalloc((void**)&d_decoder_rsd, sizeof(float) * total_size);
         //rmsnorm weights
         float* h_scale = (float*) malloc(sizeof(float) * hidden_units);
         float* d_scale;
@@ -97,11 +100,16 @@ int main(int argc, char *argv[]) {
                                                                             type_float,
                                                                             {num_tokens, hidden_units}, 
                                                                             d_decoder_out);
+        TensorWrapper<float>* decoder_rsd= new TensorWrapper<float>(Device::GPU, 
+                                                                            type_float,
+                                                                            {num_tokens, hidden_units}, 
+                                                                            d_decoder_rsd);
+
         LayerNormWeight<float> scale;
         scale.gamma = d_scale;
         // debug info, better to retain: 
         std::cout << "before launch kernel" << std::endl;
-        launchRMSNorm(decoder_out_tensor, scale, eps);
+        launchRMSNorm(decoder_out_tensor, decoder_rsd, scale, eps);
         // debug info, better to retain: 
         std::cout << "after launch kernel" << std::endl;
         // debug info, better to retain: 
@@ -136,6 +144,9 @@ int main(int argc, char *argv[]) {
         for(int i = 0; i < total_size; i++) { 
             h_decoder_out[i] = 1.0f;
         }
+        // to save residual used by fusedResidualAndRmsnorm
+        half* d_decoder_rsd;
+        cudaMalloc((void**)&d_decoder_rsd, sizeof(half) * total_size);
         //rmsnorm weights
         half* h_scale = (half*) malloc(sizeof(half) * hidden_units);
         half* d_scale;
@@ -153,11 +164,16 @@ int main(int argc, char *argv[]) {
                                                                             type_half,
                                                                             {num_tokens, hidden_units}, 
                                                                             d_decoder_out);
+        TensorWrapper<float>* decoder_rsd= new TensorWrapper<float>(Device::GPU, 
+                                                                            type_float,
+                                                                            {num_tokens, hidden_units}, 
+                                                                            d_decoder_rsd);
+
         LayerNormWeight<half> scale;
         scale.gamma = d_scale;
         // debug info, better to retain: 
         std::cout << "before launch kernel" << std::endl;
-        launchRMSNorm(decoder_out_tensor, scale, eps);
+        launchRMSNorm(decoder_out_tensor, decoder_rsd, scale, eps);
         // debug info, better to retain: 
         std::cout << "after launch kernel" << std::endl;
         // debug info, better to retain: 

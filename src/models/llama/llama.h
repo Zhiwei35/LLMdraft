@@ -69,7 +69,7 @@ private:
     //int* total_padding_count_{};  // GENERATE
     TensorWrapper<T>* all_k_cache;
     TensorWrapper<T>* all_v_cache;
-
+    TensorWrapper<T>* unused_residual;
     // used by sampling
     IntDict int_params_of_sample;
     TensorWrapper<T>* probs;

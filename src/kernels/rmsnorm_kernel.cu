@@ -33,6 +33,7 @@ __device__ T blockReduceSum(T val){
 // 2.I allocate threads number by assuming head size can be divided by 4 and 2
 template <typename T>
 __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
+                        T* decoder_residual,
                         T* scale, //[q_hidden_units], RMSNorm weights
                         float eps, //RMSNorm eps
                         int num_tokens, 
@@ -41,8 +42,15 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
   using Vec_t = typename Vec<T>::Type;
   float thread_sum = 0.0f;
   Vec_t* dout = reinterpret_cast<Vec_t*>(decoder_out + blockIdx.x * hidden_units);
+  Vec_t* rsd;
+  if (decoder_residual != nullptr) {
+    rsd = reinterpret_cast<Vec_t*>(decoder_residual + blockIdx.x * hidden_units);
+  }
   for (int idx = threadIdx.x; idx < hidden_units / vec_size; idx += blockDim.x) {
     Vec_t vec = dout[idx];
+    if (decoder_residual != nullptr) {
+        rsd[idx] = vec;
+    }
     thread_sum += vec.x * vec.x;
     thread_sum += vec.y * vec.y;
     thread_sum += vec.z * vec.z;
@@ -72,6 +80,7 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
 
 template <>
 __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
+                        half* decoder_residual,
                         half* scale, //[q_hidden_units], RMSNorm weights
                         float eps, //RMSNorm eps
                         int num_tokens, 
@@ -82,10 +91,16 @@ __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
     int tid = threadIdx.x;
     Vec_t* s; 
     Vec_t* dout = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);
+    Vec_t* rsd;
+    if (decoder_residual != nullptr) {
+        rsd = reinterpret_cast<Vec_t*>(decoder_residual + batch_id * hidden_units);
+    }
     float thread_accm = 0.0f;
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
-
         Vec_t out = dout[i];// note the offset should divide vec size
+        if (decoder_residual != nullptr) {
+            rsd[i] = out;
+        }
         thread_accm += __half2float(out.x) * __half2float(out.x);
         thread_accm += __half2float(out.y) * __half2float(out.y);
     } //x^2
@@ -114,6 +129,7 @@ __global__ void RMSNorm(half* decoder_out, // [num tokens, q_hidden_units]
 
 template<typename T>
 void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
+                    TensorWrapper<T>* decoder_residual,
                     LayerNormWeight<T>& attn_norm_weight, //RMSNorm weights
                     float eps //RMSNorm eps
                     )
@@ -126,6 +142,7 @@ void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
     dim3 block(num_threads);
     // printf("calling RMSNorm\n");
     RMSNorm<T><<<grid, block>>>(decoder_out->data,
+                            decoder_residual->data,
                             attn_norm_weight.gamma,
                             eps,
                             num_tokens,
@@ -134,10 +151,12 @@ void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
 }
 
 template void launchRMSNorm( TensorWrapper<float>* decoder_out, // [num tokens, hidden_units]
+                    TensorWrapper<T>* decoder_residual,
                     LayerNormWeight<float>& attn_norm_weight, //RMSNorm weights
                     float eps //RMSNorm eps
                     );
 template void launchRMSNorm( TensorWrapper<half>* decoder_out, // [num tokens, hidden_units]
+                    TensorWrapper<T>* decoder_residual,
                     LayerNormWeight<half>& attn_norm_weight, //RMSNorm weights
                     float eps //RMSNorm eps
                     );

@@ -23,6 +23,7 @@ private:
     TensorWrapper<T>* attention_mask;
     TensorWrapper<int>* padding_offset;
     TensorWrapper<int>* cum_seqlens;
+    TensorWrapper<T>* decoder_residual;
     cudaStream_t stream;
     cublasWrapper* cublas_wrapper;
     BaseAllocator* allocator;

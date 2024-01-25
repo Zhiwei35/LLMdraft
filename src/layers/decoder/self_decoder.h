@@ -24,6 +24,8 @@ private:
     cublasWrapper* cublas_wrapper;
     BaseAllocator* allocator;
 
+    TensorWrapper<T>* decoder_residual;
+    
     LLaMASelfAttentionLayer<T>* selfAttn;
     LLaMAFFNLayer<T>* ffn;
     DataType data_type;

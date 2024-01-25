@@ -84,7 +84,9 @@ void Llama<T>::allocateGPUBuffer(int batch_size)
     is_finished = new TensorWrapper<bool>(GPU, getTensorType<bool>(), {batch_size});
     output_rmsnorm_weight = new TensorWrapper<T>(GPU, getTensorType<T>(), {hidden_units}, llama_weights->out_rmsnorm_weight.gamma);
     probs = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, vocab_size});
+    unused_residual = new TensorWrapper<T>(GPU, getTensorType<T>(), {batch_size, hidden_units});
 
+    unused_residual->data = nullptr;
     context_decoder_input->data =
         allocator->Malloc(context_decoder_input->data, sizeof(T) * 16 * hidden_units, false); // 512x4x32
     context_decoder_output->data =
@@ -252,6 +254,7 @@ int Llama<T>::firstTokenGen(LLaMAAttentionDynParams &dparams, IntDict &int_param
     // output rmsnorm
     Tensor* decoder_output = decoder_outputs["decoder_output"];
     launchRMSNorm(decoder_output->as<T>(), //in&out, [bs, q_hidden_units]
+                  unused_residual,
                   llama_weights->out_rmsnorm_weight,//rmsnorm weights, [q_hidden_units]
                   rmsnorm_eps);
     int res = LMHeadAndTopKSample(decoder_outputs);
