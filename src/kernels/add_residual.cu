@@ -39,14 +39,14 @@ __global__ void AddResidual( // residual.shape = [num tokens, hidden_units], bat
     Vec_t *rsd = reinterpret_cast<Vec_t *>(residual + batch_id * hidden_units);
     for (int i = tid; i < hidden_units / vec_size; i += blockDim.x)
     {
-        dout[i] = __hadd2(dout[i], rsd[i])
+        dout[i] = __hadd2(dout[i], rsd[i]);
     } // addresidual
 }
 
 template <typename T>
 void launchAddResidual( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, 256 threads travrse hiddenunits eles recursely
     TensorWrapper<T> *residual,
-    TensorWrapper<T> *decoder_out, // [num tokens, hidden_units]
+    TensorWrapper<T> *decoder_out // [num tokens, hidden_units]
 )
 {
     int batch_size = decoder_out->shape[0];
@@ -63,9 +63,9 @@ void launchAddResidual( // residual.shape = [num tokens, hidden_units], batch_si
 }
 template void launchAddResidual( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, n_dims = hidden_units
     TensorWrapper<float> *residual,
-    TensorWrapper<float> *decoder_out, // [num tokens, hidden_units]
+    TensorWrapper<float> *decoder_out // [num tokens, hidden_units]
 );
 template void launchAddResidual( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, n_dims = hidden_units
     TensorWrapper<half> *residual,
-    TensorWrapper<half> *decoder_out, // [num tokens, hidden_units]
+    TensorWrapper<half> *decoder_out // [num tokens, hidden_units]
 );
