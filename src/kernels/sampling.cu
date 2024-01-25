@@ -20,7 +20,7 @@ __global__ void SamplingKernel(int* topk_id,
     int tid = threadIdx.x;
     int offset = batch_id * K + tid;
     T max_val = topk_val[batch_id * K]; // max val is the top of the buffer, because topK
-    topk_val[offset] = __float2half(expf((float)topk_val[offset] - (float)max_val));
+    topk_val[offset] = (T)(expf((float)topk_val[offset] - (float)max_val));
     __shared__ float thredhold, sum;
     if(tid == 0) {
         sum = 0.0f;
