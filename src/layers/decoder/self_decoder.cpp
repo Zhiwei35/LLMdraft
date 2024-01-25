@@ -71,7 +71,7 @@ void LlamaSelfDecoder<T>::forward(TensorMap& input_tensors, const std::vector<Ll
         // auto gamma = layer_id < num_layer - 1 ? layerWeights[layer_id + 1]->attn_norm_weight.gamma :
         //                                              input_tensors["output_norm_weight"]->as<T>()->data;//llamaweight->output_norm_weight
         launchAddResidual(decoder_input->as<T>(), //in, [bs, hidden_units]
-                        decoder_output->as<T>(), //in&out, [bs, hidden_units]
+                        decoder_output->as<T>() //in&out, [bs, hidden_units]
                         );
         DeviceSyncAndCheckCudaError();
         self_attn_inputs.insert("attention_input", decoder_output); // for next iter

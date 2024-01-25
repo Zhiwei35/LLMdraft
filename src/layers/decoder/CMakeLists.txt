@@ -11,6 +11,7 @@ target_link_libraries(LlamaCtxdecoder PUBLIC
                                         build_casual_mask
                                         rmsnorm
                                         fused_addresidual_norm
+                                        add_residual
 )
 
 add_library(Llamaselfdecoder STATIC self_decoder.cpp)
@@ -22,4 +23,5 @@ target_link_libraries(Llamaselfdecoder PUBLIC
                                         llamaweights
                                         rmsnorm
                                         fused_addresidual_norm
+                                        add_residual
 )

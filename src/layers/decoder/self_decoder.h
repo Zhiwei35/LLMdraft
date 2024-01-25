@@ -2,6 +2,7 @@
 #include "src/kernels/fused_decoder_self_attention.h"
 #include "src/kernels/fused_addresidual_norm.h"
 #include "src/kernels/rmsnorm_kernel.h"
+#include "src/kernels/add_residual.h"
 #include "src/layers/attention/masked_self_attention.h"
 #include "src/layers/ffn/ffn.h"
 #include "src/weights/llama/llama_weights.h"

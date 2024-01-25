@@ -63,12 +63,11 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
     Tensor* all_v_cache = output_tensors["all_v_cache"];
     DataType type_int = getTensorType<int>();
     Tensor* layer_id = input_tensors["layer_id"];
-    //int layer_id = 0;//TODO: enhance the layer_id update method
+    Tensor* decoder_input = input_tensors["decoder_input"];
     ONELLM_CHECK_WITH_INFO(decoder_input->as<T>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     // ONELLM_CHECK_WITH_INFO(padding_offset->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     ONELLM_CHECK_WITH_INFO(history_length->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     // ONELLM_CHECK_WITH_INFO(attention_mask->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    Tensor* decoder_input = input_tensors["decoder_input"];
     TensorMap ctx_attn_inputs{
         {"attention_input", decoder_input},
         {"padding_offset", padding_offset},
