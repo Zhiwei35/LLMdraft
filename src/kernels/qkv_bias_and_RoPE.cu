@@ -36,7 +36,7 @@
 //         sin = freqs.sin()
 //         cache = torch.cat((cos, sin), dim=-1)
 //         return cache
-//对比llama py实现，我们少了L30和34的这一步,即一个(2048,1)和(1,64)的外积
+//对比llama py实现，我们少了L30和34的这一步,即一个(2048,1)和(1,64)的外积,更：也没有减少
 inline __device__ float2 GetRoPEfreq(int zid, int rot_embed_dim, float base, float t_step)
 {
     // 某个token的head size维度上连续俩元素的inv freq，t_Step表示tokenid，能对上transformers上的[0,2047]和freq的外积
@@ -212,9 +212,9 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
     if (tid >= rotary_embedding_dim / 2)
     {
         return;
-    }
+    } // tid = [0,1,63]
 
-    float2 cos_sin = GetRoPEfreq(tid, rotary_embedding_dim, rotary_embedding_base, timestep);
+    float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, timestep);
     float2 q_rotate = GetRoPEres(QKV[q_id], QKV[q_id + head_size / 2], cos_sin);
     float2 k_rotate = GetRoPEres(QKV[k_id], QKV[k_id + head_size / 2], cos_sin);
 

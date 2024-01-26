@@ -78,60 +78,74 @@ __device__ T blockReduceMax(T val){
 //     float* mha_output;
 //};
 
-
 inline __device__ float2 GetRoPEfreq(int zid, int rot_embed_dim, float base, float t_step)
 {
-    const float inv_freq = t_step / powf(base, zid / (float)rot_embed_dim);
+    // 某个token的head size维度上连续俩元素的inv freq，t_Step表示tokenid，能对上transformers上的[0,2047]和freq的外积
+    // 每个inv freq值对应于head size维度上0 2 4 6的值
+    const float inv_freq = t_step / powf(base, zid / (float)rot_embed_dim); //rot_embed_dim = 128
     return {cos(inv_freq), sin(inv_freq)};
 }
 
-// RoPE公式决定必须要做向量化
-inline __device__ float2 GetRoPEres(const float2 v, const float2 coef)
+inline __device__ float2 GetRoPEres(float data, float data_rotate, const float2 coef)
 {
     float2 rot_v;
-    rot_v.x = coef.x * v.x - coef.y * v.y;
-    rot_v.y = coef.x * v.y + coef.y * v.x;
+    rot_v.x = coef.x * data - coef.y * data_rotate;
+    rot_v.y = coef.x * data_rotate + coef.y * data;
     return rot_v;
 }
+// inline __device__ float2 GetRoPEfreq(int zid, int rot_embed_dim, float base, float t_step)
+// {
+//     const float inv_freq = t_step / powf(base, zid / (float)rot_embed_dim);
+//     return {cos(inv_freq), sin(inv_freq)};
+// }
 
-inline __device__ half2 GetRoPEres(const half2 v, const float2 coef)
-{
-    float2 fv     = __half22float2(v);
-    float2 rot_fv = GetRoPEres(fv, coef);
-    return __float22half2_rn(rot_fv);
-}
+// // RoPE公式决定必须要做向量化
+// inline __device__ float2 GetRoPEres(const float2 v, const float2 coef)
+// {
+//     float2 rot_v;
+//     rot_v.x = coef.x * v.x - coef.y * v.y;
+//     rot_v.y = coef.x * v.y + coef.y * v.x;
+//     return rot_v;
+// }
 
-inline __device__ void apply_RoPE(half2& q, half2& k, int tid, int rot_embed_dim, float base, float t_step)
-{
-    if (2 * tid >= rot_embed_dim) {
-        return;
-    }
-    const auto coef = GetRoPEfreq(2 * tid, rot_embed_dim, base, t_step);
-    q               = GetRoPEres(q, coef);
-    k               = GetRoPEres(k, coef);
-}
+// inline __device__ half2 GetRoPEres(const half2 v, const float2 coef)
+// {
+//     float2 fv     = __half22float2(v);
+//     float2 rot_fv = GetRoPEres(fv, coef);
+//     return __float22half2_rn(rot_fv);
+// }
 
-inline __device__ void apply_RoPE(float4& q, float4& k, int tid, int rot_embed_dim, float base, float t_step){
-    if(4 * tid >= rot_embed_dim){
-        return;
-    }
+// inline __device__ void apply_RoPE(half2& q, half2& k, int tid, int rot_embed_dim, float base, float t_step)
+// {
+//     if (2 * tid >= rot_embed_dim) {
+//         return;
+//     }
+//     const auto coef = GetRoPEfreq(2 * tid, rot_embed_dim, base, t_step);
+//     q               = GetRoPEres(q, coef);
+//     k               = GetRoPEres(k, coef);
+// }
+
+// inline __device__ void apply_RoPE(float4& q, float4& k, int tid, int rot_embed_dim, float base, float t_step){
+//     if(4 * tid >= rot_embed_dim){
+//         return;
+//     }
 
 
-    TwoFloat2& q_ = *reinterpret_cast<TwoFloat2*>(&q); // q为float4 寄存器
-    TwoFloat2& k_ = *reinterpret_cast<TwoFloat2*>(&k);
+//     TwoFloat2& q_ = *reinterpret_cast<TwoFloat2*>(&q); // q为float4 寄存器
+//     TwoFloat2& k_ = *reinterpret_cast<TwoFloat2*>(&k);
     
-    float2 coef0 = GetRoPEfreq(4 * tid, rot_embed_dim, base, t_step);
-    // float freq0 = timestep / powf(rotary_embedding_base, 4 * tid / (float) rotary_embedding_dim); //分子zid = 0,2,4,, headsize/2-1,对应的theta下标为0,1,2.对应的headsize维度的索引为(0,1),(2,3)
-    q_.x = GetRoPEres(q_.x ,coef0);
-    // rot0.x = coef0.x * q.x -  coef0.y * q.y; //q.x为x0,q.y为x1，head size维度上两个相邻
-    // rot0.y = coef0.x * q.y +  coef0.y * q.x
-    float2 coef1 = GetRoPEfreq(4 * tid + 2, rot_embed_dim, base, t_step);
-    q_.y = GetRoPEres(q_.y ,coef1);
-    // rot1.x = coef1.x * q.x -  coef1.y * q.y; //q.x为x2,q.y为x3，head size维度上两个相邻
-    // rot1.y = coef1.x * q.y +  coef1.y * q.x;
-    k_.x = GetRoPEres(k_.x ,coef0);
-    k_.y = GetRoPEres(k_.y ,coef1);
-}
+//     float2 coef0 = GetRoPEfreq(4 * tid, rot_embed_dim, base, t_step);
+//     // float freq0 = timestep / powf(rotary_embedding_base, 4 * tid / (float) rotary_embedding_dim); //分子zid = 0,2,4,, headsize/2-1,对应的theta下标为0,1,2.对应的headsize维度的索引为(0,1),(2,3)
+//     q_.x = GetRoPEres(q_.x ,coef0);
+//     // rot0.x = coef0.x * q.x -  coef0.y * q.y; //q.x为x0,q.y为x1，head size维度上两个相邻
+//     // rot0.y = coef0.x * q.y +  coef0.y * q.x
+//     float2 coef1 = GetRoPEfreq(4 * tid + 2, rot_embed_dim, base, t_step);
+//     q_.y = GetRoPEres(q_.y ,coef1);
+//     // rot1.x = coef1.x * q.x -  coef1.y * q.y; //q.x为x2,q.y为x3，head size维度上两个相邻
+//     // rot1.y = coef1.x * q.y +  coef1.y * q.x;
+//     k_.x = GetRoPEres(k_.x ,coef0);
+//     k_.y = GetRoPEres(k_.y ,coef1);
+// }
 
 // block and thread allocation
 // 1 block -> head size，后续可改进为1 warp -> 1 head size
@@ -178,6 +192,20 @@ __global__ void masked_MHA_kernel(const T* q,
     int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
     int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
     float scale = rsqrt(float(head_size));
+    // RoPE
+    if (tid < rotary_embedding_dim / 2)
+    {
+        float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, step);
+        // TODO: try inplace change q[offset] and q[offset + 64]
+        float2 q_rotate = GetRoPEres(q[q_offset], q[q_offset + head_size / 2], cos_sin);
+        float2 k_rotate = GetRoPEres(k[k_offset], k[k_offset + head_size / 2], cos_sin);
+        q[q_offset] = q_rotate.x;
+        q[q_offset + head_size / 2] = q_rotate.y;
+        k[k_offset] = k_rotate.x;
+        k[k_offset + head_size / 2] = k_rotate.y;
+        __threadfence();
+    }
+    __threadfence(); // waiting for rope done
     using Vec_t = typename Vec<T>::Type;
     Vec_t qvec, kvec, vvec;
     //Vec_t scale_vec = static_cast<Vec_t>(scale);
@@ -187,28 +215,28 @@ __global__ void masked_MHA_kernel(const T* q,
     const T* v_mem = v;
     if (tid * vec_size < head_size) {
         qvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&q_mem[q_offset_vec]));
-        if (qkv_bias != nullptr){
-	    Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
-            for(int i = 0; i < vec_size; i++) {
-                reinterpret_cast<float*>(&qvec)[i] += reinterpret_cast<float*>(&q_bias)[i];
-            }
-	}
+        // if (qkv_bias != nullptr){
+	    //     Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
+        //     for(int i = 0; i < vec_size; i++) {
+        //         reinterpret_cast<float*>(&qvec)[i] += reinterpret_cast<float*>(&q_bias)[i];
+        //     }
+	    // }
         kvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&k_mem[k_offset_vec]));
-        if (qkv_bias != nullptr){
-	    Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
-            for(int i = 0; i < vec_size; i++) {
-                reinterpret_cast<float*>(&kvec)[i] += reinterpret_cast<float*>(&k_bias)[i];
-            }
-	}
+        // if (qkv_bias != nullptr){
+	    //     Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
+        //     for(int i = 0; i < vec_size; i++) {
+        //         reinterpret_cast<float*>(&kvec)[i] += reinterpret_cast<float*>(&k_bias)[i];
+        //     }
+	    // }
         vvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&v_mem[k_offset_vec]));
-        if (qkv_bias != nullptr){
-	    Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
-            for(int i = 0; i < vec_size; i++) {
-                reinterpret_cast<float*>(&vvec)[i] += reinterpret_cast<float*>(&v_bias)[i];
-            }
-	}
+        // if (qkv_bias != nullptr){
+	    //     Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
+        //     for(int i = 0; i < vec_size; i++) {
+        //         reinterpret_cast<float*>(&vvec)[i] += reinterpret_cast<float*>(&v_bias)[i];
+        //     }
+	    // }
         // 测试的时候关掉rope
-        apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
+        // apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
     }
     // q k smem for block reduce
     // define smem type is char type!! not T
@@ -343,169 +371,169 @@ __global__ void masked_MHA_kernel(const half* q,
                     const int step,
                     int   rotary_embedding_dim,
                     float rotary_embedding_base){// rsqrt(dh)
-    int tid = threadIdx.x;
-    //int bid = blockIdx.x;
-    int q_head_id = blockIdx.x;
-    int q_batch_id = blockIdx.y;
-    int kv_head_id = q_head_id / head_num / kv_head_num;
-    int kv_batch_id = q_batch_id;
-    //int q_head_id = bid % head_num;
-    //int q_batch_id = bid / head_num;
-    //int kv_head_id = bid % kv_head_num;
-    //int kv_batch_id = bid / kv_head_num;
+//     int tid = threadIdx.x;
+//     //int bid = blockIdx.x;
+//     int q_head_id = blockIdx.x;
+//     int q_batch_id = blockIdx.y;
+//     int kv_head_id = q_head_id / head_num / kv_head_num;
+//     int kv_batch_id = q_batch_id;
+//     //int q_head_id = bid % head_num;
+//     //int q_batch_id = bid / head_num;
+//     //int kv_head_id = bid % kv_head_num;
+//     //int kv_batch_id = bid / kv_head_num;
 
-    int batch_stride = head_num * head_size;
-    int kv_batch_stride = kv_head_num * head_size;
-    int head_stride = head_size;
-    int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
-    int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
-    int cache_offset = batch_size * kv_batch_stride;
+//     int batch_stride = head_num * head_size;
+//     int kv_batch_stride = kv_head_num * head_size;
+//     int head_stride = head_size;
+//     int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
+//     int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
+//     int cache_offset = batch_size * kv_batch_stride;
 
-    int vec_size = Vec<half>::size;
-    int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
-    int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
-    half scale = __float2half(rsqrt(float(head_size)));
-    using Vec_t = typename Vec<half>::Type;
-    Vec_t qvec, kvec, vvec;
-    Vec_t scale_vec = scalar_cast_vec<Vec_t>(scale);
-    //reuse q k v reg from rope
-    const half* q_mem = q;
-    const half* k_mem = k;
-    const half* v_mem = v;
-    if (tid * vec_size < head_size) {
-        qvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&q_mem[q_offset_vec]));
-        if (qkv_bias != nullptr){
-            Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
-            qvec = __hadd2(qvec, q_bias);
-        }
-        kvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&k_mem[k_offset_vec]));
-        if (qkv_bias != nullptr){
-            Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
-            kvec = __hadd2(kvec, k_bias);
-        }
-        //apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
-        vvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&v_mem[k_offset_vec]));
-        if (qkv_bias != nullptr){
-            Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
-            vvec = __hadd2(vvec, v_bias);
-        }
-	apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
+//     int vec_size = Vec<half>::size;
+//     int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
+//     int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
+//     half scale = __float2half(rsqrt(float(head_size)));
+//     using Vec_t = typename Vec<half>::Type;
+//     Vec_t qvec, kvec, vvec;
+//     Vec_t scale_vec = scalar_cast_vec<Vec_t>(scale);
+//     //reuse q k v reg from rope
+//     const half* q_mem = q;
+//     const half* k_mem = k;
+//     const half* v_mem = v;
+//     if (tid * vec_size < head_size) {
+//         qvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&q_mem[q_offset_vec]));
+//         if (qkv_bias != nullptr){
+//             Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
+//             qvec = __hadd2(qvec, q_bias);
+//         }
+//         kvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&k_mem[k_offset_vec]));
+//         if (qkv_bias != nullptr){
+//             Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
+//             kvec = __hadd2(kvec, k_bias);
+//         }
+//         //apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
+//         vvec = *reinterpret_cast<Vec_t*>(const_cast<half*>(&v_mem[k_offset_vec]));
+//         if (qkv_bias != nullptr){
+//             Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
+//             vvec = __hadd2(vvec, v_bias);
+//         }
+// 	apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
 
-    }
-    // q k smem for block reduce
-    extern __shared__ char sqk[];
-    half* sq = reinterpret_cast<half*>(sqk);
-    // half* sk = sq + head_size;
-    // //float* logits = reinterpret_cast<float*>(sk + head_size);
-    // half* sv = sk + head_size;
-    float* logits = reinterpret_cast<float*>(sq + head_size);
-    //sq[tid] = q_mem[qkv_offset];
+//     }
+//     // q k smem for block reduce
+//     extern __shared__ char sqk[];
+//     half* sq = reinterpret_cast<half*>(sqk);
+//     // half* sk = sq + head_size;
+//     // //float* logits = reinterpret_cast<float*>(sk + head_size);
+//     // half* sv = sk + head_size;
+//     float* logits = reinterpret_cast<float*>(sq + head_size);
+//     //sq[tid] = q_mem[qkv_offset];
 
-    Vec_t* sq_vec = reinterpret_cast<Vec_t*>(sq);
-    // Vec_t* sk_vec = reinterpret_cast<Vec_t*>(sk);
-    // Vec_t* sv_vec = reinterpret_cast<Vec_t*>(sv);
-    if (tid * vec_size < head_size) {
-        // *reinterpret_cast<Vec_t*>(&sq[tid * vec_size]) = qvec;
-        sq_vec[tid] = qvec;
-    }
-    __syncthreads();
-    half zero = (half)0.0f;
-    Vec_t zero_h2 = scalar_cast_vec<Vec_t, half>(zero);
-    Vec_t scale_h2 = scalar_cast_vec<Vec_t, half>(scale);
-    // FT 2.1的写法里面，kv cache是在prompt阶段已经填充，iter=0为token gen的起始iter
-    for(int iter = 0; iter < step; iter++) {
-        // every iter,  q and k's shape = [1, head size]
-        // reuse k cache
-        // float k = k_cache[iter * cache_offset + qkv_offset];
-        //或许可以在每个step省略掉前step-1的qk dot
-        // sk_vec[tid]= *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]);
-        // __syncthreads();
-        Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) : zero_h2;
-        // when final step, update k cache
-        if (iter == step - 1 && tid * vec_size < head_size) {
-            // TODO: update k cache with k with bias add
-            //k_cache[iter * cache_offset + qkv_offset] = k_mem[qkv_offset];
-            //sk[tid] = k_mem[qkv_offset];
-            *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) = kvec;
-            kvec_qk = kvec;         
-        }
+//     Vec_t* sq_vec = reinterpret_cast<Vec_t*>(sq);
+//     // Vec_t* sk_vec = reinterpret_cast<Vec_t*>(sk);
+//     // Vec_t* sv_vec = reinterpret_cast<Vec_t*>(sv);
+//     if (tid * vec_size < head_size) {
+//         // *reinterpret_cast<Vec_t*>(&sq[tid * vec_size]) = qvec;
+//         sq_vec[tid] = qvec;
+//     }
+//     __syncthreads();
+//     half zero = (half)0.0f;
+//     Vec_t zero_h2 = scalar_cast_vec<Vec_t, half>(zero);
+//     Vec_t scale_h2 = scalar_cast_vec<Vec_t, half>(scale);
+//     // FT 2.1的写法里面，kv cache是在prompt阶段已经填充，iter=0为token gen的起始iter
+//     for(int iter = 0; iter < step; iter++) {
+//         // every iter,  q and k's shape = [1, head size]
+//         // reuse k cache
+//         // float k = k_cache[iter * cache_offset + qkv_offset];
+//         //或许可以在每个step省略掉前step-1的qk dot
+//         // sk_vec[tid]= *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]);
+//         // __syncthreads();
+//         Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) : zero_h2;
+//         // when final step, update k cache
+//         if (iter == step - 1 && tid * vec_size < head_size) {
+//             // TODO: update k cache with k with bias add
+//             //k_cache[iter * cache_offset + qkv_offset] = k_mem[qkv_offset];
+//             //sk[tid] = k_mem[qkv_offset];
+//             *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) = kvec;
+//             kvec_qk = kvec;         
+//         }
 
-        // sq[tid] = q_mem[qkv_offset];
-        __syncthreads();
-        Vec_t qk = (tid * vec_size < head_size) ? __hmul2(__hmul2(sq_vec[tid], kvec_qk), scale_h2) : zero_h2;
-        //block reduce using multi warp reduce
-        float qk_fp32 = __half2float(qk.x) + __half2float(qk.y);
-        float attn_score = blockReduceSum<float>(qk_fp32);
-        if(tid == 0) {
-            logits[iter] = attn_score;
-	    //float q_tmp = (float)(sq_vec[0].x);
-	    //float k_tmp = (float)(sk_vec[0].x);
-	    //float scale_tmp = (float)(scale_vec.x);
-            //printf("iter = %d, step=%d, blockIdx.x = %d, in cuda, logits[%d]=%f, qk_fp32 = %f, q_tmp=%f, k_tmp=%f, scale_tmp=%f\n",iter, step, blockIdx.x, iter, logits[iter], qk_fp32, q_tmp, k_tmp, scale_tmp);
-	}
-        __syncthreads();
-    }
-    //__syncthreads();
-    //softmax(logits), logits.shape = [bs, num heads, 1, step]
-    //if(tid < step){
-    	//printf("logits[%d]=%f\n", tid, logits[tid]);
-    //}
-    float local_logits = tid < step ? logits[tid] : 0;
-    __shared__ float row_max, fenmu;
+//         // sq[tid] = q_mem[qkv_offset];
+//         __syncthreads();
+//         Vec_t qk = (tid * vec_size < head_size) ? __hmul2(__hmul2(sq_vec[tid], kvec_qk), scale_h2) : zero_h2;
+//         //block reduce using multi warp reduce
+//         float qk_fp32 = __half2float(qk.x) + __half2float(qk.y);
+//         float attn_score = blockReduceSum<float>(qk_fp32);
+//         if(tid == 0) {
+//             logits[iter] = attn_score;
+// 	    //float q_tmp = (float)(sq_vec[0].x);
+// 	    //float k_tmp = (float)(sk_vec[0].x);
+// 	    //float scale_tmp = (float)(scale_vec.x);
+//             //printf("iter = %d, step=%d, blockIdx.x = %d, in cuda, logits[%d]=%f, qk_fp32 = %f, q_tmp=%f, k_tmp=%f, scale_tmp=%f\n",iter, step, blockIdx.x, iter, logits[iter], qk_fp32, q_tmp, k_tmp, scale_tmp);
+// 	}
+//         __syncthreads();
+//     }
+//     //__syncthreads();
+//     //softmax(logits), logits.shape = [bs, num heads, 1, step]
+//     //if(tid < step){
+//     	//printf("logits[%d]=%f\n", tid, logits[tid]);
+//     //}
+//     float local_logits = tid < step ? logits[tid] : 0;
+//     __shared__ float row_max, fenmu;
     
-    float block_max = blockReduceMax<float>(local_logits);
-    if (tid == 0){
-        row_max = block_max;
-    }
-    __syncthreads();
-    float fenzi = tid < step ? expf(local_logits - row_max) : 0;
-    //if(tid < step) {
-    //	printf("after expf, row_max=%f, fenzi=%f, logits=%f\n", row_max, fenzi, local_logits);
-    //}
-    float block_fenmu = blockReduceSum<float>(fenzi);
-    if (tid == 0){
-        fenmu = block_fenmu;
-    }
-    __syncthreads();
-    if(tid < step) {
+//     float block_max = blockReduceMax<float>(local_logits);
+//     if (tid == 0){
+//         row_max = block_max;
+//     }
+//     __syncthreads();
+//     float fenzi = tid < step ? expf(local_logits - row_max) : 0;
+//     //if(tid < step) {
+//     //	printf("after expf, row_max=%f, fenzi=%f, logits=%f\n", row_max, fenzi, local_logits);
+//     //}
+//     float block_fenmu = blockReduceSum<float>(fenzi);
+//     if (tid == 0){
+//         fenmu = block_fenmu;
+//     }
+//     __syncthreads();
+//     if(tid < step) {
         
-	logits[tid] = (float)(fenzi / fenmu);
-//	printf("in cuda, row_max=%f, fenzi=%f, fenmu=%f, logits=%f\n", row_max, fenzi, fenmu, logits[tid]);
+// 	logits[tid] = (float)(fenzi / fenmu);
+// //	printf("in cuda, row_max=%f, fenzi=%f, fenmu=%f, logits=%f\n", row_max, fenzi, fenmu, logits[tid]);
 	
-    }
-    __syncthreads();
+//     }
+//     __syncthreads();
 
-    // logits*V = [bs, num heads, 1, step] * [max_seq_len or step, bs, num heads, head size]
-    if (tid * vec_size < head_size) {
-        // note: here is head size ,not step, because step by step, we have to use [1, step/seqlen] from logits * [1, head size] from v
-        // so here we use acc O to acc the one ele logits * one ele v every step iter
-        float2 O = scalar_cast_vec<float2>(0.0f);
-        //O.x = 0.0f;
-        //O.y = 0.0f;
-        for(int iter = 0; iter < step; iter++) {
-            // sv_vec[tid]= *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
-            // __syncthreads();
-            Vec_t vvec_qkv = *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
-            // when final step, update k cache
-            if (iter == step - 1) {
-                // TODO: update k cache with k with bias add
-                // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
-                // sv[tid] = v_mem[k_offset];
-                *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]) = vvec;
-                vvec_qkv = vvec;  
-            }
-	    __syncthreads();
-            //if(bid==0 && tid == 0){
-            //printf("when tid=0, v cache = %f\n", sv[tid]);
-            O.x += (logits[iter] * __half2float(vvec_qkv.x));
-            O.y += (logits[iter] * __half2float(vvec_qkv.y));
-            //O += sv[tid] * logits[iter];
-            __syncthreads();
-        }
+//     // logits*V = [bs, num heads, 1, step] * [max_seq_len or step, bs, num heads, head size]
+//     if (tid * vec_size < head_size) {
+//         // note: here is head size ,not step, because step by step, we have to use [1, step/seqlen] from logits * [1, head size] from v
+//         // so here we use acc O to acc the one ele logits * one ele v every step iter
+//         float2 O = scalar_cast_vec<float2>(0.0f);
+//         //O.x = 0.0f;
+//         //O.y = 0.0f;
+//         for(int iter = 0; iter < step; iter++) {
+//             // sv_vec[tid]= *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
+//             // __syncthreads();
+//             Vec_t vvec_qkv = *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
+//             // when final step, update k cache
+//             if (iter == step - 1) {
+//                 // TODO: update k cache with k with bias add
+//                 // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
+//                 // sv[tid] = v_mem[k_offset];
+//                 *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]) = vvec;
+//                 vvec_qkv = vvec;  
+//             }
+// 	    __syncthreads();
+//             //if(bid==0 && tid == 0){
+//             //printf("when tid=0, v cache = %f\n", sv[tid]);
+//             O.x += (logits[iter] * __half2float(vvec_qkv.x));
+//             O.y += (logits[iter] * __half2float(vvec_qkv.y));
+//             //O += sv[tid] * logits[iter];
+//             __syncthreads();
+//         }
         
-        // float* mha_output_fp32 = reinterpret_cast<float*>(mha_output);
-        *reinterpret_cast<Vec_t*>(&mha_output[q_offset_vec]) = __float22half2_rn(O);
-    }
+//         // float* mha_output_fp32 = reinterpret_cast<float*>(mha_output);
+//         *reinterpret_cast<Vec_t*>(&mha_output[q_offset_vec]) = __float22half2_rn(O);
+//     }
 }
 
 template<typename T>
