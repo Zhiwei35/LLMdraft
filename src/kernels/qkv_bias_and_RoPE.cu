@@ -67,17 +67,17 @@ inline __device__ half2 GetRoPEres(const half2 v, const float2 coef)
     return __float22half2_rn(rot_fv);
 }
 
-inline __device__ void apply_RoPE(float q, float k, int tid, int rot_embed_dim, float base, int t_step)
-{
-    if (tid >= rot_embed_dim / 2)
-    {
-        return;
-    }
+// inline __device__ void apply_RoPE(float q, float k, int tid, int rot_embed_dim, float base, int t_step)
+// {
+//     if (tid >= rot_embed_dim / 2)
+//     {
+//         return;
+//     }
 
-    float2 coef0 = GetRoPEfreq(tid, rot_embed_dim, base, t_step);
-    q = GetRoPEres(q, coef0);
-    k = GetRoPEres(k, coef0);
-}
+//     float2 coef0 = GetRoPEfreq(tid, rot_embed_dim, base, t_step);
+//     q = GetRoPEres(q, coef0);
+//     k = GetRoPEres(k, coef0);
+// }
 
 inline __device__ void apply_RoPE(half2 &q, half2 &k, int tid, int rot_embed_dim, float base, int t_step)
 {
