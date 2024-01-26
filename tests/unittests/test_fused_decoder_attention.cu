@@ -71,7 +71,7 @@ void CPUMaskedAttn(T *q,
                 // softmax(logits), logits.shape = [bs, num heads, 1, step]
                 row_max = std::max(attn_score, row_max);
             }
-            printf("all step/seqlen(one row) max attn score = %f\n", row_max);
+//            printf("all step/seqlen(one row) max attn score = %f\n", row_max);
             float fenzi = 0.0f;
             float fenmu = 0.0f;
             for (int iter = 0; iter < step; iter++)
@@ -82,7 +82,7 @@ void CPUMaskedAttn(T *q,
             for (int iter = 0; iter < step; iter++)
             { // row
                 logits[batch_id * num_heads * step + head_id * step + iter] = (float)(fenzi / fenmu);
-                printf("logits=%f\n", fenzi / fenmu);
+  //              printf("logits=%f\n", fenzi / fenmu);
             }
             // logits*V = [bs, num heads, 1, step] * [mx_seq_len or step, bs, num heads, head size]
             // for(int iter = 0; iter < step; iter++) {
@@ -101,7 +101,7 @@ void CPUMaskedAttn(T *q,
                         sv[qkv_offset] = (float)v_mem[qkv_offset];
                     }
                     O += sv[qkv_offset] * logits[batch_id * num_heads * step + head_id * step + iter];
-                    printf("logits[%d]=%f, sv[%d]=%f, O=%f\n", iter, logits[iter], qkv_offset, sv[qkv_offset], O);
+    //                printf("logits[%d]=%f, sv[%d]=%f, O=%f\n", iter, logits[iter], qkv_offset, sv[qkv_offset], O);
                 }
                 mha_output[qkv_offset] = O;
             }

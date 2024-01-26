@@ -156,9 +156,9 @@ inline __device__ float2 GetRoPEres(float data, float data_rotate, const float2 
 // k_cache; output,[max_seq_len or step, bs, kv num heads, head size] from prompt phase
 // v_cache; output,[max_seq_len or step, bs, num heads, head size] from prompt phase
 template<typename T>
-__global__ void masked_MHA_kernel(const T* q,
-                    const T* k,
-                    const T* v,
+__global__ void masked_MHA_kernel(T* q,
+                    T* k,
+                    T* v,
                     T* qkv_bias,
                     T* k_cache,
                     T* v_cache,
@@ -291,7 +291,7 @@ __global__ void masked_MHA_kernel(const T* q,
         if(tid == 0) {
             logits[iter] = attn_score;
 	    //if(blockIdx.x == 0){
-//	    printf("each block qk res = %f\n", attn_score);
+	    //printf("each block qk res = %f\n", attn_score);
        	  
 	}
         __syncthreads();
@@ -315,7 +315,7 @@ __global__ void masked_MHA_kernel(const T* q,
     if(tid < step) {
         logits[tid] = (T)(fenzi / fenmu);
 //	if (blockIdx.x == 0 && blockIdx.y == 0){
-//	printf("after softmax, logits = %f\n", logits[tid]);
+	//printf("after softmax, logits = %f\n", logits[tid]);
 //	}
     }
     __syncthreads();
@@ -325,7 +325,7 @@ __global__ void masked_MHA_kernel(const T* q,
         // note: here is head size ,not step, because step by step, we have to use [1, step/seqlen] from logits * [1, head size] from v
         // so here we use acc O to acc the one ele logits * one ele v every step iter
         // T O = 0.0f;
-        Vec_t O;
+        Vec_t O = scalar_cast_vec<Vec_t, T>(0.0f);
         for(int iter = 0; iter < step; iter++) {
             //sv[tid]= v_cache[iter * cache_offset + k_offset];
             // __syncthreads();
@@ -349,16 +349,19 @@ __global__ void masked_MHA_kernel(const T* q,
             O.y += vvec_qkv.y * logits[iter];
             O.z += vvec_qkv.z * logits[iter];
             O.w += vvec_qkv.w * logits[iter];
-            // __syncthreads();
+            //note: debug code, here we can see the result change clearly
+	    //printf("iter=%d, O.z = %f, vvec_qkv.z=%f, logits[iter]=%f\n", iter, O.z, vvec_qkv.z, logits[iter]);
+	    //printf("iter=%d, O.w = %f, vvec_qkv.w=%f, logits[iter]=%f\n", iter, O.w, vvec_qkv.w, logits[iter]);
+	    		    // __syncthreads();
         }
         *reinterpret_cast<Vec_t*>(&mha_output[q_offset_vec]) = O;
     }
 }
 
 template<> //特化以下half类型的，不在fp32代码上改
-__global__ void masked_MHA_kernel(const half* q,
-                    const half* k,
-                    const half* v,
+__global__ void masked_MHA_kernel(half* q,
+                    half* k,
+                    half* v,
                     half* qkv_bias,
                     half* k_cache,
                     half* v_cache,
