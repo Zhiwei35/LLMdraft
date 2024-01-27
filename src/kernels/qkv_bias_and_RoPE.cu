@@ -145,17 +145,21 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
 
     int batch_id = dst_token_id / seq_len;       // seqlen is max_seq_len for padding used to unify all seq's length
     int local_token_id = dst_token_id % seq_len; // 每个seq中的局部token id
-    // if (token_id == 0 && head_id == 0 && tid == 0)
-    // {
-    //     printf("QKV top2 res: \n");
-    //     printf("%f\n", QKV[tid]);
-    //     printf("%f\n", QKV[1]);
-    // }
     // 2. bias add
     int qkv_head_num = head_num + 2 * kv_head_num;
     int q_id = token_id * qkv_head_num * head_size + head_id * head_size + tid;
     int k_id = token_id * qkv_head_num * head_size + head_id * head_size + tid + head_num * head_size;
     int v_id = token_id * qkv_head_num * head_size + head_id * head_size + tid + head_num * head_size + kv_head_num * head_size;
+    if (token_id == 0 && head_id == 0 && tid == 0)
+    {
+        printf("after qkv gemm, q res: \n");
+        printf("q[%d]=%f\n", tid,QKV[q_id]);
+        printf("q[%d]=%f\n", tid+1,QKV[q_id + 1]);
+        printf("q[%d]=%f\n", tid+2,QKV[q_id + 2]);
+        printf("k[%d]=%f\n", tid,QKV[k_id]);
+        printf("k[%d]=%f\n", tid+1,QKV[k_id + 1]);
+        printf("k[%d]=%f\n", tid+2,QKV[k_id + 2]);
+    }
     // note: scalar add can be replaced by 3 overloaded function call, which is implemented by float add, float2 add and float4 add.
     // TODO: reduce the pointer converter and fuse for loop
     // Vec_t q, k, v;
