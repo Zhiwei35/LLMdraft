@@ -71,11 +71,11 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
     dout[idx].z = out.z * inv_mean * s[idx].z;
     dout[idx].w = out.w * inv_mean * s[idx].w;
   }
-  // if (blockIdx.x == 0 && threadIdx.x == 0) {
-  //   printf("rmsnorm out:\n");
-  //   printf("%f\n", decoder_out[0]);
-  //   printf("%f\n", decoder_out[1]);
-  // }
+  if (blockIdx.x == 0 && threadIdx.x == 0) {
+    printf("rmsnorm out:\n");
+    printf("%f\n", decoder_out[0]);
+    printf("%f\n", decoder_out[1]);
+  }
 }
 
 template <>

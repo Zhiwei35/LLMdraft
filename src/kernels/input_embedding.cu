@@ -13,6 +13,10 @@ __global__ void embeddingFunctor(const int* input_ids,
     while (index < max_context_token_num * hidden_size) {
         int id = input_ids[index / hidden_size];
         output[index] = embed_table[id * hidden_size + index % hidden_size];
+        if (index < 10) {
+            printf("embedding res & rmsnorm input: \n");
+            printf("output[%d]=%f\n",index,output[index]);            
+        }
         index += blockDim.x * gridDim.x;
     }
     // if (blockIdx.x == 0 && threadIdx.x == 0){
@@ -28,7 +32,7 @@ void launchInputEmbedding(TensorWrapper<int>* input_ids,    // INT [max context 
                           EmbeddingWeight<T>* embed_table// FP32 [vocal_size, hidden_size]
                           ) {//consider add shape attr in embeddingweight to avoid vocab size input 
     const int blockSize = 256;
-    const int max_context_token_num = output->shape[0];
+    const int max_context_token_num = output->shape[0]; // token num
     const int hidden_size = output->shape[1];
     const int gridSize = 2048;
     ONELLM_CHECK_WITH_INFO(max_context_token_num == input_ids->shape[0], "input ids 1st shape should equal to 1st shape of output");
