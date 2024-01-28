@@ -22,7 +22,7 @@ void CPUlinear(float* input, float* weight, float* output,
 
 bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
     for(int i = 0; i < output_size; i++) {
-	if (i == 0) {
+	if (i < 5) {
 	    printf("0th res, CPUoutput = %f, GPUoutput = %f\n", CPUoutput[i], GPUoutput[i]);
 	}
   	if(fabs(CPUoutput[i] - GPUoutput[i]) > 1e-6){
@@ -59,14 +59,14 @@ int main(int argc, char *argv[]) {
     h_w = (float*)malloc(sizeof(float) * hidden_units_2);
     cudaMalloc((void**)&d_w, sizeof(float) * hidden_units_2);
     for(int i = 0; i < hidden_units_2; i++) { 
-       h_w[i] = (float)(i % 2 + 1); // 1 2 1 2
+       h_w[i] = (float)(i % 3); // 1 2 1 2
     }
 
     float* h_in = (float*) malloc(sizeof(float) * hidden_units * seqlen);
     float* d_in;
     cudaMalloc((void**)&d_in, sizeof(float) * seqlen *  hidden_units);
     for(int i = 0; i < hidden_units * seqlen; i++) { 
-       h_in[i] = (float)(i % 2 + 1);
+       h_in[i] = (float)(i % 3);
     }
 
     float* h_out = (float*) malloc(sizeof(float) * output_size);

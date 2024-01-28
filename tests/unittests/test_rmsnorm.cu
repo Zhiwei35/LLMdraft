@@ -56,7 +56,7 @@ bool CheckResult(float* CPUoutput, T* GPUoutput, int output_size) {
     float fp32GPUoutput = 0.0f;
     for(int i = 0; i < output_size; i++) {
         fp32GPUoutput = (float)GPUoutput[i];
-        if(fabs(CPUoutput[i] - fp32GPUoutput) > 1e-4){
+        if(fabs(CPUoutput[i] - fp32GPUoutput) > 1e-6){
             printf("the %dth res is wrong, CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], fp32GPUoutput);
             return false;
         }

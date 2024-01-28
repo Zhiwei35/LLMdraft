@@ -21,7 +21,7 @@ LlamaLayerWeight<T>::LlamaLayerWeight(int     head_num,
     CHECK(cudaMalloc((void**)&attn_norm_weight.gamma, sizeof(T) * hidden_units));
     CHECK(cudaMalloc((void**)&ffn_norm_weight.gamma, sizeof(T) * hidden_units));
     self_attn_weight.qkv.type = weight_type;
-    self_attn_weight.qkv.shape = {hidden_units, (head_num + 2 * kv_head_num) * head_size};
+    self_attn_weight.qkv.shape = {(head_num + 2 * kv_head_num) * head_size, hidden_units};
     CHECK(cudaMalloc((void**)&self_attn_weight.qkv.data, sizeof(T) * hidden_units * (head_num + 2 * kv_head_num) * head_size));
     self_attn_weight.output.type = weight_type;
     self_attn_weight.output.shape = {hidden_units, hidden_units};
@@ -51,7 +51,7 @@ void LlamaLayerWeight<T>::loadWeights(std::string weight_path, WeightType weight
     loadWeightFromBin<T, float>::internalFunc(attn_norm_weight.gamma, {hidden_units}, weight_path + ".input_layernorm.weight.bin");
     loadWeightFromBin<T, float>::internalFunc(ffn_norm_weight.gamma, {hidden_units}, weight_path + ".post_attention_layernorm.weight.bin");
 
-    loadWeightFromBin<T, float>::internalFunc(self_attn_weight.qkv.data, {hidden_units, (head_num + 2 * kv_head_num) * head_size}, weight_path + ".self_attn.qkv.weight.bin");
+    loadWeightFromBin<T, float>::internalFunc(self_attn_weight.qkv.data, {(head_num + 2 * kv_head_num) * head_size, hidden_units}, weight_path + ".self_attn.qkv.weight.bin");
     loadWeightFromBin<T, float>::internalFunc(self_attn_weight.output.data, {hidden_units, hidden_units}, weight_path + ".self_attn.o_proj.weight.bin");
     loadWeightFromBin<T, float>::internalFunc(ffn_weight.gateAndup.data, {2 * inter_size, hidden_units}, weight_path + ".mlp.gate_up_proj.weight.bin");
     // loadWeightFromBin<T, float>::internalFunc(ffn_weight.up.data, {hidden_units, inter_size}, weight_path + ".mlp.up_proj.weight.bin");

@@ -11,6 +11,49 @@
 // up:[bs/token nums, q hidden units] * [q hidden units, inter size] = [bs/token nums, inter size]
 // fusedGateUpGemm: [bs/token nums, q hidden units] * [q hidden units, 2 * inter size] = [bs/token nums, 2 * inter size]
 // down:[bs/token nums, inter size] * [q hidden units, inter size] = [bs/token nums, q hidden units]
+template<typename T>
+__global__ void print_data(T* src1, T* src2) {
+    int tid = threadIdx.x;
+    printf("qkv data[%d] = %f\n", tid, src1[tid]);
+    //printf("qkv data[%d] = %f\n", tid + 1, src1[tid + 1]);
+    printf("weight data[%d] = %f\n", tid, src2[tid]);
+  //  printf("weight data[%d] = %f\n", tid + 1, src2[tid + 1]);    
+}
+
+template<typename T>
+__global__ void matmul(T* A, T* B, T* C, int M, int N, int K) {
+    int tidx = blockIdx.x * blockDim.x + threadIdx.x;
+    int tidy = blockIdx.y * blockDim.y + threadIdx.y;
+    for (int ty = tidy; tidy < M; tidy += blockDim.y * gridDim.y){
+	for (int tx = tidx; tidx < N; tidx += blockDim.x * gridDim.x){ 
+    	    if(ty < M && tx < N) {
+                T c = 0;
+        	for(int i = 0; i < K; ++i){
+            	    c += A[ty * K + i] * B[i * N + tx];
+                }
+        	C[ty * N + tx] = c;
+  	    }
+    	}	
+    }	
+}  
+
+template<typename T>
+__global__ void matmul_0(T* A, T* B, T* C, int M, int N, int K) {
+    //int tidx = blockIdx.x * blockDim.x + threadIdx.x;
+    //int tidy = blockIdx.y * blockDim.y + threadIdx.y;
+    int tid = threadIdx.x;
+	//for (int ty = tidy; tidy < M; tidy += blockDim.y * gridDim.y){
+        //for (int tx = tidx; tidx < N; tidx += blockDim.x * gridDim.x){
+            //if(ty < M && tx < N) {
+    if (tid == 0){
+    	T c = 0;
+    	for(int i = 0; i < K; ++i){
+            c += A[i] * B[i * N];
+    	}
+        C[0] = c;
+
+    }
+}
 template <typename T>
 void launchLinearGemm(TensorWrapper<T> *input,
                       BaseWeight<T> &weight,
@@ -25,7 +68,16 @@ void launchLinearGemm(TensorWrapper<T> *input,
     int Bn = input->shape[0];
     int Cm = output->shape[1];
     int Cn = output->shape[0];
-
+    //printf("print qkv gemm input and weight\n");
+    //print_data<<<1,1>>>(input->data, weight.data);
+    //dim3 grid(8, 24);
+    //dim3 block(32, 32);
+//    if (!trans_a && !trans_b){
+//        matmul_0<<<1, 1>>>(input->data, weight.data, output->data, Bn, Cm, Bk);
+//    	cudaDeviceSynchronize();
+//	print_data<<<1,1>>>(output->data, input->data);
+//    	cudaDeviceSynchronize();
+//    }
     // for ctx attn and self attn qkv linear, assume [bs/token nums, qkv h ead num, head size]
     // for gate & up linear, assume weight.shape=[hidden,2*intersize], output.shape=[bs, 2, inter size]
     Cm = output->shape.size() == 3 ? output->shape[1] * output->shape[2] : output->shape[1];

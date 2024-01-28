@@ -35,7 +35,8 @@ namespace onellm {
         cublasCreate(&cublas_handle);
         cublasSetMathMode(cublas_handle, CUBLAS_DEFAULT_MATH);
         cublasWrapper* cublas_wrapper = new cublasWrapper(cublas_handle, cublaslt_handle);
-        BaseAllocator* allocator = new CudaAllocator;
+        cublas_wrapper->setFP32GemmConfig();
+	BaseAllocator* allocator = new CudaAllocator;
         cudaDeviceProp deviceProp;
         cudaGetDeviceProperties(&deviceProp, 0);
         BaseModel *model = new Llama<T>(head_num,

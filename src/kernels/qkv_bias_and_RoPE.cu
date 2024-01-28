@@ -153,9 +153,9 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
     if (token_id == 0 && head_id == 0 && tid == 0)
     {
         printf("after qkv gemm, q res: \n");
-        printf("q[%d]=%f\n", tid,QKV[q_id]);
-        printf("q[%d]=%f\n", tid+1,QKV[q_id + 1]);
-        printf("q[%d]=%f\n", tid+2,QKV[q_id + 2]);
+        printf("q[%d]=%f\n", tid,QKV[0]);
+        printf("q[%d]=%f\n", tid+1,QKV[1]);
+        printf("q[%d]=%f\n", tid+2,QKV[2]);
         printf("k[%d]=%f\n", tid,QKV[k_id]);
         printf("k[%d]=%f\n", tid+1,QKV[k_id + 1]);
         printf("k[%d]=%f\n", tid+2,QKV[k_id + 2]);

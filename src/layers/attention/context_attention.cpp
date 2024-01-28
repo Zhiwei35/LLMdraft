@@ -105,7 +105,7 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     //1.qkv linear
     //[num_tokens, qhiddenunits] * [qhiddenunits, hiddenunits]
     Tensor* attention_input = inputs["attention_input"];
-    launchLinearGemm(attention_input->as<T>(), weights.qkv, qkv_buf_wo_pad, cublas_wrapper);
+    launchLinearGemm(attention_input->as<T>(), weights.qkv, qkv_buf_wo_pad, cublas_wrapper, false, true);
 //    DeviceSyncAndCheckCudaError();
     //2.qkv bias and rope and padding
     //[num_tokens, hiddenunits]=>{batch_size, q(kv)head_num, max_q_len, head_size}
@@ -147,7 +147,7 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     DeviceSyncAndCheckCudaError();
     // 5.output linear [numtokens,hiddenunits]=>[numtokens,hiddenunits]
     Tensor* attention_output = outputs["attention_output"];
-    launchLinearGemm(qkv_buf_wo_pad_1, weights.output, attention_output->as<T>(), cublas_wrapper);
+    launchLinearGemm(qkv_buf_wo_pad_1, weights.output, attention_output->as<T>(), cublas_wrapper, false, true);
 
     // if (is_free_buffer_after_fwd) {
     this->freeBuf();

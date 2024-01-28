@@ -60,6 +60,9 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
   __shared__ float inv_mean;
   if (threadIdx.x == 0) {
     inv_mean = rsqrtf((float)thread_sum / hidden_units + eps);
+    //if(blockIdx.x == 0 or blockIdx.x == 1 or blockIdx.x == 2){
+    //    printf("(%d)row mean(x^2)=%f\n",blockIdx.x,(float)thread_sum / hidden_units);
+    //}
   }
   __syncthreads();
   Vec_t* s = reinterpret_cast<Vec_t*>(scale);
@@ -72,6 +75,7 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
     dout[idx].w = out.w * inv_mean * s[idx].w;
   }
   if (blockIdx.x == 0 && threadIdx.x == 0) {
+    //printf("first 5 rmsnorm scale = %f,%f,%f,%f,%f\n",scale[0],scale[1],scale[2],scale[3],scale[4]);
     printf("rmsnorm out:\n");
     printf("%f\n", decoder_out[0]);
     printf("%f\n", decoder_out[1]);
