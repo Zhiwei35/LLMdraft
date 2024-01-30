@@ -12,7 +12,7 @@ template<typename T>
 void save_out_linear_i_w(TensorWrapper<T>* input, BaseWeight<T>& weight){
     int Bm = input->shape[0];
     int Bk = input->shape[1] * input->shape[2];
-    T* icpu = (T*)malloc(sizeof(T) * Bn * Bk);
+    T* icpu = (T*)malloc(sizeof(T) * Bm * Bk);
     cudaMemcpy(icpu, input->data, sizeof(T) * Bm * Bk, cudaMemcpyDeviceToHost);
     std::ofstream ouF1;
     ouF1.open("./in.bin", std::ofstream::binary);
