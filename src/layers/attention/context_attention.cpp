@@ -105,8 +105,10 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     //1.qkv linear
     //[num_tokens, qhiddenunits] * [qhiddenunits, hiddenunits]
     Tensor* attention_input = inputs["attention_input"];
+    printf("calling ctx qkv gemm\n");
     launchLinearGemm(attention_input->as<T>(), weights.qkv, qkv_buf_wo_pad, cublas_wrapper, false, true);
-//    DeviceSyncAndCheckCudaError();
+    printf("called ctx qkv gemm\n");
+    DeviceSyncAndCheckCudaError();
     //2.qkv bias and rope and padding
     //[num_tokens, hiddenunits]=>{batch_size, q(kv)head_num, max_q_len, head_size}
 //    Tensor qkv_bias = inputs["qkv_bias"];
@@ -134,21 +136,24 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     DeviceSyncAndCheckCudaError();
     //1.qk [bs,qhead,qlen,headsize]*[bs,qhead,klen,headsize](N*T)=>[bs,head,qlen,klen]
     launchLinearStridedBatchGemm(q_buf_w_pad, k_cache_buf, qk_buf, cublas_wrapper, false, true);
-
+    DeviceSyncAndCheckCudaError();
     //2.scale+mask+softmax
     Tensor* attention_mask = inputs["attention_mask"];
     launchScaleMaskAndSoftmax(qk_buf, attention_mask->as<T>(), qk_buf, scale);
     DeviceSyncAndCheckCudaError();
     //3.qk*v [bs,head,qlen,klen]=>[bs,head,qlen,headsize]
     launchLinearStridedBatchGemm(qk_buf, v_cache_buf, qkv_buf_w_pad, cublas_wrapper, false, false);
-
+    DeviceSyncAndCheckCudaError();
     //4.transpose+reshape([bs,head,seqlen,headsize]=>[bs,seqlen,head,headsize]=>[numtokens,hiddenunits])+remove padding
     launchTransposeOutRemovePadding(qkv_buf_w_pad, padding_offset->as<int>(), qkv_buf_wo_pad_1);
     DeviceSyncAndCheckCudaError();
     // 5.output linear [numtokens,hiddenunits]=>[numtokens,hiddenunits]
     Tensor* attention_output = outputs["attention_output"];
+    printf("calling ctx output linear\n");
     launchLinearGemm(qkv_buf_wo_pad_1, weights.output, attention_output->as<T>(), cublas_wrapper, false, true);
-
+    printf("called ctx output linear done\n");
+    DeviceSyncAndCheckCudaError();
+    //save_out_linear_i_w(qkv_buf_wo_pad_1, weights.output);
     // if (is_free_buffer_after_fwd) {
     this->freeBuf();
     // }

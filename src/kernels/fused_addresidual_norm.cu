@@ -50,17 +50,19 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     int tid = threadIdx.x;
     Vec_t *rsd, *bia, *s;
     Vec_t dout, tmp;
-    // if(batch_id == 0 && tid == 0) {
-    //     printf("fusedaddresidualnorm top2 input: \n");
+    //if(batch_id == 0 && tid == 0) {
+    //     printf("residual: \n");
+    //     printf("%f\n",residual[0]);
+    //     printf("%f\n",residual[1]);
+    //	 printf("attn out linear out: \n");
     //     printf("%f\n",decoder_out[0]);
     //     printf("%f\n",decoder_out[1]);
-    // }
-    //T zero = static_cast<T>(0.0f);
-   // printf("in kernel\n");    
+   // }
+    //T zero = static_cast<T>(0.0f); 
     T thread_accm = static_cast<T>(0);
-    if (residual != nullptr) {
-	    rsd = reinterpret_cast<Vec_t*>(residual + batch_id * hidden_units);//note the offset     should divide vec size
-    }
+    //if (residual != nullptr) {
+    rsd = reinterpret_cast<Vec_t*>(residual + batch_id * hidden_units);//note the offset     should divide vec size
+    //}
     if (bias != nullptr){
         bia = reinterpret_cast<Vec_t*>(const_cast<T*>(bias));
     } 
@@ -131,12 +133,13 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
         //    printf("out.y = %f, s[i].y = %f, inv_fenmu.y = %f\n",out[i].y, s[i].y);
         //}
     }
-    // if(blockIdx.x == 0 && tid == 0) {
-    //     printf("fusedaddresidualnorm top2 res: \n");
-    //     printf("out=%f,inv_fenmu=%f,scale=%f\n",decoder_out[0],inv_fenmu,scale[0]);
+    //if(blockIdx.x == 0 && tid == 0) {
+    //     printf("post attn rmsnorm res: \n");
+    //     printf("%f\n",decoder_out[0]);
+    //	 printf("%f\n",decoder_out[1]);
 	
     // 	printf("out=%f,inv_fenmu=%f,scale=%f\n",decoder_out[1],inv_fenmu,scale[0]);
-    // } 
+    //} 
 
 //    printf("in kernel 2\n");
 }

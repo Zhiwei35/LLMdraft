@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include "src/kernels/linear.h"
 // TODO: when abstracted weight class, replace T with class
 // all matmul cases:
@@ -12,48 +13,28 @@
 // fusedGateUpGemm: [bs/token nums, q hidden units] * [q hidden units, 2 * inter size] = [bs/token nums, 2 * inter size]
 // down:[bs/token nums, inter size] * [q hidden units, inter size] = [bs/token nums, q hidden units]
 template<typename T>
-__global__ void print_data(T* src1, T* src2) {
+__global__ void print_data(T* src1, T* src2, T* src3) {
     int tid = threadIdx.x;
-    printf("qkv data[%d] = %f\n", tid, src1[tid]);
-    //printf("qkv data[%d] = %f\n", tid + 1, src1[tid + 1]);
-    printf("weight data[%d] = %f\n", tid, src2[tid]);
-  //  printf("weight data[%d] = %f\n", tid + 1, src2[tid + 1]);    
-}
-
-template<typename T>
-__global__ void matmul(T* A, T* B, T* C, int M, int N, int K) {
-    int tidx = blockIdx.x * blockDim.x + threadIdx.x;
-    int tidy = blockIdx.y * blockDim.y + threadIdx.y;
-    for (int ty = tidy; tidy < M; tidy += blockDim.y * gridDim.y){
-	for (int tx = tidx; tidx < N; tidx += blockDim.x * gridDim.x){ 
-    	    if(ty < M && tx < N) {
-                T c = 0;
-        	for(int i = 0; i < K; ++i){
-            	    c += A[ty * K + i] * B[i * N + tx];
-                }
-        	C[ty * N + tx] = c;
-  	    }
-    	}	
-    }	
-}  
-
-template<typename T>
-__global__ void matmul_0(T* A, T* B, T* C, int M, int N, int K) {
-    //int tidx = blockIdx.x * blockDim.x + threadIdx.x;
-    //int tidy = blockIdx.y * blockDim.y + threadIdx.y;
-    int tid = threadIdx.x;
-	//for (int ty = tidy; tidy < M; tidy += blockDim.y * gridDim.y){
-        //for (int tx = tidx; tidx < N; tidx += blockDim.x * gridDim.x){
-            //if(ty < M && tx < N) {
-    if (tid == 0){
-    	T c = 0;
-    	for(int i = 0; i < K; ++i){
-            c += A[i] * B[i * N];
-    	}
-        C[0] = c;
+    if(tid == 0) {
+    	printf("qkv/outlinear data[%d] = %f\n", tid, src1[tid]);
+    	printf("qkv/outlinear data[%d] = %f\n", tid + 1, src1[tid + 1]);
+    	printf("qkv/outlinear data[%d] = %f\n", tid + 128, src1[tid + 128]);
+    	printf("qkv/outlinear data[%d] = %f\n", tid + 129, src1[tid + 129]);
+    	
+	printf("from/outlinearin data[%d] = %f\n", tid, src3[tid]);
+    	printf("from/outlinearin data[%d] = %f\n", tid + 1, src3[tid+1]);
+   	printf("from/outlinearin data[%d] = %f\n", tid + 128, src3[tid+128]);
+    	printf("from/outlinearin data[%d] = %f\n", tid + 129, src3[tid+129]);
+    	
+	printf("qkvweight/outweight data[%d] = %f\n", tid, src2[tid]);
+    	printf("qkvweight/outweight data[%d] = %f\n", tid + 1, src2[tid+1]);    
+    	printf("qkvweight/outweight data[%d] = %f\n", tid + 128, src2[tid+128]);
+    	printf("qkvweight/outweight data[%d] = %f\n", tid + 129, src2[tid +129]);
+    	printf("linear done\n");
 
     }
 }
+
 template <typename T>
 void launchLinearGemm(TensorWrapper<T> *input,
                       BaseWeight<T> &weight,
@@ -123,7 +104,8 @@ void launchLinearGemm(TensorWrapper<T> *input,
                          ldc,                             // ldc
                          1.0f,
                          0.0f);
-    // std::cout << "called gemm" << "\n";
+    cudaDeviceSynchronize();
+    print_data<<<1,1>>>(output->data, weight.data, input->data);
 }
 
 template <typename T>
@@ -180,6 +162,7 @@ void launchLinearGemmForCtxDecoderLMhead(TensorWrapper<T> *input,
                          ldc,                             // ldc
                          1.0f,
                          0.0f);
+    print_data<<<1,1>>>(input->data, output->data);
 }
 
 template <typename T>
@@ -229,6 +212,7 @@ void launchLinearStridedBatchGemm(TensorWrapper<T> *input1,
                                        batchCount,
                                        1.0f,
                                        0.0f);
+    //print_data<<<1,1>>>(input1->data, output->data);
     // std::cout << "called batch gemm" <<"\n";
 }
 

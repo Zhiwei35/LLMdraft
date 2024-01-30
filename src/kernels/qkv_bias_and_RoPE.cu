@@ -150,16 +150,16 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
     int q_id = token_id * qkv_head_num * head_size + head_id * head_size + tid;
     int k_id = token_id * qkv_head_num * head_size + head_id * head_size + tid + head_num * head_size;
     int v_id = token_id * qkv_head_num * head_size + head_id * head_size + tid + head_num * head_size + kv_head_num * head_size;
-    if (token_id == 0 && head_id == 0 && tid == 0)
-    {
-        printf("after qkv gemm, q res: \n");
-        printf("q[%d]=%f\n", tid,QKV[0]);
-        printf("q[%d]=%f\n", tid+1,QKV[1]);
-        printf("q[%d]=%f\n", tid+2,QKV[2]);
-        printf("k[%d]=%f\n", tid,QKV[k_id]);
-        printf("k[%d]=%f\n", tid+1,QKV[k_id + 1]);
-        printf("k[%d]=%f\n", tid+2,QKV[k_id + 2]);
-    }
+    //if (token_id == 0 && head_id == 0 && tid == 0)
+    //{
+    //    printf("after qkv gemm, q res: \n");
+    //    printf("q[%d]=%f\n", tid,QKV[0]);
+    //    printf("q[%d]=%f\n", tid+1,QKV[1]);
+    //    printf("q[%d]=%f\n", tid+2,QKV[2]);
+    //    printf("k[%d]=%f\n", tid,QKV[k_id]);
+    //    printf("k[%d]=%f\n", tid+1,QKV[k_id + 1]);
+    //    printf("k[%d]=%f\n", tid+2,QKV[k_id + 2]);
+    //}
     // note: scalar add can be replaced by 3 overloaded function call, which is implemented by float add, float2 add and float4 add.
     // TODO: reduce the pointer converter and fuse for loop
     // Vec_t q, k, v;
@@ -219,6 +219,16 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
     } // tid = [0,1,63]
 
     float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, timestep);
+    //if(token_id == 2 && head_id == 0 && tid == 0)
+   // {
+    //    printf("tokenid=2, cos_sin res:\n");
+    //    printf("cos: %f, sin:%f\n", cos_sin.x, cos_sin.y);
+    //}
+    //if(token_id == 1 && head_id == 0 && tid == 0)
+    //{
+    //    printf("tokenid=1, cos_sin res:\n");
+    //    printf("cos: %f, sin:%f\n", cos_sin.x, cos_sin.y);
+    //}
     float2 q_rotate = GetRoPEres(QKV[q_id], QKV[q_id + head_size / 2], cos_sin);
     float2 k_rotate = GetRoPEres(QKV[k_id], QKV[k_id + head_size / 2], cos_sin);
 
@@ -254,7 +264,29 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
         k_buf[dst_kv_id] = k_rotate.x;
         k_buf[dst_kv_id + head_size / 2] = k_rotate.y;
     }
-    // }
+    if (token_id == 5 && head_id == 0 && tid == 0)
+    {
+    	printf("token 5 after rope:\n");
+   	printf("query_states[0] = %f\n", q_buf[dst_q_id]);
+   	printf("query_states[1] = %f\n", q_buf[dst_q_id + 1]);
+     	printf("query_states[2] = %f\n", q_buf[dst_q_id + 2]);
+	printf("token 5 after rope:\n");
+        printf("key_states[0] = %f\n", k_buf[dst_kv_id]);
+        printf("key_states[1] = %f\n", k_buf[dst_kv_id + 1]);
+        printf("key_states[2] = %f\n", k_buf[dst_kv_id + 2]);
+    }
+    if (token_id == 8 && head_id == 0 && tid == 0)
+    {
+        printf("token 8 after rope:\n");
+        printf("query_states[0] = %f\n", q_buf[dst_q_id]);
+        printf("query_states[1] = %f\n", q_buf[dst_q_id + 1]);
+        printf("query_states[2] = %f\n", q_buf[dst_q_id + 2]);
+        printf("token 8 after rope:\n");
+        printf("key_states[0] = %f\n", k_buf[dst_kv_id]);
+        printf("key_states[1] = %f\n", k_buf[dst_kv_id + 1]);
+        printf("key_states[2] = %f\n", k_buf[dst_kv_id + 2]);
+    }
+
 }
 
 template <>

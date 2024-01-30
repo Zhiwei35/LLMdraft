@@ -43,6 +43,24 @@ target_link_libraries(  # Libs for test_build_casual_mask
     -lcudadevrt
     linear) 
 
+add_executable(testmylinear
+    test_linear_my.cu
+)
+target_link_libraries(  # Libs for test_build_casual_mask
+    testmylinear PUBLIC
+    -lcudart
+    -lcudadevrt
+    linear)
+
+add_executable(testlinearcomp
+    test_linear_data_compare.cu
+)
+target_link_libraries(  # Libs for test_build_casual_mask
+    testlinearcomp PUBLIC
+    -lcudart
+    -lcudadevrt
+    linear)
+
 add_executable(bmm
     test_bmm.cu
 )

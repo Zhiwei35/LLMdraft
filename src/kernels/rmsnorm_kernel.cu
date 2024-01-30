@@ -43,14 +43,14 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
   float thread_sum = 0.0f;
   Vec_t* dout = reinterpret_cast<Vec_t*>(decoder_out + blockIdx.x * hidden_units);
   Vec_t* rsd;
-  if (decoder_residual != nullptr) {
-    rsd = reinterpret_cast<Vec_t*>(decoder_residual + blockIdx.x * hidden_units);
-  }
+  //if (decoder_residual != nullptr) {
+  rsd = reinterpret_cast<Vec_t*>(decoder_residual + blockIdx.x * hidden_units);
+  //}
   for (int idx = threadIdx.x; idx < hidden_units / vec_size; idx += blockDim.x) {
     Vec_t vec = dout[idx];
-    if (decoder_residual != nullptr) {
-        rsd[idx] = vec;
-    }
+    //if (decoder_residual != nullptr) {
+    rsd[idx] = vec;
+    //}
     thread_sum += vec.x * vec.x;
     thread_sum += vec.y * vec.y;
     thread_sum += vec.z * vec.z;
@@ -74,12 +74,12 @@ __global__ void RMSNorm(T* decoder_out, // [num tokens, q_hidden_units]
     dout[idx].z = out.z * inv_mean * s[idx].z;
     dout[idx].w = out.w * inv_mean * s[idx].w;
   }
-  if (blockIdx.x == 0 && threadIdx.x == 0) {
+  //if (blockIdx.x == 0 && threadIdx.x == 0) {
     //printf("first 5 rmsnorm scale = %f,%f,%f,%f,%f\n",scale[0],scale[1],scale[2],scale[3],scale[4]);
-    printf("rmsnorm out:\n");
-    printf("%f\n", decoder_out[0]);
-    printf("%f\n", decoder_out[1]);
-  }
+ //   printf("rmsnorm out:\n");
+ //   printf("%f\n", decoder_out[0]);
+ //   printf("%f\n", decoder_out[1]);
+  //}
 }
 
 template <>
@@ -142,11 +142,12 @@ void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
     int hidden_units = decoder_out->shape[1];
     int vec_size = Vec<T>::size;
     int num_threads = hidden_units / 4;//vec size // assume head size can be divided by 4 and 2
+    T* rsd = decoder_residual->data;
     dim3 grid(num_tokens);
     dim3 block(num_threads);
     // printf("calling RMSNorm\n");
     RMSNorm<T><<<grid, block>>>(decoder_out->data,
-                            decoder_residual->data,
+                            rsd,
                             attn_norm_weight.gamma,
                             eps,
                             num_tokens,
