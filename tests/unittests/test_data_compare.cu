@@ -62,13 +62,13 @@ void internalFunc(float* ptr, std::vector<size_t> shape, std::string filename) {
 void loadWeights(float* ptr1, std::string weight_path, int shape0, int shape1) // weighttype参数比较多余
 {
     // load attn output
-    internalFunc(ptr1, {shape0, shape1}, weight_path);
+    internalFunc(ptr1, {(size_t)shape0, (size_t)shape1}, weight_path);
 
 }
 void loadWeights_trans(float* ptr1, std::string weight_path, int shape0, int shape1) // weighttype参数比较多余
 {
     // load attn output
-    internalFunc(ptr1, {shape0, shape1}, weight_path);
+    internalFunc(ptr1, {(size_t)shape0, (size_t)shape1}, weight_path);
 
 }
 
@@ -95,10 +95,10 @@ int main(int argc, char *argv[]) {
     const int inter_size = 10;
     int hidden_units_2 = 0;
     int output_size = 0;
-    int in_size = 0; // TO MODIFY
-    int shape0 = 0; // TO MODIFY
-    int shape1 = 0; // TO MODIFY
-
+    //int in_size = 0; // TO MODIFY
+    int shape0 = 1*32; // TO MODIFY
+    int shape1 = 13*128; // TO MODIFY
+    int in_size = shape0 * shape1;
     hidden_units_2 = hidden_units * hidden_units;
     output_size = seqlen * hidden_units;
     // debug info, better to retain: std::cout <<"batch_size=" << batch_size << "  vocab_size=" << vocab_size << std::endl;
@@ -122,8 +122,8 @@ int main(int argc, char *argv[]) {
     float* h_out = (float*) malloc(sizeof(float) * output_size);
     float* d_out;
     cudaMalloc((void**)&d_out, sizeof(float) * output_size);
-    loadWeights(d_in, "/home/", shape0, shape1); // TO MODIFY
-    loadWeights_trans(d_in_trans, "/home/", shape0, shape1); // TO MODIFY
+    loadWeights(d_in, "/home/data/onellm/k_buf_after_repeat.bin", shape0, shape1); // TO MODIFY
+    loadWeights_trans(d_in_trans, "/home/data/trans/k_buf_after_repeat_trans.bin", shape0, shape1); // TO MODIFY
     std::cout << "====intermediate tensor====" << "\n";
     CheckResult(d_in, d_in_trans, output_size);
 
