@@ -83,16 +83,16 @@ __global__ void append_value_cache(T *v_dst,
 //                          Tensor*     k_dst,
 //                          Tensor*     v_dst)
 template <typename T>
-void launchConcatKVCache(TensorWrapper<T> *k_src, // from qkv bias and rope
+void launchConcatKVCache(TensorWrapper<T> *k_src, // from qkv bias and rope {batch_size, kv_head_num, max_q_len, head_size}
                          TensorWrapper<T> *v_src,
                          TensorWrapper<int> *layer_id,         // layer offset = layer_id * batchxbeam * max_seq_len * kv_head_num * head_size
                          TensorWrapper<int> *cur_query_length, // current epoch or local input length,[batchsize]
                          TensorWrapper<int> *history_length,
-                         TensorWrapper<T> *k_dst,
+                         TensorWrapper<T> *k_dst, //{num_layers, batch_size, kv_head_num, max_seq_len, head_size}
                          TensorWrapper<T> *v_dst)
 {
     int batch_size = k_src->shape[0];
-    int max_seq_len = k_dst->shape[2];
+    int max_seq_len = k_dst->shape[3];
     int kv_head_num = k_src->shape[1];
     int max_q_len = k_src->shape[2];
     int head_size = k_src->shape[3];

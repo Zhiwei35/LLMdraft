@@ -3,6 +3,7 @@
 // if MQA or GQA, we should use this transpose to broadcast kv head num to q head num
 //[num layers, bs, kv head num, max_seq_len, head size]=>[bs, q head num, max_k_len, head size]
 // context_length.shape=[bs]
+// 问题: k_dst.shape = [1,32,13,128],现在这个k_dst以13*128为单位循环第一个13*128的值，正确应该为k_after_rope的值
 template <typename T>
 __global__ void repeat_value_cache(T *v_dst,
                                    const T *v_src,
@@ -43,16 +44,16 @@ __global__ void repeat_value_cache(T *v_dst,
     }
 }
 template <typename T>
-void launchRepeatKVCache(TensorWrapper<T> *k_cache_src,
-                         TensorWrapper<T> *v_cache_src,
+void launchRepeatKVCache(TensorWrapper<T> *k_cache_src, //{num_layers, batch_size, kv_head_num, max_seq_len, head_size}
+                         TensorWrapper<T> *v_cache_src, //{num_layers, batch_size, kv_head_num, max_seq_len, head_size}
                          TensorWrapper<int> *context_length,
                          TensorWrapper<int> *layer_id,
-                         TensorWrapper<T> *k_cache_dst,
+                         TensorWrapper<T> *k_cache_dst, //{batch_size, head_num, max_k_len, head_size}
                          TensorWrapper<T> *v_cache_dst)
 {
     int batch_size = context_length->shape[0];
-    int kv_head_num = k_cache_src->shape[1];
-    int max_seq_len = k_cache_src->shape[2];
+    int kv_head_num = k_cache_src->shape[2]; // 破案！！
+    int max_seq_len = k_cache_src->shape[3];
     int head_num = k_cache_dst->shape[1];
 
     int max_k_len = k_cache_dst->shape[2];

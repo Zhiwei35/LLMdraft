@@ -25,7 +25,7 @@ void save_tensor(TensorWrapper<T>* input, std::string filename){
     cudaMemcpy(icpu, input->data, sizeof(T) * Bm * Bk, cudaMemcpyDeviceToHost);
     std::ofstream F;
     std::cout << "saving intermediate tensor in " << filename << "\n";
-    F.open(filename, std::ofstream::binary);
+    F.open("/home/data/trans/"+ filename, std::ofstream::binary);
     F.write(reinterpret_cast<const char*>(icpu), sizeof(T)*Bm*Bk);
     F.close();
 }
