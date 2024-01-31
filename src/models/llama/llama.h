@@ -8,6 +8,7 @@
 #include "src/kernels/topK.h" //topK
 #include "src/kernels/sampling.h" //sampling
 #include "src/models/tokenizer.h"
+#include "src/utils/debug_utils.h"
 template<typename T>
 class Llama: public BaseModel{
 private:

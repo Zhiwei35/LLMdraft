@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include "src/utils/cuda_debug_utils.cuh"
 #include "src/kernels/linear.h"
 // TODO: when abstracted weight class, replace T with class
 // all matmul cases:
@@ -12,29 +13,6 @@
 // up:[bs/token nums, q hidden units] * [q hidden units, inter size] = [bs/token nums, inter size]
 // fusedGateUpGemm: [bs/token nums, q hidden units] * [q hidden units, 2 * inter size] = [bs/token nums, 2 * inter size]
 // down:[bs/token nums, inter size] * [q hidden units, inter size] = [bs/token nums, q hidden units]
-template<typename T>
-__global__ void print_data(T* src1, T* src2, T* src3) {
-    int tid = threadIdx.x;
-    if(tid == 0) {
-    	printf("qkv/outlinear data[%d] = %f\n", tid, src1[tid]);
-    	printf("qkv/outlinear data[%d] = %f\n", tid + 1, src1[tid + 1]);
-    	printf("qkv/outlinear data[%d] = %f\n", tid + 128, src1[tid + 128]);
-    	printf("qkv/outlinear data[%d] = %f\n", tid + 129, src1[tid + 129]);
-    	
-	printf("from/outlinearin data[%d] = %f\n", tid, src3[tid]);
-    	printf("from/outlinearin data[%d] = %f\n", tid + 1, src3[tid+1]);
-   	printf("from/outlinearin data[%d] = %f\n", tid + 128, src3[tid+128]);
-    	printf("from/outlinearin data[%d] = %f\n", tid + 129, src3[tid+129]);
-    	
-	printf("qkvweight/outweight data[%d] = %f\n", tid, src2[tid]);
-    	printf("qkvweight/outweight data[%d] = %f\n", tid + 1, src2[tid+1]);    
-    	printf("qkvweight/outweight data[%d] = %f\n", tid + 128, src2[tid+128]);
-    	printf("qkvweight/outweight data[%d] = %f\n", tid + 129, src2[tid +129]);
-    	printf("linear done\n");
-
-    }
-}
-
 template <typename T>
 void launchLinearGemm(TensorWrapper<T> *input,
                       BaseWeight<T> &weight,
@@ -142,12 +120,6 @@ void launchLinearGemmForCtxDecoderLMhead(TensorWrapper<T> *input,
 
     cublasOperation_t transA = trans_b ? CUBLAS_OP_T : CUBLAS_OP_N; // for lmhead linear
     cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
-    // std::cout << "shared offset: " << offset << std::endl;
-    //  std::cout << "m: " << input_lda
-    //            << "n: " << n << " or " << weight_1st_dim
-    //            << "k: " << weight_ldb << "\n" // 32
-    //            << "weight shape: " << weight.shape[0] << "," << weight.shape[1] << "\n"
-    //            << "output shape: " << output->shape[0] << "," << output->shape[1] << "\n";
 
     cublas_wrapper->Gemm(transA,
                          transB,
@@ -162,7 +134,6 @@ void launchLinearGemmForCtxDecoderLMhead(TensorWrapper<T> *input,
                          ldc,                             // ldc
                          1.0f,
                          0.0f);
-    // print_data<<<1,1>>>(input->data, output->data);
 }
 
 template <typename T>
@@ -212,8 +183,10 @@ void launchLinearStridedBatchGemm(TensorWrapper<T> *input1,
                                        batchCount,
                                        1.0f,
                                        0.0f);
-    //print_data<<<1,1>>>(input1->data, output->data);
-    // std::cout << "called batch gemm" <<"\n";
+    if (trans_b) {
+        std::cout << "attn out after qk*v bmm" <<"\n";
+        print_data<<<1, 1>>>(output->data);
+    }// std::cout << "called batch gemm" <<"\n";
 }
 
 template void launchLinearGemm(TensorWrapper<float> *input,

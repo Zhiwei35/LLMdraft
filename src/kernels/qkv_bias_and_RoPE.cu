@@ -13,7 +13,7 @@
 // seqlen=max_q_len
 #include <math.h>
 #include <stdio.h>
-
+#include "src/utils/cuda_debug_utils.cuh"
 #include "src/kernels/qkv_bias_and_RoPE.h"
 // 这里算出来只有head size / 2个cos，同理sin个数也一样
 // llama.py实现
@@ -264,28 +264,28 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
         k_buf[dst_kv_id] = k_rotate.x;
         k_buf[dst_kv_id + head_size / 2] = k_rotate.y;
     }
-    if (token_id == 5 && head_id == 0 && tid == 0)
-    {
-    	printf("token 5 after rope:\n");
-   	printf("query_states[0] = %f\n", q_buf[dst_q_id]);
-   	printf("query_states[1] = %f\n", q_buf[dst_q_id + 1]);
-     	printf("query_states[2] = %f\n", q_buf[dst_q_id + 2]);
-	printf("token 5 after rope:\n");
-        printf("key_states[0] = %f\n", k_buf[dst_kv_id]);
-        printf("key_states[1] = %f\n", k_buf[dst_kv_id + 1]);
-        printf("key_states[2] = %f\n", k_buf[dst_kv_id + 2]);
-    }
-    if (token_id == 8 && head_id == 0 && tid == 0)
-    {
-        printf("token 8 after rope:\n");
-        printf("query_states[0] = %f\n", q_buf[dst_q_id]);
-        printf("query_states[1] = %f\n", q_buf[dst_q_id + 1]);
-        printf("query_states[2] = %f\n", q_buf[dst_q_id + 2]);
-        printf("token 8 after rope:\n");
-        printf("key_states[0] = %f\n", k_buf[dst_kv_id]);
-        printf("key_states[1] = %f\n", k_buf[dst_kv_id + 1]);
-        printf("key_states[2] = %f\n", k_buf[dst_kv_id + 2]);
-    }
+    // if (token_id == 5 && head_id == 0 && tid == 0)
+    // {
+    // 	printf("token 5 after rope:\n");
+   	// printf("query_states[0] = %f\n", q_buf[dst_q_id]);
+   	// printf("query_states[1] = %f\n", q_buf[dst_q_id + 1]);
+    //  	printf("query_states[2] = %f\n", q_buf[dst_q_id + 2]);
+	// printf("token 5 after rope:\n");
+    //     printf("key_states[0] = %f\n", k_buf[dst_kv_id]);
+    //     printf("key_states[1] = %f\n", k_buf[dst_kv_id + 1]);
+    //     printf("key_states[2] = %f\n", k_buf[dst_kv_id + 2]);
+    // }
+    // if (token_id == 8 && head_id == 0 && tid == 0)
+    // {
+    //     printf("token 8 after rope:\n");
+    //     printf("query_states[0] = %f\n", q_buf[dst_q_id]);
+    //     printf("query_states[1] = %f\n", q_buf[dst_q_id + 1]);
+    //     printf("query_states[2] = %f\n", q_buf[dst_q_id + 2]);
+    //     printf("token 8 after rope:\n");
+    //     printf("key_states[0] = %f\n", k_buf[dst_kv_id]);
+    //     printf("key_states[1] = %f\n", k_buf[dst_kv_id + 1]);
+    //     printf("key_states[2] = %f\n", k_buf[dst_kv_id + 2]);
+    // }
 
 }
 
@@ -423,6 +423,8 @@ void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<T> *q_buf,
                                                            params.rotary_embedding_base,
                                                            params.max_position_embeddings,
                                                            params.use_dynamic_ntk);
+    printf("q after rope:\n");
+    print_data<<<1, 1>>>(q_buf->data);
     // printf("called qkv bias and rope\n");
 }
 

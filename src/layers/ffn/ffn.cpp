@@ -1,5 +1,6 @@
 #include <iostream>
 #include "src/layers/ffn/ffn.h"
+#include "src/utils/debug_utils.h"
 template<typename T>
 LLaMAFFNLayer<T>::LLaMAFFNLayer(int head_num,
                                int head_size,
@@ -64,6 +65,7 @@ void LLaMAFFNLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, LLaMAFFNWe
 
     launchAct(SwiGLU_input, down_proj_input);// down_proj_input maybe can reuse swiglu_input buf, will validate it later
     DeviceSyncAndCheckCudaError();
+    save_tensor(down_proj_input ,"down_proj_input.bin", 2); 
     //down proj
     // error, output should be ffn output
     // launchLinearGemm(down_proj_input, weights.down, down_proj_output);

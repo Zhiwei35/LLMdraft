@@ -1,5 +1,6 @@
 #include <iostream>
 #include "src/utils/macro.h"
+#include "src/utils/debug_utils.h"
 #include "src/layers/decoder/context_decoder.h"
 //TODO: 1.more elegantly call DeviceSyncAndCheckCudaError();
 //2.ffn down proj dont have bias, but we cant pass void* to the fusedrmsnorm, here adopt a workaround that allocate 0.0f to bias,  which must be enhanced
@@ -88,7 +89,8 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
     };
 
     // same buffer between layers, reuse
-    for(int layer_id = 0; layer_id < num_layer; layer_id++) {//num_layer; layer_id++) {
+    for(int layer_id = 0; layer_id < 3; layer_id++) {//num_layer; layer_id++) {
+        std::cout << "==============in layer " << layer_id << "==============" << "\n"; 
         if (layer_id > 0){
             TensorWrapper<int>* layer = new TensorWrapper<int>(Device::CPU, type_int, {1}, &layer_id);
             ctx_attn_inputs.insert("layer_id", layer);
@@ -108,6 +110,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
                                         layerWeights[layer_id]->ffn_norm_weight.gamma,//rmsnorm weights, [hidden_units]
                                         rmsnorm_eps);
         DeviceSyncAndCheckCudaError();
+        save_tensor(decoder_output->as<T>() ,"ffn_input.bin", layer_id);
         TensorMap ffn_inputs{
             {"ffn_input", decoder_output}
         };
@@ -115,6 +118,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
             {"ffn_output", decoder_output}
         };
         ffn->forward(ffn_inputs, ffn_outputs, layerWeights[layer_id]->ffn_weight, dyn_params);
+        save_tensor(decoder_output->as<T>() ,"ffn_output.bin", layer_id);
         // auto gamma = layer_id < num_layer - 1 ? layerWeights[layer_id + 1]->attn_norm_weight.gamma :
         //                                              input_tensors["output_norm_weight"]->as<T>()->data;//llamaweight->output_norm_weight
         // TODO:这里的residual为上一个launchFusedAddBiasResidualRMSNorm中加了redisual后的hidden states

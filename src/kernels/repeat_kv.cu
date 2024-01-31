@@ -1,4 +1,5 @@
 #include "src/kernels/repeat_kv.h"
+#include "src/utils/cuda_debug_utils.cuh"
 #include <iostream>
 // if MQA or GQA, we should use this transpose to broadcast kv head num to q head num
 //[num layers, bs, kv head num, max_seq_len, head size]=>[bs, q head num, max_k_len, head size]
@@ -86,6 +87,8 @@ void launchRepeatKVCache(TensorWrapper<T> *k_cache_src, //{num_layers, batch_siz
                                            context_length->data,
                                            max_k_len,
                                            max_seq_len);
+    printf("k after repeat kv:\n");
+    print_data<<<1, 1>>>(k_cache_dst->data);
     // std::cout << "called repeat/broadcast kernel" << "\n";
 }
 

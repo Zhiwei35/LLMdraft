@@ -106,9 +106,9 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     //1.qkv linear
     //[num_tokens, qhiddenunits] * [qhiddenunits, hiddenunits]
     Tensor* attention_input = inputs["attention_input"];
-    printf("calling ctx qkv gemm\n");
+    // printf("calling ctx qkv gemm\n");
     launchLinearGemm(attention_input->as<T>(), weights.qkv, qkv_buf_wo_pad, cublas_wrapper, false, true);
-    printf("called ctx qkv gemm\n");
+    // printf("called ctx qkv gemm\n");
     DeviceSyncAndCheckCudaError();
     //2.qkv bias and rope and padding
     //[num_tokens, hiddenunits]=>{batch_size, q(kv)head_num, max_q_len, head_size}
@@ -121,7 +121,6 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
                                         weights.qkv, padding_offset->as<int>(), history_length->as<int>(), input_length->as<int>(), static_params);
     DeviceSyncAndCheckCudaError();
     save_tensor(q_buf_w_pad ,"q_buf_after_rope.bin", layer_id->as<int>()); //{batch_size, head_num, max_q_len, head_size}
-    save_tensor(k_buf_w_pad ,"k_buf_after_rope.bin", layer_id->as<int>());
     //3.concat past kv cache
     //max_cache_seq_len = max_seq_len + max_prefix_prompt_length
     // max q len is input length with bs = 1
@@ -152,12 +151,10 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     //4.transpose+reshape([bs,head,seqlen,headsize]=>[bs,seqlen,head,headsize]=>[numtokens,hiddenunits])+remove padding
     launchTransposeOutRemovePadding(qkv_buf_w_pad, padding_offset->as<int>(), qkv_buf_wo_pad_1);
     DeviceSyncAndCheckCudaError();
-    save_tensor(qkv_buf_wo_pad_1 ,"qk_v_buf_after_rm_pad.bin", layer_id->as<int>()); // {num_tokens, head_num, head_size}
     // 5.output linear [numtokens,hiddenunits]=>[numtokens,hiddenunits]
     Tensor* attention_output = outputs["attention_output"];
-    printf("calling ctx output linear\n");
     launchLinearGemm(qkv_buf_wo_pad_1, weights.output, attention_output->as<T>(), cublas_wrapper, false, true);
-    printf("called ctx output linear done\n");
+    save_tensor(attention_output->as<T>() ,"out_linear_output.bin", layer_id->as<int>()); // {num_tokens, head_num, head_size}
     DeviceSyncAndCheckCudaError();
     // if (is_free_buffer_after_fwd) {
     this->freeBuf();
