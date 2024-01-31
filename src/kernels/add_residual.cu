@@ -21,6 +21,12 @@ __global__ void AddResidual( // residual.shape = [num tokens, hidden_units], bat
         dout[i].y += rsd[i].y;
         dout[i].z += rsd[i].z;
         dout[i].w += rsd[i].w;
+        // update residual to new hidden states to be offered to next layer
+        // note: it seems not necessary to update here, because in rmsnorm kernel will update residual at the beginning of rmsnorm
+        // rsd[i].x = dout[i].x;
+        // rsd[i].y = dout[i].y;
+        // rsd[i].z = dout[i].z;
+        // rsd[i].w = dout[i].w;
     } // addresidual
 }
 
@@ -40,6 +46,7 @@ __global__ void AddResidual( // residual.shape = [num tokens, hidden_units], bat
     for (int i = tid; i < hidden_units / vec_size; i += blockDim.x)
     {
         dout[i] = __hadd2(dout[i], rsd[i]);
+        // rsd[i] = dout[i];
     } // addresidual
 }
 

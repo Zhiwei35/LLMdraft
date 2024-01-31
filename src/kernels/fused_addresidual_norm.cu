@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "src/utils/cuda_debug_utils.cuh"
 #include "src/kernels/fused_addresidual_norm.h"
 //bugs1: 2nd warpreducesum returns 0, because blockDim.x < 32, blockDim.x / 32=0
 //bugs2: output buffer valuse is the same as ones before call, thats because we didn't successfully write into the output address
@@ -90,10 +91,12 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
             rsd[i].y = tmp.y;
             rsd[i].z = tmp.z;
             rsd[i].w = tmp.w;
-            //if (blockIdx.x == 0 && i == 0) {
-            //    printf("residual = %f", rsd[i].x);
-            //    printf("residual = %f", rsd[i].y);
-            //}
+            if (blockIdx.x == 0 && i == 0) {
+               printf("after add residual,dout[0] = %f", tmp.x);
+            }
+            if (blockIdx.x == 1 && i == 0) {
+               printf("after add residual,dout[4096] = %f", tmp.x);
+            }
         }
         //TODO: to update rsd by rsd + bias when bias is valid
         if (bias != nullptr) {
@@ -216,7 +219,8 @@ void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_
                                                 eps,
                                                 batch_size,
                                                 hidden_units);
-    // printf("called fusedAddBiasResidualAndRMSNorm\n");
+    printf("called fusedAddBiasResidualAndRMSNorm\n");
+    print_Data<<<1,1>>>(decoder_out->data);
 }
 template void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, n_dims = hidden_units
                                     TensorWrapper<float>* residual, 
