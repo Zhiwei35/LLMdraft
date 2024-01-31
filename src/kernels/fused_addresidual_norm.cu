@@ -219,7 +219,7 @@ void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_
                                                 batch_size,
                                                 hidden_units);
     printf("called fusedAddBiasResidualAndRMSNorm\n");
-    print_Data<<<1,1>>>(decoder_out->data);
+    print_data<<<1,1>>>(decoder_out->data);
 }
 template void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, n_dims = hidden_units
                                     TensorWrapper<float>* residual, 

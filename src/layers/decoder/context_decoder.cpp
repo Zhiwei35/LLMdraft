@@ -89,7 +89,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
     };
 
     // same buffer between layers, reuse
-    for(int layer_id = 0; layer_id < 3; layer_id++) {//num_layer; layer_id++) {
+    for(int layer_id = 0; layer_id < num_layer; layer_id++) {//num_layer; layer_id++) {
         std::cout << "==============in layer " << layer_id << "==============" << "\n"; 
         if (layer_id > 0){
             TensorWrapper<int>* layer = new TensorWrapper<int>(Device::CPU, type_int, {1}, &layer_id);
