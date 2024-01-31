@@ -13,4 +13,5 @@ struct LLaMAAttentionDynParams {
     int max_q_len;
     int max_k_len;
     int num_layers;
+    bool is_ctx = false;
 };

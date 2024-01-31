@@ -74,12 +74,14 @@ void loadWeights_trans(float* ptr1, std::string weight_path, int shape0, int sha
 
 bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
     for(int i = 0; i < output_size; i++) {
-        if(fabs(CPUoutput[i] - GPUoutput[i]) > 1e-6){
-            printf("the %dth res is wrong, onellm = %f, trans = %f\n", i, CPUoutput[i], GPUoutput[i]);
-        //         //return false;
-        // } else {
-	    // printf("the %dth res is right, onellm = %f, trans = %f\n", i, CPUoutput[i], GPUoutput[i]);
-   	    }
+        
+	if(fabs(CPUoutput[i] - GPUoutput[i]) > 1e-6){
+	    printf("the %dth res is wrong, onellm = %f, trans = %f\n", i, CPUoutput[i], GPUoutput[i]);
+        } 
+        //if (i < 14000){
+	//   printf("the %dth res is right, onellm = %f, trans = %f\n", i, CPUoutput[i], GPUoutput[i]);
+    
+	//}
     }
     return true;
 }
@@ -97,7 +99,7 @@ int main(int argc, char *argv[]) {
     int output_size = 0;
     //int in_size = 0; // TO MODIFY
     int shape0 = 13; // TO MODIFY
-    int shape1 = 32*128; // TO MODIFY
+    int shape1 = 4096; // TO MODIFY
     
     int in_size = shape0 * shape1;
     hidden_units_2 = hidden_units * hidden_units;
@@ -123,8 +125,8 @@ int main(int argc, char *argv[]) {
     float* h_out = (float*) malloc(sizeof(float) * output_size);
     float* d_out;
     cudaMalloc((void**)&d_out, sizeof(float) * output_size);
-    loadWeights(d_in, "/home/data/trans/qk_v_buf_after_rm_pad.bin", shape0, shape1); // TO MODIFY
-    loadWeights_trans(d_in_trans, "/home/data/trans/qk_v_buf_after_rm_pad_trans.bin", shape0, shape1); // TO MODIFY
+    loadWeights(d_in, "/home/data/onellm/2_ffn_output.bin", shape0, shape1); // TO MODIFY
+    loadWeights_trans(d_in_trans, "/home/data/trans/2_ffn_output_trans.bin", shape0, shape1); // TO MODIFY
     std::cout << "====intermediate tensor====" << "\n";
     CheckResult(d_in, d_in_trans, output_size);
 

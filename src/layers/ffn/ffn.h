@@ -16,7 +16,8 @@ private:
     const int head_size;
     const int inter_size;
     const int hidden_units;
-//    const bool is_1st_epoch; // judge if its 1st epoch, if so, we will allocate kv cache
+    int count = -1; // used to record layer index currently
+    //    const bool is_1st_epoch; // judge if its 1st epoch, if so, we will allocate kv cache
     // this params are dynamic
     //const LLaMAAttentionDynParams attn_dyn_params;
 

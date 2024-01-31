@@ -117,6 +117,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
         TensorMap ffn_outputs{
             {"ffn_output", decoder_output}
         };
+	dyn_params.is_ctx = true;
         ffn->forward(ffn_inputs, ffn_outputs, layerWeights[layer_id]->ffn_weight, dyn_params);
         save_tensor(decoder_output->as<T>() ,"ffn_output.bin", layer_id);
         // auto gamma = layer_id < num_layer - 1 ? layerWeights[layer_id + 1]->attn_norm_weight.gamma :

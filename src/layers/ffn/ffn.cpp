@@ -55,6 +55,11 @@ void LLaMAFFNLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, LLaMAFFNWe
     }
     Tensor* ffn_input = inputs["ffn_input"];
     Tensor* ffn_output = outputs["ffn_output"];
+    count += 1;
+    bool is_ctx = params.is_ctx;
+    if(is_ctx){
+    	save_tensor(ffn_input->as<T>(), "ffn_input.bin", count);
+    }
     // fusedGateUp proj
     // printf("calling gateAndup linear\n");
     launchLinearGemm(ffn_input->as<T>(), weights.gateAndup, SwiGLU_input, cublas_wrapper, false, true);
@@ -62,10 +67,14 @@ void LLaMAFFNLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, LLaMAFFNWe
     DeviceSyncAndCheckCudaError();
     // // up proj
     // launchLinearGemm(ffn_input->as<T>(), weights.up, SwiGLU_input, cublas_wrapper, false, false, true);
-
+    if(is_ctx){    
+    	save_tensor(SwiGLU_input ,"swiglu_input.bin", count);
+    }
     launchAct(SwiGLU_input, down_proj_input);// down_proj_input maybe can reuse swiglu_input buf, will validate it later
     DeviceSyncAndCheckCudaError();
-    save_tensor(down_proj_input ,"down_proj_input.bin", 2); 
+    if(is_ctx){
+    	save_tensor(down_proj_input ,"down_proj_input.bin", count); 
+    }
     //down proj
     // error, output should be ffn output
     // launchLinearGemm(down_proj_input, weights.down, down_proj_output);
