@@ -4,7 +4,7 @@
 #include <cuda_fp16.h>
 // usage: print_data<<<1, 1>>>()
 template<typename T>
-__global__ void print_data(T* src1, int ) {
+__global__ void print_data(T* src1) {
     int tid = threadIdx.x;
     if(tid == 0) {
     	// printf("qkv/outlinear data[%d] = %f\n", tid, src1[tid]);

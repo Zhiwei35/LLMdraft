@@ -82,8 +82,9 @@ void launchLinearGemm(TensorWrapper<T> *input,
                          ldc,                             // ldc
                          1.0f,
                          0.0f);
-    // cudaDeviceSynchronize();
-    // print_data<<<1,1>>>(output->data, weight.data, input->data);
+    cudaDeviceSynchronize();
+    printf("linear gemm\n");
+    print_data<<<1,1>>>(output->data);
 }
 
 template <typename T>
@@ -185,6 +186,7 @@ void launchLinearStridedBatchGemm(TensorWrapper<T> *input1,
                                        0.0f);
     if (trans_b) {
         std::cout << "attn out after qk*v bmm" <<"\n";
+	cudaDeviceSynchronize();
         print_data<<<1, 1>>>(output->data);
     }// std::cout << "called batch gemm" <<"\n";
 }
