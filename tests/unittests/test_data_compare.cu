@@ -83,8 +83,8 @@ bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
     }
     return true;
 }
-"/home/data/trans/q_buf_after_rope_trans.bin"
-"/home/data/onellm/q_buf_after_rope.bin"
+///home/data/trans/q_buf_after_rope_trans.bin
+///home/data/onellm/q_buf_after_rope.bin
 //(right)2 fusedGateUpGemm / down =>{seqlen, hidden_units} * {2 * inter_size, hidden_units} = [16, 16] * [10*2, 16]
 //(right)1 trans b => {seqlen, hidden_units} * {vocab_size, hidden_units} = [16, 16] * [32, 16]
 //(right)0 most cases => {seqlen, hidden_units} * {hidden_units, hidden_units} = [16, 16] * [16, 16]
@@ -96,8 +96,9 @@ int main(int argc, char *argv[]) {
     int hidden_units_2 = 0;
     int output_size = 0;
     //int in_size = 0; // TO MODIFY
-    int shape0 = 1*32; // TO MODIFY
-    int shape1 = 13*128; // TO MODIFY
+    int shape0 = 13; // TO MODIFY
+    int shape1 = 32*128; // TO MODIFY
+    
     int in_size = shape0 * shape1;
     hidden_units_2 = hidden_units * hidden_units;
     output_size = seqlen * hidden_units;
@@ -122,8 +123,8 @@ int main(int argc, char *argv[]) {
     float* h_out = (float*) malloc(sizeof(float) * output_size);
     float* d_out;
     cudaMalloc((void**)&d_out, sizeof(float) * output_size);
-    loadWeights(d_in, "/home/data/onellm/k_buf_after_repeat.bin", shape0, shape1); // TO MODIFY
-    loadWeights_trans(d_in_trans, "/home/data/trans/k_buf_after_repeat_trans.bin", shape0, shape1); // TO MODIFY
+    loadWeights(d_in, "/home/data/trans/qk_v_buf_after_rm_pad.bin", shape0, shape1); // TO MODIFY
+    loadWeights_trans(d_in_trans, "/home/data/trans/qk_v_buf_after_rm_pad_trans.bin", shape0, shape1); // TO MODIFY
     std::cout << "====intermediate tensor====" << "\n";
     CheckResult(d_in, d_in_trans, output_size);
 
