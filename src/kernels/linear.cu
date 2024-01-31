@@ -104,8 +104,8 @@ void launchLinearGemm(TensorWrapper<T> *input,
                          ldc,                             // ldc
                          1.0f,
                          0.0f);
-    cudaDeviceSynchronize();
-    print_data<<<1,1>>>(output->data, weight.data, input->data);
+    // cudaDeviceSynchronize();
+    // print_data<<<1,1>>>(output->data, weight.data, input->data);
 }
 
 template <typename T>
@@ -162,7 +162,7 @@ void launchLinearGemmForCtxDecoderLMhead(TensorWrapper<T> *input,
                          ldc,                             // ldc
                          1.0f,
                          0.0f);
-    print_data<<<1,1>>>(input->data, output->data);
+    // print_data<<<1,1>>>(input->data, output->data);
 }
 
 template <typename T>

@@ -116,16 +116,16 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     Tensor* padding_offset = inputs["padding_offset"];
     Tensor* history_length = inputs["history_length"];
     Tensor* input_length = inputs["input_length"];
+    Tensor* layer_id = inputs["layer_id"]; //ON CPU
     launchAddFusedQKVBiasTransposeAndRoPE(q_buf_w_pad, k_buf_w_pad, v_buf_w_pad, qkv_buf_wo_pad,
                                         weights.qkv, padding_offset->as<int>(), history_length->as<int>(), input_length->as<int>(), static_params);
     DeviceSyncAndCheckCudaError();
-    save_tensor(q_buf_w_pad ,"q_buf_after_rope.bin"); //{batch_size, head_num, max_q_len, head_size}
-    save_tensor(k_buf_w_pad ,"k_buf_after_rope.bin");
+    save_tensor(q_buf_w_pad ,"q_buf_after_rope.bin", layer_id->as<int>()); //{batch_size, head_num, max_q_len, head_size}
+    save_tensor(k_buf_w_pad ,"k_buf_after_rope.bin", layer_id->as<int>());
     //3.concat past kv cache
     //max_cache_seq_len = max_seq_len + max_prefix_prompt_length
     // max q len is input length with bs = 1
     //{batch_size, kv_head_num, max_q_len, headsize}=>(num_layer ,batch , maxseqlen[cumsum_seq_len:cumsum_seq_len+cur_seq_len], hidden_units_}; 
-    Tensor* layer_id = inputs["layer_id"]; //ON CPU
     Tensor* all_k_cache = outputs["all_k_cache"];
     Tensor* all_v_cache = outputs["all_v_cache"];
     launchConcatKVCache(k_buf_w_pad, v_buf_w_pad, layer_id->as<int>(), input_length->as<int>(), history_length->as<int>(), all_k_cache->as<T>(), all_v_cache->as<T>());
@@ -137,7 +137,7 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     launchRepeatKVCache(all_k_cache->as<T>(), all_v_cache->as<T>(), context_length->as<int>(), 
                                 layer_id->as<int>(), k_cache_buf, v_cache_buf);
     DeviceSyncAndCheckCudaError();
-    save_tensor(k_cache_buf ,"k_buf_after_repeat.bin"); //{batch_size, head_num, max_k_len, head_size}
+    save_tensor(k_cache_buf ,"k_buf_after_repeat.bin", layer_id->as<int>()); //{batch_size, head_num, max_k_len, head_size}
     //1.qk [bs,qhead,qlen,headsize]*[bs,qhead,klen,headsize](N*T)=>[bs,head,qlen,klen]
     launchLinearStridedBatchGemm(q_buf_w_pad, k_cache_buf, qk_buf, cublas_wrapper, false, true);
     DeviceSyncAndCheckCudaError();
@@ -148,11 +148,11 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     //3.qk*v [bs,head,qlen,klen]=>[bs,head,qlen,headsize]
     launchLinearStridedBatchGemm(qk_buf, v_cache_buf, qkv_buf_w_pad, cublas_wrapper, false, false);
     DeviceSyncAndCheckCudaError();
-    save_tensor(qkv_buf_w_pad ,"qk_v_buf_after_bmm.bin"); // {batch_size, head_num, max_q_len, head_size}
+    save_tensor(qkv_buf_w_pad ,"qk_v_buf_after_bmm.bin", layer_id->as<int>()); // {batch_size, head_num, max_q_len, head_size}
     //4.transpose+reshape([bs,head,seqlen,headsize]=>[bs,seqlen,head,headsize]=>[numtokens,hiddenunits])+remove padding
     launchTransposeOutRemovePadding(qkv_buf_w_pad, padding_offset->as<int>(), qkv_buf_wo_pad_1);
     DeviceSyncAndCheckCudaError();
-    save_tensor(qkv_buf_wo_pad_1 ,"qk_v_buf_after_rm_pad.bin"); // {num_tokens, head_num, head_size}
+    save_tensor(qkv_buf_wo_pad_1 ,"qk_v_buf_after_rm_pad.bin", layer_id->as<int>()); // {num_tokens, head_num, head_size}
     // 5.output linear [numtokens,hiddenunits]=>[numtokens,hiddenunits]
     Tensor* attention_output = outputs["attention_output"];
     printf("calling ctx output linear\n");

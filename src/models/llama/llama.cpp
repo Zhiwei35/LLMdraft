@@ -257,6 +257,7 @@ int Llama<T>::firstTokenGen(LLaMAAttentionDynParams &dparams, IntDict &int_param
                   unused_residual,
                   llama_weights->out_rmsnorm_weight,//rmsnorm weights, [q_hidden_units]
                   rmsnorm_eps);
+    save_tensor(decoder_output->as<T>() ,"decoder_norm_out.bin");
     DeviceSyncAndCheckCudaError();
     int res = LMHeadAndTopKSample(decoder_outputs);
     return res;

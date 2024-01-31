@@ -55,9 +55,9 @@ void LLaMAFFNLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, LLaMAFFNWe
     Tensor* ffn_input = inputs["ffn_input"];
     Tensor* ffn_output = outputs["ffn_output"];
     // fusedGateUp proj
-    printf("calling gateAndup linear\n");
+    // printf("calling gateAndup linear\n");
     launchLinearGemm(ffn_input->as<T>(), weights.gateAndup, SwiGLU_input, cublas_wrapper, false, true);
-    printf("called gateAndup linear\n");
+    // printf("called gateAndup linear\n");
     DeviceSyncAndCheckCudaError();
     // // up proj
     // launchLinearGemm(ffn_input->as<T>(), weights.up, SwiGLU_input, cublas_wrapper, false, false, true);
@@ -67,9 +67,9 @@ void LLaMAFFNLayer<T>::forward(TensorMap& inputs, TensorMap& outputs, LLaMAFFNWe
     //down proj
     // error, output should be ffn output
     // launchLinearGemm(down_proj_input, weights.down, down_proj_output);
-    printf("calling down linear\n");
+    // printf("calling down linear\n");
     launchLinearGemm(down_proj_input, weights.down, ffn_output->as<T>(), cublas_wrapper, false, true);
-    printf("called down linear\n");
+    // printf("called down linear\n");
     DeviceSyncAndCheckCudaError();
     this->freeBuf();
 };
