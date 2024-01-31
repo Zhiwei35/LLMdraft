@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "src/utils/cuda_debug_utils.cuh"
 #include "src/kernels/rmsnorm_kernel.h"
 //bugs1: 2nd warpreducesum returns 0, because blockDim.x < 32, blockDim.x / 32=0
 //bugs2: output buffer valuse is the same as ones before call, thats because we didn't successfully write into the output address
@@ -135,7 +136,8 @@ template<typename T>
 void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
                     TensorWrapper<T>* decoder_residual,
                     LayerNormWeight<T>& attn_norm_weight, //RMSNorm weights
-                    float eps //RMSNorm eps
+                    float eps, //RMSNorm eps
+                    bool is_last // for print last rmsnorm output to debug
                     )
 {
     int num_tokens = decoder_out->shape[0];
@@ -152,16 +154,22 @@ void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
                             eps,
                             num_tokens,
                             hidden_units);
+    if (is_last) {
+        printf("in last RMSNorm\n");
+        print_data<<<1,1>>>(decoder_out->data);
+    }
     // printf("called RMSNorm\n");
 }
 
 template void launchRMSNorm( TensorWrapper<float>* decoder_out, // [num tokens, hidden_units]
                     TensorWrapper<float>* decoder_residual,
                     LayerNormWeight<float>& attn_norm_weight, //RMSNorm weights
-                    float eps //RMSNorm eps
+                    float eps, //RMSNorm eps
+                    bool is_last
                     );
 template void launchRMSNorm( TensorWrapper<half>* decoder_out, // [num tokens, hidden_units]
                     TensorWrapper<half>* decoder_residual,
                     LayerNormWeight<half>& attn_norm_weight, //RMSNorm weights
-                    float eps //RMSNorm eps
+                    float eps, //RMSNorm eps
+                    bool is_last
                     );

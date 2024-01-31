@@ -256,10 +256,12 @@ int Llama<T>::firstTokenGen(LLaMAAttentionDynParams &dparams, IntDict &int_param
     launchRMSNorm(decoder_output->as<T>(), //in&out, [bs, q_hidden_units]
                   unused_residual,
                   llama_weights->out_rmsnorm_weight,//rmsnorm weights, [q_hidden_units]
-                  rmsnorm_eps);
+                  rmsnorm_eps,
+                  true);
     save_tensor(decoder_output->as<T>() ,"decoder_norm_out.bin");
     DeviceSyncAndCheckCudaError();
     int res = LMHeadAndTopKSample(decoder_outputs);
+    std::cout << "context decoder generated  index  is " << res << "\n";
     return res;
 }
 
