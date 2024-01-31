@@ -1,6 +1,7 @@
 #include <iostream>
 #include "src/kernels/act_kernel.h"
 #include "src/utils/cuda_debug_utils.cuh"
+#include "src/utils/macro.h"
 template<typename T>
 __device__ __forceinline__ T silu(const T& in) {
   // x * sigmoid(x)
@@ -41,7 +42,7 @@ __global__ void silu_and_mul_kernel(
 template<>
 __global__ void silu_and_mul_kernel<half>(
   half* out,               // [bs, intermedia size]
-  const half* input,       // [2, bs, intermedia size]
+  const half* input,       // [bs, 2, intermedia size]
   const int intermedia_size) {
   const int batch_idx = blockIdx.x;
   int vec_size = Vec<half>::size;
@@ -67,7 +68,8 @@ __global__ void silu_and_mul_kernel<half>(
 
 template<typename T>
 void launchAct(TensorWrapper<T>* input, TensorWrapper<T>* out) {
-    int batch_size = input->shape[1];
+    int batch_size = input->shape[0];
+    ONELLM_CHECK(input->shape[1] == 2);
     int intermedia_size = input->shape[2];
     dim3 grid(batch_size);
     dim3 block(256);
