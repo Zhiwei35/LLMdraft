@@ -50,7 +50,9 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     int batch_id = blockIdx.x;
     int tid = threadIdx.x;
     Vec_t *rsd, *bia, *s;
-    Vec_t dout, tmp;
+    Vec_t tmp;
+    Vec_t* de_out = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);// note the offset should divide vec size
+
     //if(batch_id == 0 && tid == 0) {
     //     printf("residual: \n");
     //     printf("%f\n",residual[0]);
@@ -76,37 +78,33 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
     //}
 
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
-        dout = reinterpret_cast<Vec_t*>(decoder_out)[batch_id * hidden_units / vec_size + i];// note the offset should divide vec size
-
-        tmp.x = dout.x;
-        tmp.y = dout.y;
-        tmp.z = dout.z;
-        tmp.w = dout.w;
         if (residual != nullptr) {
-            tmp.x += rsd[i].x;
-            tmp.y += rsd[i].y;
-            tmp.z += rsd[i].z;
-            tmp.w += rsd[i].w;
-            rsd[i].x = tmp.x;
-            rsd[i].y = tmp.y;
-            rsd[i].z = tmp.z;
-            rsd[i].w = tmp.w;
+            de_out[i].x += rsd[i].x;
+            de_out[i].y += rsd[i].y;
+            de_out[i].z += rsd[i].z;
+            de_out[i].w += rsd[i].w;
+            rsd[i].x = de_out[i].x;
+            rsd[i].y = de_out[i].y;
+            rsd[i].z = de_out[i].z;
+            rsd[i].w = de_out[i].w;
             if (blockIdx.x == 0 && i == 0) {
-               printf("after add residual,dout[0] = %f", tmp.x);
+               printf("after add residual,dout[0] = %f", de_out[i].x);
             }
             if (blockIdx.x == 1 && i == 0) {
-               printf("after add residual,dout[4096] = %f", tmp.x);
+               printf("after add residual,dout[4096] = %f", de_out[i].x);
             }
         }
         //TODO: to update rsd by rsd + bias when bias is valid
         if (bias != nullptr) {
-            tmp.x += bia[i].x;
-            tmp.y += bia[i].y;
-            tmp.z += bia[i].z;
-            tmp.w += bia[i].w;
+            de_out[i].x += bia[i].x;
+            de_out[i].y += bia[i].y;
+            de_out[i].z += bia[i].z;
+            de_out[i].w += bia[i].w;
         }	    
-        thread_accm += tmp.x * tmp.x + tmp.y * tmp.y + 
-                        tmp.z * tmp.z + tmp.w * tmp.w;
+        thread_accm += de_out[i].x * de_out[i].x;
+        thread_accm += de_out[i].y * de_out[i].y;
+        thread_accm += de_out[i].z * de_out[i].z;
+        thread_accm += de_out[i].w * de_out[i].w;
     } // addresidual
   //  printf("in kernel 1\n");
     // mean(x^2)
@@ -116,20 +114,21 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
 	// if(batch_id == 0) {
     //         printf("blocksum=%f\n", blocksum);
 	// }
-	inv_fenmu = rsqrt(blocksum / hidden_units + eps);
+	    inv_fenmu = rsqrt(blocksum / hidden_units + eps);
         //debug info printf("inv_fenmu on GPU is %f\n", inv_fenmu);
     }
+    __syncthreads();
     // rmsnorm
-    Vec_t* out = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);// note before vec the stride is batch_id * hiddenunits w/o / vecsize
+    // Vec_t* out = reinterpret_cast<Vec_t*>(decoder_out + batch_id * hidden_units);// note before vec the stride is batch_id * hiddenunits w/o / vecsize
     if (scale != nullptr){
         s = reinterpret_cast<Vec_t*>(const_cast<T*>(scale));
     }
     for(int i = tid; i < hidden_units / vec_size; i += blockDim.x) {
         //s = reinterpret_cast<Vec_t*>(const_cast<T*>(scale))[i];
-        out[i].x = s[i].x * out[i].x * inv_fenmu;
-        out[i].y = s[i].y * out[i].y * inv_fenmu;
-        out[i].z = s[i].z * out[i].z * inv_fenmu;
-        out[i].w = s[i].w * out[i].w * inv_fenmu;
+        de_out[i].x = s[i].x * de_out[i].x * inv_fenmu;
+        de_out[i].y = s[i].y * de_out[i].y * inv_fenmu;
+        de_out[i].z = s[i].z * de_out[i].z * inv_fenmu;
+        de_out[i].w = s[i].w * de_out[i].w * inv_fenmu;
         //if(blockIdx.x == 0 && i == 0) {
         //    printf("ctx attn residual rmsnorm top2 res: \n");
         //    printf("out.x = %f, s[i].x = %f, inv_fenmu.x = %f\n",out[i].x, s[i].x, inv_fenmu);
