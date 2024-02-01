@@ -294,7 +294,8 @@ int Llama<T>::continueTokenGen(LLaMAAttentionDynParams &dparams)
     launchRMSNorm(decoder_output->as<T>(), //in&out, [bs, q_hidden_units]
                   unused_residual,
                   llama_weights->out_rmsnorm_weight,//rmsnorm weights, [q_hidden_units]
-                  rmsnorm_eps);
+                  rmsnorm_eps,
+		  true);
     DeviceSyncAndCheckCudaError();
     int res = LMHeadAndTopKSample(decoder_outputs);
     return res;
@@ -435,6 +436,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
         // input_ids->shape = {1};
         if (index == 0)
         {
+	    ret = 13; // to keep same as HF for debug
             TensorWrapper<int> tmp = TensorWrapper<int>(CPU, getTensorType<int>(), {1}, &ret);
             ONELLM_CHECK(tmp.shape != input_ids->shape);
             ONELLM_CHECK(tmp.dtype == input_ids->dtype);

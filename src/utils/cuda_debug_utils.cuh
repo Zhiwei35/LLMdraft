@@ -11,8 +11,8 @@ __global__ void print_data(T* src1) {
     	// printf("qkv/outlinear data[%d] = %f\n", tid + 128, src1[tid + 128]);
     	// printf("qkv/outlinear data[%d] = %f\n", tid + 256, src1[tid + 256]);    	
     	printf("%dth = %f\n", tid, src1[tid]);
-    	printf("%dth = %f\n", tid + 128, src1[tid + 128]);
-    	printf("%dth = %f\n", tid + 8192, src1[tid + 8192]);    	
+    	printf("%dth = %f\n", tid + 1, src1[tid + 1]);
+    	printf("%dth = %f\n", tid + 3, src1[tid + 3]);    	
 
 	    // printf("from/outlinearin data[%d] = %f\n", tid, src3[tid]);
     	// printf("from/outlinearin data[%d] = %f\n", tid + 1, src3[tid+1]);
