@@ -42,6 +42,13 @@ inline __device__ float2 GetRoPEfreq(int zid, int rot_embed_dim, float base, flo
     // 某个token的head size维度上连续俩元素的inv freq，t_Step表示tokenid，能对上transformers上的[0,2047]和freq的外积
     // 每个inv freq值对应于head size维度上0 2 4 6的值
     const float inv_freq = t_step / powf(base, zid / (float)rot_embed_dim); //rot_embed_dim = 128
+    if(blockIdx.x==0 && blockIdx.y==0 && zid == 0){
+        printf("when tid=0,cos=%f,sin=%f,step=%f,base=%f,rot_embed_dim=%d,theta=%f\n",cos(inv_freq),sin(inv_freq),t_step,base,rot_embed_dim,powf(base, zid / (float)rot_embed_dim));
+    }
+    if(blockIdx.x==0 && blockIdx.y==0 && zid == 2){
+    	printf("when tid=1,cos=%f,sin=%f,step=%f,base=%f,rot_embed_dim=%d,theta=%f\n",cos(inv_freq),sin(inv_freq),t_step,base,rot_embed_dim,powf(base, zid / (float)rot_embed_dim));
+    }
+
     return {cos(inv_freq), sin(inv_freq)};
 }
 
@@ -50,6 +57,12 @@ inline __device__ float2 GetRoPEres(float data, float data_rotate, const float2 
     float2 rot_v;
     rot_v.x = coef.x * data - coef.y * data_rotate;
     rot_v.y = coef.x * data_rotate + coef.y * data;
+    if(blockIdx.x==0 && blockIdx.y==0 && threadIdx.x == 0){
+	printf("when tid=0,left=%f,right=%f,cos=%f,data=%f,sin=%f,data_rotate=%f\n",rot_v.x,rot_v.y,coef.x,data,coef.y,data_rotate);
+    }
+    if(blockIdx.x==0 && blockIdx.y==0 && threadIdx.x == 1){
+        printf("when tid=1,left=%f,right=%f,cos=%f,data=%f,sin=%f,data_rotate=%f\n",rot_v.x,rot_v.y,coef.x,data,coef.y,data_rotate);
+    }
     return rot_v;
 }
 // inline __device__ float2 GetRoPEres(const float2 v, const float2 coef)
@@ -537,8 +550,8 @@ void launchRoPE(TensorWrapper<T>* qkv_buf,
                                                     head_num, // only for llama, kv head = head
                                                     head_size,
                                                     cur_step,
-                                                    rotary_embedding_base,
-                                                    rotary_embedding_dim);
+                                                    rotary_embedding_dim,
+                                                    rotary_embedding_base);
 }
 
 template void launchRoPE(TensorWrapper<float>* qkv_buf,

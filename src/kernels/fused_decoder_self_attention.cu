@@ -592,8 +592,8 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
                                                             //num_heads,
                                                             head_size,
                                                             cur_step,
-                                                            rotary_embedding_base,
-                                                            rotary_embedding_dim);
+                                                            rotary_embedding_dim,
+                                                            rotary_embedding_base);
     //printf("called fused masked self attn kernel\n");
 }
 
