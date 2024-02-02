@@ -193,9 +193,12 @@ __global__ void masked_MHA_kernel(T* q,
     int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
     float scale = rsqrt(float(head_size));
     // RoPE
+    //float2 cos_sin = make_float2(0,0);//对应着第context length+1个cos和sin
+    //float2 q_rotate = make_float2(0,0);
+    //float2 k_rotate = make_float2(0,0);
     if (tid < rotary_embedding_dim / 2)
     {
-        float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, step);
+        float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, step - 1);
         // TODO: try inplace change q[offset] and q[offset + 64]
         float2 q_rotate = GetRoPEres(q[q_offset], q[q_offset + head_size / 2], cos_sin);
         float2 k_rotate = GetRoPEres(k[k_offset], k[k_offset + head_size / 2], cos_sin);
@@ -203,9 +206,31 @@ __global__ void masked_MHA_kernel(T* q,
         q[q_offset + head_size / 2] = q_rotate.y;
         k[k_offset] = k_rotate.x;
         k[k_offset + head_size / 2] = k_rotate.y;
-        __threadfence();
+        if(blockIdx.x==0 && blockIdx.y==0){
+            if(threadIdx.x==0){
+            	printf("step = %d\n", step);
+            	printf("after rope, q[%d] and k[%d] is %f, %f,or %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],q_rotate.x,k_rotate.x,cos_sin.x,cos_sin.y);
+	    }
+	    if(threadIdx.x==1){
+            	printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],cos_sin.x,cos_sin.y);
+            	printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid+64, tid+64, q[q_offset+64], k[k_offset+64],cos_sin.x,cos_sin.y);
+            }
+	}
+	__threadfence();
     }
-    __threadfence(); // waiting for rope done
+    __threadfence();
+    __syncthreads(); // waiting for rope done
+    //if(blockIdx.x==0 && blockIdx.y==0){
+    	//if(threadIdx.x==0){
+	  //  printf("step = %d\n", step);
+	  //  printf("after rope, q[%d] and k[%d] is %f, %f,or %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],q_rotate.x,k_rotate.x,cos_sin.x,cos_sin.y);
+	  //  printf("after rope, q[%d] and k[%d] is %f, %f,or %f, %f, cos_sin=%f,%f\n", tid+64, tid+64, q[q_offset + 64], k[k_offset + 64],q_rotate.y,k_rotate.y,cos_sin.x,cos_sin.y);
+	//}
+	//if(threadIdx.x==1){
+         //   printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],cos_sin.x,cos_sin.y);
+         //   printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid+64, tid+64, q[q_offset+64], k[k_offset+64],cos_sin.x,cos_sin.y);
+        //}
+    //}
     using Vec_t = typename Vec<T>::Type;
     Vec_t qvec, kvec, vvec;
     //Vec_t scale_vec = static_cast<Vec_t>(scale);
