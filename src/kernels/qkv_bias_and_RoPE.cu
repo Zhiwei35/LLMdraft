@@ -501,14 +501,23 @@ __global__ void rope_kernel_for_self_decoder(T* q,
         }
     }
 }
-
+template<>
+__global__ void rope_kernel_for_self_decoder(half* q,
+                    half* k,
+                    const int batch_size,
+                    const int head_num,
+                    const int kv_head_num,
+                    const int head_size,
+                    const int step,
+                    int   rotary_embedding_dim,
+                    float rotary_embedding_base){}
 template<typename T>
 void launchRoPE(TensorWrapper<T>* qkv_buf,
                 TensorWrapper<int>* step,
                 LLaMAAttentionStaticParams& static_params){
     const int batch_size = qkv_buf->shape[0];
     const int qkv_head_num = qkv_buf->shape[1];
-    int head_num = qkv_head_num - 2 * kv_head_num;
+    int head_num = 32; // only for llama
     const int head_size = qkv_buf->shape[2];
     const int cur_step = step->getVal();
     T* qkv_data = qkv_buf->data;
@@ -525,7 +534,7 @@ void launchRoPE(TensorWrapper<T>* qkv_buf,
                                                     k,
                                                     batch_size,
                                                     head_num,
-                                                    kv_head_num,
+                                                    head_num, // only for llama, kv head = head
                                                     head_size,
                                                     cur_step,
                                                     rotary_embedding_base,
@@ -533,5 +542,8 @@ void launchRoPE(TensorWrapper<T>* qkv_buf,
 }
 
 template void launchRoPE(TensorWrapper<float>* qkv_buf,
+                        TensorWrapper<int>* step,
+                        LLaMAAttentionStaticParams& static_params);
+template void launchRoPE(TensorWrapper<half>* qkv_buf,
                         TensorWrapper<int>* step,
                         LLaMAAttentionStaticParams& static_params);

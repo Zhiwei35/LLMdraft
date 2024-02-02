@@ -22,4 +22,5 @@ target_link_libraries(LlamaselfAttn PUBLIC
                              -lcudart
                              -lcudadevrt
                              fused_decoder_self_attention
+                             qkv_bias_and_rope
 )
