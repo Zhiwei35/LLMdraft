@@ -18,3 +18,8 @@ void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<T>* q_buf,
                                            TensorWrapper<int>* history_length,
                                            TensorWrapper<int>* input_length,
                                            LLaMAAttentionStaticParams& params);
+
+template<typename T>
+void launchRoPE(TensorWrapper<T>* qkv_buf,
+                TensorWrapper<int>* step,
+                LLaMAAttentionStaticParams& static_params);

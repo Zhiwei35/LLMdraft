@@ -448,3 +448,90 @@ template void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<half> *q_buf,
                                                     TensorWrapper<int> *history_length,
                                                     TensorWrapper<int> *input_length,
                                                     LLaMAAttentionStaticParams &params);
+
+
+// block and thread allocation
+// 1 block -> head size，后续可改进为1 warp -> 1 head size
+// 1 grid -> bs * num heads
+// q;       [bs, q num heads, 1, head size]
+// k;       [bs, kv num heads, step/seqlen, head size]
+// v;       [bs, num heads, 1, head size]
+// k_cache; output,[max_seq_len or step, bs, kv num heads, head size] from prompt phase
+// v_cache; output,[max_seq_len or step, bs, num heads, head size] from prompt phase
+template<typename T>
+__global__ void rope_kernel_for_self_decoder(T* q,
+                    T* k,
+                    const int batch_size,
+                    const int head_num,
+                    const int kv_head_num,
+                    const int head_size,
+                    const int step,
+                    int   rotary_embedding_dim,
+                    float rotary_embedding_base){
+    int tid = threadIdx.x;
+    int q_head_id = blockIdx.x;
+    int q_batch_id = blockIdx.y;
+    int kv_head_id = q_head_id / head_num / kv_head_num;
+    int kv_batch_id = q_batch_id;
+
+    int batch_stride = head_num * head_size;
+    int kv_batch_stride = kv_head_num * head_size;
+    int head_stride = head_size;
+    int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
+    int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
+    if (tid >= rotary_embedding_dim / 2) {
+        return;
+    }
+    // RoPE
+    float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, step - 1);
+    float2 q_rotate = GetRoPEres(q[q_offset], q[q_offset + head_size / 2], cos_sin);
+    float2 k_rotate = GetRoPEres(k[k_offset], k[k_offset + head_size / 2], cos_sin);
+    q[q_offset] = q_rotate.x;
+    q[q_offset + head_size / 2] = q_rotate.y;
+    k[k_offset] = k_rotate.x;
+    k[k_offset + head_size / 2] = k_rotate.y;
+    if(blockIdx.x==0 && blockIdx.y==0){
+        if(tid==0){
+            printf("step = %d\n", step);
+            printf("after rope, q[%d] and k[%d] is %f, %f,or %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],q_rotate.x,k_rotate.x,cos_sin.x,cos_sin.y);
+        }
+        if(tid==1){
+            printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],cos_sin.x,cos_sin.y);
+            printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid+64, tid+64, q[q_offset+64], k[k_offset+64],cos_sin.x,cos_sin.y);
+        }
+    }
+}
+
+template<typename T>
+void launchRoPE(TensorWrapper<T>* qkv_buf,
+                TensorWrapper<int>* step,
+                LLaMAAttentionStaticParams& static_params){
+    const int batch_size = qkv_buf->shape[0];
+    const int qkv_head_num = qkv_buf->shape[1];
+    int head_num = qkv_head_num - 2 * kv_head_num;
+    const int head_size = qkv_buf->shape[2];
+    const int cur_step = step->getVal();
+    T* qkv_data = qkv_buf->data;
+    //[bs,1,qkv_head_num,head_size]
+    T* q = qkv_data;
+    T* k = qkv_data + head_num * head_size;
+
+    int   rotary_embedding_dim = static_params.rotary_embedding_dim;
+    float rotary_embedding_base = static_params.rotary_embedding_base;
+    int   max_position_embeddings = static_params.max_position_embeddings;
+    dim3 grid(head_num, batch_size);
+    dim3 block(head_size); 
+    rope_kernel_for_self_decoder<T><<<grid, block>>>(q,
+                                                    k,
+                                                    batch_size,
+                                                    head_num,
+                                                    kv_head_num,
+                                                    head_size,
+                                                    cur_step,
+                                                    rotary_embedding_base,
+                                                    rotary_embedding_dim);
+}
+
+template void launchRoPE(TensorWrapper<float>* qkv_buf,
+                        TensorWrapper<int>* step,
+                        LLaMAAttentionStaticParams& static_params);
