@@ -405,7 +405,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
     step->data = &context_length;                           //
     // retString为当前轮次对话的所有token string
     std::string retString = "";
-    while (index < output_token_limit)
+    while (index < 16)//< output_token_limit)
     {
         // kv cache here input is empty, only buffer, output is not empty
         if (index == 0)
@@ -422,7 +422,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
                 break;
             }
         }
-        *step->data++;
+        *(step->data) = *(step->data) + 1;
         // std::cout << "generated index: " << ret << "\n";
 
         // results.push_back(ret);
