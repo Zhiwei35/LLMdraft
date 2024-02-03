@@ -57,12 +57,12 @@ inline __device__ float2 GetRoPEres(float data, float data_rotate, const float2 
     float2 rot_v;
     rot_v.x = coef.x * data - coef.y * data_rotate;
     rot_v.y = coef.x * data_rotate + coef.y * data;
-    if(blockIdx.x==0 && blockIdx.y==0 && threadIdx.x == 0){
-	printf("when tid=0,left=%f,right=%f,cos=%f,data=%f,sin=%f,data_rotate=%f\n",rot_v.x,rot_v.y,coef.x,data,coef.y,data_rotate);
-    }
-    if(blockIdx.x==0 && blockIdx.y==0 && threadIdx.x == 1){
-        printf("when tid=1,left=%f,right=%f,cos=%f,data=%f,sin=%f,data_rotate=%f\n",rot_v.x,rot_v.y,coef.x,data,coef.y,data_rotate);
-    }
+    //if(blockIdx.x==0 && blockIdx.y==0 && threadIdx.x == 0){
+    //	printf("when tid=0,left=%f,right=%f,cos=%f,data=%f,sin=%f,data_rotate=%f\n",rot_v.x,rot_v.y,coef.x,data,coef.y,data_rotate);
+    //}
+    //if(blockIdx.x==0 && blockIdx.y==0 && threadIdx.x == 1){
+    //    printf("when tid=1,left=%f,right=%f,cos=%f,data=%f,sin=%f,data_rotate=%f\n",rot_v.x,rot_v.y,coef.x,data,coef.y,data_rotate);
+    //}
     return rot_v;
 }
 // inline __device__ float2 GetRoPEres(const float2 v, const float2 coef)
@@ -496,23 +496,47 @@ __global__ void rope_kernel_for_self_decoder(T* q,
         return;
     }
     // RoPE
+    //if(blockIdx.x==0 && blockIdx.y==0){
+    //	if(tid == 0){
+    //	    printf("input k,k_offset=%d, k[0]=%f, k[1]=%f\n",k_offset,k[k_offset],k[k_offset+1]);
+    //	}
+    //}
+    float k_reg = k[k_offset];
+    float k_rotate_reg = k[k_offset + head_size / 2];
     float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, step - 1);
+    //if(blockIdx.x==0 && blockIdx.y==0){
+    //    if(tid == 0){
+    //        printf("after cossin,input k,k_offset=%d, k[0]=%f,k_reg=%f, k[1]=%f\n",k_offset,k[k_offset],k_reg,k[k_offset+1]);
+    //    }
+    //}
     float2 q_rotate = GetRoPEres(q[q_offset], q[q_offset + head_size / 2], cos_sin);
-    float2 k_rotate = GetRoPEres(k[k_offset], k[k_offset + head_size / 2], cos_sin);
+    //if(blockIdx.x==0 && blockIdx.y==0){
+    //    if(tid == 0){
+    //        printf("after q rope,input k,k_offset=%d, k[0]=%f,k_reg=%f, k[1]=%f\n",k_offset,k[k_offset],k_reg,k[k_offset+1]);
+    //    }
+    //}
+    float2 k_rotate = make_float2(0,0);// = GetRoPEres(k_reg, k_rotate_reg, cos_sin);
+    k_rotate.x = cos_sin.x * k_reg - cos_sin.y * k_rotate_reg;
+    k_rotate.y = cos_sin.x * k_rotate_reg + cos_sin.y * k_reg;
+    //if(blockIdx.x==0 && blockIdx.y==0){
+    //    if(tid == 0){
+    //	    printf("when tid=0,left=%f,right=%f,cos=%f,data=%f,k[0]=%f,sin=%f,data_rotate=%f\n", k_rotate.x,k_rotate.y,cos_sin.x,k_reg,k[k_offset],cos_sin.y,k_rotate_reg);
+    //	}
+    //}
     q[q_offset] = q_rotate.x;
     q[q_offset + head_size / 2] = q_rotate.y;
     k[k_offset] = k_rotate.x;
     k[k_offset + head_size / 2] = k_rotate.y;
-    if(blockIdx.x==0 && blockIdx.y==0){
-        if(tid==0){
-            printf("step = %d\n", step);
-            printf("after rope, q[%d] and k[%d] is %f, %f,or %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],q_rotate.x,k_rotate.x,cos_sin.x,cos_sin.y);
-        }
-        if(tid==1){
-            printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],cos_sin.x,cos_sin.y);
-            printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid+64, tid+64, q[q_offset+64], k[k_offset+64],cos_sin.x,cos_sin.y);
-        }
-    }
+    //if(blockIdx.x==0 && blockIdx.y==0){
+    //    if(tid==0){
+    //        printf("step = %d\n", step);
+    //        printf("after rope, q[%d] and k[%d] is %f, %f,or %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],q_rotate.x,k_rotate.x,cos_sin.x,cos_sin.y);
+    //    }
+    //    if(tid==1){
+    //        printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],cos_sin.x,cos_sin.y);
+    //        printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid+64, tid+64, q[q_offset+64], k[k_offset+64],cos_sin.x,cos_sin.y);
+    //    }
+    //}
 }
 template<>
 __global__ void rope_kernel_for_self_decoder(half* q,
@@ -532,6 +556,9 @@ void launchRoPE(TensorWrapper<T>* qkv_buf,
     const int qkv_head_num = qkv_buf->shape[1];
     int head_num = 32; // only for llama
     const int head_size = qkv_buf->shape[2];
+    ONELLM_CHECK(batch_size == 1);
+    ONELLM_CHECK(qkv_head_num == 96);
+    ONELLM_CHECK(head_size == 128);
     const int cur_step = step->getVal();
     T* qkv_data = qkv_buf->data;
     //[bs,1,qkv_head_num,head_size]
