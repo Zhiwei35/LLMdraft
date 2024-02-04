@@ -167,7 +167,7 @@ __global__ void masked_MHA_kernel(T* q,
                     const int batch_size,
                     const int head_num,
                     const int kv_head_num,
-                    //const int num_heads,
+                    const int max_seq_len,
                     const int head_size,
                     const int step,
                     int   rotary_embedding_dim,
@@ -181,39 +181,24 @@ __global__ void masked_MHA_kernel(T* q,
     //int q_batch_id = bid / head_num;
     //int kv_head_id = bid % kv_head_num;
     //int kv_batch_id = bid / kv_head_num;
-
+    // llama.cpp以及concat past kv cache对kv cache shape的定义 = [num layers, bs, kv_head num, max_seq_len, head size]
+    // 此kernel没有按照这个shape正确取offset，可以修改一下ut kv cache的值来印证这个结论
     int batch_stride = head_num * head_size;
     int kv_batch_stride = kv_head_num * head_size;
     int head_stride = head_size;
     int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
     int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
-    int cache_offset = batch_size * kv_batch_stride;
+    int cache_offset = kv_batch_id * kv_head_num * max_seq_len * head_size +
+                        kv_head_id * max_seq_len * head_size + tid * vec_size;
+    int step_stride = head_size;
 
     int vec_size = Vec<T>::size;
     int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
     int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
     float scale = rsqrt(float(head_size));
-    // RoPE
-    // if (tid < rotary_embedding_dim / 2)
-    // {
-    //     float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, step - 1);
-    //     // TODO: try inplace change q[offset] and q[offset + 64]
-    //     float2 q_rotate = GetRoPEres(q[q_offset], q[q_offset + head_size / 2], cos_sin);
-    //     float2 k_rotate = GetRoPEres(k[k_offset], k[k_offset + head_size / 2], cos_sin);
-    //     q[q_offset] = q_rotate.x;
-    //     q[q_offset + head_size / 2] = q_rotate.y;
-    //     k[k_offset] = k_rotate.x;
-    //     k[k_offset + head_size / 2] = k_rotate.y;
-	// }
-	// __threadfence();
-    // }
-    // __threadfence();
-    // __syncthreads(); 
 
     using Vec_t = typename Vec<T>::Type;
     Vec_t qvec, kvec, vvec;
-    //Vec_t scale_vec = static_cast<Vec_t>(scale);
-    //reuse q k v reg from rope
     const T* q_mem = q;
     const T* k_mem = k;
     const T* v_mem = v;
@@ -274,7 +259,7 @@ __global__ void masked_MHA_kernel(T* q,
         // reuse k cache
         // float k = k_cache[iter * cache_offset + qkv_offset];
         //或许可以在每个step省略掉前step-1的qk dot
-        Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) : zero_f4;
+        Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * step_stride + cache_offset]) : zero_f4;
         if (iter == 0 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
             printf("iter=0, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", kvec_qk.x, kvec_qk.y, kvec_qk.z);
         }
@@ -286,7 +271,7 @@ __global__ void masked_MHA_kernel(T* q,
         // when final step, update k cache
         if (iter == step - 1 && tid * vec_size < head_size) {
             // TODO: update k cache with k with bias add when model has qkv bias
-            *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) = kvec;
+            *reinterpret_cast<Vec_t*>(&k_cache[iter * step_stride + cache_offset]) = kvec;
             kvec_qk = kvec;
             // *reinterpret_cast<Vec_t*>(&sk[tid * vec_size]) = kvec;         
         }
@@ -345,12 +330,12 @@ __global__ void masked_MHA_kernel(T* q,
         for(int iter = 0; iter < step; iter++) {
             //sv[tid]= v_cache[iter * cache_offset + k_offset];
             // __syncthreads();
-            Vec_t vvec_qkv = *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]);
+            Vec_t vvec_qkv = *reinterpret_cast<Vec_t*>(&v_cache[iter * step_stride + cache_offset]);
             // T value = v_cache[ite * cache_offset + k_offset];
             // when final step, update k cache
             if (iter == step - 1) {
                 // TODO: update k cache with k with bias add
-                *reinterpret_cast<Vec_t*>(&v_cache[iter * cache_offset + k_offset_vec]) = vvec;
+                *reinterpret_cast<Vec_t*>(&v_cache[iter * step_stride + cache_offset]) = vvec;
                 // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
                 //sv[tid] = v_mem[k_offset];
                 // kv cache does not cache cur step kv, so fetch from v of cur step
@@ -385,7 +370,7 @@ __global__ void masked_MHA_kernel(half* q,
                     const int batch_size,
                     const int head_num,
                     const int kv_head_num,
-                    //const int num_heads,
+                    const int max_seq_len,
                     const int head_size,
                     const int step,
                     int   rotary_embedding_dim,
@@ -602,7 +587,7 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
                                                             batch_size,
                                                             head_num,
                                                             kv_head_num,
-                                                            //num_heads,
+                                                            max_seq_len,
                                                             head_size,
                                                             cur_step,
                                                             rotary_embedding_dim,
