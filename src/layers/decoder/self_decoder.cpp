@@ -57,7 +57,7 @@ void LlamaSelfDecoder<T>::forward(TensorMap& input_tensors, const std::vector<Ll
         decoder_input = self_attn_inputs["attention_input"];
         launchRMSNorm(decoder_input->as<T>(), //in&out, [bs, q_hidden_units]
                     decoder_residual, // = rmsnorm input hidden states
-                    layerWeights[0]->attn_norm_weight,//rmsnorm weights, [q_hidden_units]
+                    layerWeights[layer_id]->attn_norm_weight,//rmsnorm weights, [q_hidden_units]
                     rmsnorm_eps);
         DeviceSyncAndCheckCudaError();  
         selfAttn->forward(self_attn_inputs, self_attn_outputs, layerWeights[layer_id]->self_attn_weight, dyn_params);//, selfAttn->GetAttnStaticParams());

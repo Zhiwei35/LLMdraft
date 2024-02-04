@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <math.h>
+#include "src/utils/cuda_debug_utils.cuh"
 #include "src/kernels/fused_decoder_self_attention.h"
 // kv cache shape = [numlayers, bs, kv head num, max_seq_len, head size]
 // bug1: scale's dtype must be float ,not int
@@ -218,6 +219,9 @@ __global__ void masked_MHA_kernel(T* q,
     const T* v_mem = v;
     if (tid * vec_size < head_size) {
         qvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&q_mem[q_offset_vec]));
+        if(q_head_id == 0 && q_batch_id == 0 && tid == 0) {
+            printf("qvec[0]=%f, qvec[1]=%f, qvec[2]=%f\n", qvec.x, qvec.y, qvec.z);
+        }
         // if (qkv_bias != nullptr){
 	    //     Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
         //     for(int i = 0; i < vec_size; i++) {
@@ -225,6 +229,9 @@ __global__ void masked_MHA_kernel(T* q,
         //     }
 	    // }
         kvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&k_mem[k_offset_vec]));
+        if(kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+            printf("kvec[0]=%f, kvec[1]=%f, kvec[2]=%f\n", kvec.x, kvec.y, kvec.z);
+        }
         // if (qkv_bias != nullptr){
 	    //     Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
         //     for(int i = 0; i < vec_size; i++) {
@@ -268,6 +275,12 @@ __global__ void masked_MHA_kernel(T* q,
         // float k = k_cache[iter * cache_offset + qkv_offset];
         //或许可以在每个step省略掉前step-1的qk dot
         Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * cache_offset + k_offset_vec]) : zero_f4;
+        if (iter == 0 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+            printf("iter=0, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", kvec_qk.x, kvec_qk.y, kvec_qk.z);
+        }
+        if (iter == 12 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+            printf("iter=12, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", kvec_qk.x, kvec_qk.y, kvec_qk.z);
+        }
         //sk[tid]= k_cache[iter * cache_offset + k_offset];
         // __syncthreads();
         // when final step, update k cache
@@ -594,6 +607,7 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
                                                             cur_step,
                                                             rotary_embedding_dim,
                                                             rotary_embedding_base);
+    print_data<<<1,1>>>(mha_output->data);
     //printf("called fused masked self attn kernel\n");
 }
 
