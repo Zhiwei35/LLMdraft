@@ -173,8 +173,10 @@ __global__ void masked_MHA_kernel(T* q,
                     int   rotary_embedding_dim,
                     float rotary_embedding_base){// rsqrt(dh)
     int tid = threadIdx.x;
-    int q_head_id = blockIdx.x;
-    int q_batch_id = blockIdx.y;
+    int q_batch_id = blockIdx.x / head_num;
+    int q_head_id = blockIdx.x % head_num;
+    // int q_head_id = blockIdx.x;
+    // int q_batch_id = blockIdx.y;
     int kv_head_id = q_head_id / (head_num / kv_head_num);
     int kv_batch_id = q_batch_id;
     //int q_head_id = bid % head_num;
@@ -574,7 +576,7 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
     float rotary_embedding_base = static_params.rotary_embedding_base;
     int   max_position_embeddings = static_params.max_position_embeddings;
     bool  use_dynamic_ntk = static_params.use_dynamic_ntk;
-    dim3 grid(head_num, batch_size);//这里的block分配可以匹配得上lmdeploy
+    dim3 grid(head_num * batch_size);//这里的block分配可以匹配得上lmdeploy
     dim3 block(head_size); //vec size = 4 for fp32
     //printf("calling fused masked self attn kernel\n");
     // printf("block nums = %d\n", grid.x);
