@@ -154,10 +154,10 @@ void launchRMSNorm( TensorWrapper<T>* decoder_out, // [num tokens, hidden_units]
                             eps,
                             num_tokens,
                             hidden_units);
-    if (is_last) {
-        printf("in last RMSNorm\n");
-        print_data<<<1,1>>>(decoder_out->data);
-    }
+    //if (is_last) {
+    //    printf("in last RMSNorm\n");
+    //    print_data<<<1,1>>>(decoder_out->data);
+    //}
     // printf("called RMSNorm\n");
 }
 

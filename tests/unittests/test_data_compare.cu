@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
     int hidden_units_2 = 0;
     int output_size = 0;
     //int in_size = 0; // TO MODIFY
-    int shape0 = 13; // TO MODIFY
+    int shape0 = 1; // TO MODIFY
     int shape1 = 4096; // TO MODIFY
     
     int in_size = shape0 * shape1;
@@ -125,10 +125,10 @@ int main(int argc, char *argv[]) {
     float* h_out = (float*) malloc(sizeof(float) * output_size);
     float* d_out;
     cudaMalloc((void**)&d_out, sizeof(float) * output_size);
-    loadWeights(d_in, "/home/data/onellm/2_ffn_output.bin", shape0, shape1); // TO MODIFY
-    loadWeights_trans(d_in_trans, "/home/data/trans/2_ffn_output_trans.bin", shape0, shape1); // TO MODIFY
+    loadWeights(d_in, "/home/data/onellm/0_self_decoder_qk_v_after_bmm.bin", shape0, shape1); // TO MODIFY
+    loadWeights_trans(d_in_trans, "/home/data/trans/self_decoder_qk_v_buf_after_bmm_trans.bin", shape0, shape1); // TO MODIFY
     std::cout << "====intermediate tensor====" << "\n";
-    CheckResult(d_in, d_in_trans, output_size);
+    CheckResult(d_in, d_in_trans, shape0 * shape1);
 
     free(h_in);
     free(h_w);

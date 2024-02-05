@@ -261,7 +261,7 @@ int Llama<T>::firstTokenGen(LLaMAAttentionDynParams &dparams, IntDict &int_param
     save_tensor(decoder_output->as<T>() ,"decoder_norm_out.bin");
     DeviceSyncAndCheckCudaError();
     int res = LMHeadAndTopKSample(decoder_outputs);
-    std::cout << "context decoder generated  index  is " << res << "\n";
+    //std::cout << "context decoder generated  index  is " << res << "\n";
     return res;
 }
 

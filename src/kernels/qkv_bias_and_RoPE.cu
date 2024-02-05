@@ -42,12 +42,12 @@ inline __device__ float2 GetRoPEfreq(int zid, int rot_embed_dim, float base, flo
     // 某个token的head size维度上连续俩元素的inv freq，t_Step表示tokenid，能对上transformers上的[0,2047]和freq的外积
     // 每个inv freq值对应于head size维度上0 2 4 6的值
     const float inv_freq = t_step / powf(base, zid / (float)rot_embed_dim); //rot_embed_dim = 128
-    if(blockIdx.x==0 && blockIdx.y==0 && zid == 0){
-        printf("when tid=0,cos=%f,sin=%f,step=%f,base=%f,rot_embed_dim=%d,theta=%f\n",cos(inv_freq),sin(inv_freq),t_step,base,rot_embed_dim,powf(base, zid / (float)rot_embed_dim));
-    }
-    if(blockIdx.x==0 && blockIdx.y==0 && zid == 2){
-    	printf("when tid=1,cos=%f,sin=%f,step=%f,base=%f,rot_embed_dim=%d,theta=%f\n",cos(inv_freq),sin(inv_freq),t_step,base,rot_embed_dim,powf(base, zid / (float)rot_embed_dim));
-    }
+    //if(blockIdx.x==0 && blockIdx.y==0 && zid == 0){
+   //     printf("when tid=0,cos=%f,sin=%f,step=%f,base=%f,rot_embed_dim=%d,theta=%f\n",cos(inv_freq),sin(inv_freq),t_step,base,rot_embed_dim,powf(base, zid / (float)rot_embed_dim));
+    //}
+    //if(blockIdx.x==0 && blockIdx.y==0 && zid == 2){
+    //	printf("when tid=1,cos=%f,sin=%f,step=%f,base=%f,rot_embed_dim=%d,theta=%f\n",cos(inv_freq),sin(inv_freq),t_step,base,rot_embed_dim,powf(base, zid / (float)rot_embed_dim));
+    //}
 
     return {cos(inv_freq), sin(inv_freq)};
 }
@@ -436,8 +436,8 @@ void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<T> *q_buf,
                                                            params.rotary_embedding_base,
                                                            params.max_position_embeddings,
                                                            params.use_dynamic_ntk);
-    printf("q after rope:\n");
-    print_data<<<1, 1>>>(q_buf->data);
+    //printf("q after rope:\n");
+    //print_data<<<1, 1>>>(q_buf->data);
     // printf("called qkv bias and rope\n");
 }
 

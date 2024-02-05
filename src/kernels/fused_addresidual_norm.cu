@@ -87,12 +87,12 @@ __global__ void FusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hi
             rsd[i].y = de_out[i].y;
             rsd[i].z = de_out[i].z;
             rsd[i].w = de_out[i].w;
-            if (blockIdx.x == 0 && i == 0) {
-               printf("after add residual,dout[0] = %f", de_out[i].x);
-            }
-            if (blockIdx.x == 1 && i == 0) {
-               printf("after add residual,dout[4096] = %f", de_out[i].x);
-            }
+            //if (blockIdx.x == 0 && i == 0) {
+            //   printf("after add residual,dout[0] = %f", de_out[i].x);
+            //}
+            //if (blockIdx.x == 1 && i == 0) {
+            //   printf("after add residual,dout[4096] = %f", de_out[i].x);
+            //}
         }
         //TODO: to update rsd by rsd + bias when bias is valid
         if (bias != nullptr) {
@@ -218,8 +218,8 @@ void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_
                                                 eps,
                                                 batch_size,
                                                 hidden_units);
-    printf("called fusedAddBiasResidualAndRMSNorm\n");
-    print_data<<<1,1>>>(decoder_out->data);
+    //printf("called fusedAddBiasResidualAndRMSNorm\n");
+    //print_data<<<1,1>>>(decoder_out->data);
 }
 template void launchFusedAddBiasResidualRMSNorm( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, n_dims = hidden_units
                                     TensorWrapper<float>* residual, 

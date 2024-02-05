@@ -87,8 +87,8 @@ void launchRepeatKVCache(TensorWrapper<T> *k_cache_src, //{num_layers, batch_siz
                                            context_length->data,
                                            max_k_len,
                                            max_seq_len);
-    printf("k after repeat kv:\n");
-    print_data<<<1, 1>>>(k_cache_dst->data);
+    //printf("k after repeat kv:\n");
+    //print_data<<<1, 1>>>(k_cache_dst->data);
     // std::cout << "called repeat/broadcast kernel" << "\n";
 }
 

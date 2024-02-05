@@ -13,10 +13,10 @@ __global__ void embeddingFunctor(const int* input_ids,
     while (index < max_context_token_num * hidden_size) {
         int id = input_ids[index / hidden_size];
         output[index] = embed_table[id * hidden_size + index % hidden_size];
-        if (index < 10) {
-            printf("embedding res & rmsnorm input: \n");
-            printf("output[%d]=%f\n",index,output[index]);            
-        }
+        //if (index < 10) {
+        //    printf("embedding res & rmsnorm input: \n");
+        //    printf("output[%d]=%f\n",index,output[index]);            
+        //}
         index += blockDim.x * gridDim.x;
     }
     // if (blockIdx.x == 0 && threadIdx.x == 0){

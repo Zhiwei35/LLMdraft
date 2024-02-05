@@ -151,7 +151,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
             }                                                                                                                         \
             else                                                                                                                      \
             {                                                                                                                         \
-                h_qkv[i] = (dtype)(i + 1) / 10;                                                                                       \
+                h_qkv[i] = (dtype)(i + 1) / (dtype)10;                                                                                       \
             }                                                                                                                         \
         }                                                                                                                             \
         else if (i < batch_size * (num_heads + kv_num_heads) * head_size)                                                             \
@@ -162,7 +162,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
             }                                                                                                                         \
             else                                                                                                                      \
             {                                                                                                                         \
-                h_qkv[i] = (dtype)(i + 1) / 10;                                                                                       \
+                h_qkv[i] = (dtype)(i + 1) / (dtype)10;                                                                                       \
             }                                                                                                                         \
         }                                                                                                                             \
         else if (i < batch_size * (num_heads + kv_num_heads * 2) * head_size)                                                         \
@@ -173,10 +173,10 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
             }                                                                                                                         \
             else                                                                                                                      \
             {                                                                                                                         \
-                h_qkv[i] = (dtype)(i - 7) / 10;                                                                                       \
+                h_qkv[i] = (dtype)(i - 7) / (dtype)10;                                                                                       \
             }                                                                                                                         \
         }                                                                                                                             \
-        printf("h_qkv[%d]= %f \n", i, h_qkv[i]);                                                                                      \
+        printf("h_qkv[%d]= %f \n", i, (dtype)h_qkv[i]);                                                                                      \
     }                                                                                                                                 \
     dtype *h_q = h_qkv;                                                                                                               \
     dtype *h_k = h_q + batch_size * num_heads * head_size;                                                                            \
@@ -190,11 +190,11 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
         }                                                                                                                             \
         else                                                                                                                          \
         {                                                                                                                             \
-            h_kcache[i] = (dtype)(i - kcache_size / 2 + 1) / 10;                                                                      \
-            h_vcache[i] = (dtype)(i - kcache_size / 2 + 1) / 10;                                                                      \
+            h_kcache[i] = (dtype)(i - kcache_size / 2 + 1) / (dtype)10;                                                                      \
+            h_vcache[i] = (dtype)(i - kcache_size / 2 + 1) / (dtype)10;                                                                      \
         }                                                                                                                             \
-        printf("h_kcache[%d]= %f \n", i, h_kcache[i]);                                                                                \
-        printf("h_vcache[%d]= %f \n", i, h_vcache[i]);                                                                                \
+        printf("h_kcache[%d]= %f \n", i, (dtype)h_kcache[i]);                                                                                \
+        printf("h_vcache[%d]= %f \n", i, (dtype)h_vcache[i]);                                                                                \
     }                                                                                                                                 \
     dtype *h_o;                                                                                                                       \
     dtype *d_o;                                                                                                                       \

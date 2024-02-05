@@ -120,7 +120,7 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     launchAddFusedQKVBiasTransposeAndRoPE(q_buf_w_pad, k_buf_w_pad, v_buf_w_pad, qkv_buf_wo_pad,
                                         weights.qkv, padding_offset->as<int>(), history_length->as<int>(), input_length->as<int>(), static_params);
     DeviceSyncAndCheckCudaError();
-    save_tensor(q_buf_w_pad ,"q_buf_after_rope.bin", layer_id->as<int>()); //{batch_size, head_num, max_q_len, head_size}
+    //save_tensor(q_buf_w_pad ,"q_buf_after_rope.bin", layer_id->as<int>()); //{batch_size, head_num, max_q_len, head_size}
     //3.concat past kv cache
     //max_cache_seq_len = max_seq_len + max_prefix_prompt_length
     // max q len is input length with bs = 1
@@ -136,7 +136,7 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     launchRepeatKVCache(all_k_cache->as<T>(), all_v_cache->as<T>(), context_length->as<int>(), 
                                 layer_id->as<int>(), k_cache_buf, v_cache_buf);
     DeviceSyncAndCheckCudaError();
-    save_tensor(k_cache_buf ,"k_buf_after_repeat.bin", layer_id->as<int>()); //{batch_size, head_num, max_k_len, head_size}
+    //save_tensor(k_cache_buf ,"k_buf_after_repeat.bin", layer_id->as<int>()); //{batch_size, head_num, max_k_len, head_size}
     //1.qk [bs,qhead,qlen,headsize]*[bs,qhead,klen,headsize](N*T)=>[bs,head,qlen,klen]
     launchLinearStridedBatchGemm(q_buf_w_pad, k_cache_buf, qk_buf, cublas_wrapper, false, true);
     DeviceSyncAndCheckCudaError();
@@ -147,14 +147,14 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     //3.qk*v [bs,head,qlen,klen]=>[bs,head,qlen,headsize]
     launchLinearStridedBatchGemm(qk_buf, v_cache_buf, qkv_buf_w_pad, cublas_wrapper, false, false);
     DeviceSyncAndCheckCudaError();
-    save_tensor(qkv_buf_w_pad ,"qk_v_buf_after_bmm.bin", layer_id->as<int>()); // {batch_size, head_num, max_q_len, head_size}
+    //save_tensor(qkv_buf_w_pad ,"qk_v_buf_after_bmm.bin", layer_id->as<int>()); // {batch_size, head_num, max_q_len, head_size}
     //4.transpose+reshape([bs,head,seqlen,headsize]=>[bs,seqlen,head,headsize]=>[numtokens,hiddenunits])+remove padding
     launchTransposeOutRemovePadding(qkv_buf_w_pad, padding_offset->as<int>(), qkv_buf_wo_pad_1);
     DeviceSyncAndCheckCudaError();
     // 5.output linear [numtokens,hiddenunits]=>[numtokens,hiddenunits]
     Tensor* attention_output = outputs["attention_output"];
     launchLinearGemm(qkv_buf_wo_pad_1, weights.output, attention_output->as<T>(), cublas_wrapper, false, true);
-    save_tensor(attention_output->as<T>() ,"out_linear_output.bin", layer_id->as<int>()); // {num_tokens, head_num, head_size}
+    //save_tensor(attention_output->as<T>() ,"out_linear_output.bin", layer_id->as<int>()); // {num_tokens, head_num, head_size}
     DeviceSyncAndCheckCudaError();
     // if (is_free_buffer_after_fwd) {
     this->freeBuf();

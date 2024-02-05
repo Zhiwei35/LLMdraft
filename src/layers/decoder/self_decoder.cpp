@@ -49,7 +49,7 @@ void LlamaSelfDecoder<T>::forward(TensorMap& input_tensors, const std::vector<Ll
     }; 
        
     for(int layer_id = 0; layer_id < num_layer; layer_id++) {
-	std::cout << "=============in layer " << layer_id << "==============" << "\n";
+	//std::cout << "=============in layer " << layer_id << "==============" << "\n";
 	if (layer_id > 0){
             TensorWrapper<int>* layer = new TensorWrapper<int>(Device::CPU, type_int, {1}, &layer_id);
             self_attn_inputs.insert("layer_id", layer);
