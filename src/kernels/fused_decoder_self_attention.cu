@@ -32,7 +32,7 @@ __device__ T blockReduceSum(T val){
         warpsum[warp_id] = val;
     }
     __syncthreads();
-    float warp_val = tid < warp_nums ? warpsum[tid] : (T)0.0f;
+    T warp_val = tid < warp_nums ? warpsum[tid] : (T)0.0f;
     return warpReduceSum<T>(warp_val);
 
 }
@@ -175,7 +175,7 @@ __global__ void masked_MHA_kernel(T* q,
     int tid = threadIdx.x;
     int q_head_id = blockIdx.x;
     int q_batch_id = blockIdx.y;
-    int kv_head_id = q_head_id / head_num / kv_head_num;
+    int kv_head_id = q_head_id / (head_num / kv_head_num);
     int kv_batch_id = q_batch_id;
     //int q_head_id = bid % head_num;
     //int q_batch_id = bid / head_num;
@@ -188,13 +188,13 @@ __global__ void masked_MHA_kernel(T* q,
     int head_stride = head_size;
     int q_offset = q_batch_id * batch_stride + q_head_id * head_stride + tid;
     int k_offset = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid;
-    int cache_offset = kv_batch_id * kv_head_num * max_seq_len * head_size +
-                        kv_head_id * max_seq_len * head_size + tid * vec_size;
-    int step_stride = head_size;
 
     int vec_size = Vec<T>::size;
     int q_offset_vec = q_batch_id * batch_stride + q_head_id * head_stride + tid * vec_size;
     int k_offset_vec = kv_batch_id * kv_batch_stride + kv_head_id * head_stride + tid * vec_size;
+    int cache_offset = kv_batch_id * kv_head_num * max_seq_len * head_size +
+                        kv_head_id * max_seq_len * head_size + tid * vec_size;
+    int step_stride = head_size;
     float scale = rsqrt(float(head_size));
 
     using Vec_t = typename Vec<T>::Type;
@@ -204,9 +204,10 @@ __global__ void masked_MHA_kernel(T* q,
     const T* v_mem = v;
     if (tid * vec_size < head_size) {
         qvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&q_mem[q_offset_vec]));
-        if(q_head_id == 0 && q_batch_id == 0 && tid == 0) {
-            printf("qvec[0]=%f, qvec[1]=%f, qvec[2]=%f\n", qvec.x, qvec.y, qvec.z);
-        }
+        //if(q_head_id == 0 && q_batch_id == 0 && tid == 0) {
+        //    printf("qvec[0]=%f, qvec[1]=%f, qvec[2]=%f\n", qvec.x, qvec.y, qvec.z);
+	//    printf("qvec[128]=%f, qvec[129]=%f, qvec[130]=%f\n", q_mem[q_offset_vec+128], q_mem[q_offset_vec+129], q_mem[q_offset_vec+130]);
+        //}
         // if (qkv_bias != nullptr){
 	    //     Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
         //     for(int i = 0; i < vec_size; i++) {
@@ -214,15 +215,10 @@ __global__ void masked_MHA_kernel(T* q,
         //     }
 	    // }
         kvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&k_mem[k_offset_vec]));
-        if(kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
-            printf("kvec[0]=%f, kvec[1]=%f, kvec[2]=%f\n", kvec.x, kvec.y, kvec.z);
-        }
-        // if (qkv_bias != nullptr){
-	    //     Vec_t k_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size]);
-        //     for(int i = 0; i < vec_size; i++) {
-        //         reinterpret_cast<float*>(&kvec)[i] += reinterpret_cast<float*>(&k_bias)[i];
-        //     }
-	    // }
+       // if(kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+        //    printf("kvec[0]=%f, kvec[1]=%f, kvec[2]=%f\n", kvec.x, kvec.y, kvec.z);
+        //}
+        
         vvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&v_mem[k_offset_vec]));
         // if (qkv_bias != nullptr){
 	    //     Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
@@ -230,8 +226,6 @@ __global__ void masked_MHA_kernel(T* q,
         //         reinterpret_cast<float*>(&vvec)[i] += reinterpret_cast<float*>(&v_bias)[i];
         //     }
 	    // }
-        // 测试的时候关掉rope
-        // apply_RoPE(qvec, kvec, tid, rotary_embedding_dim, rotary_embedding_base, step);
     }
     // q k smem for block reduce
     // define smem type is char type!! not T
@@ -260,12 +254,12 @@ __global__ void masked_MHA_kernel(T* q,
         // float k = k_cache[iter * cache_offset + qkv_offset];
         //或许可以在每个step省略掉前step-1的qk dot
         Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * step_stride + cache_offset]) : zero_f4;
-        if (iter == 0 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
-            printf("iter=0, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", kvec_qk.x, kvec_qk.y, kvec_qk.z);
-        }
-        if (iter == 12 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
-            printf("iter=12, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", kvec_qk.x, kvec_qk.y, kvec_qk.z);
-        }
+        //if (iter == 0 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+        //    printf("iter=0, head=1, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", k_cache[iter * step_stride + cache_offset+max_seq_len * head_size], k_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 1], k_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 2]);
+        //}
+        //if (iter == 12 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+        //    printf("iter=12, head=1, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", k_cache[iter * step_stride + cache_offset+max_seq_len * head_size], k_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 1], k_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 2]);
+        //}
         //sk[tid]= k_cache[iter * cache_offset + k_offset];
         // __syncthreads();
         // when final step, update k cache
@@ -279,7 +273,7 @@ __global__ void masked_MHA_kernel(T* q,
         // __syncthreads();
         //在FT，k是从k cache加载到reg，q是从q smem加载到reg，q smem是每个新的step把新然后二者mul，这里直接用smem做mul也可以，反正compiler会帮我们load到reg
         // T qk = (tid < head_size) ? (float)sq[tid] * (float)sk[tid] * (float)scale : (T)0.0f;
-        Vec_t qk;
+        Vec_t qk = zero_f4;
         qk.x = (tid * vec_size < head_size) ? sq[tid].x * kvec_qk.x * scale_f4.x : zero;
         qk.y = (tid * vec_size < head_size) ? sq[tid].y * kvec_qk.y * scale_f4.y : zero;
         qk.z = (tid * vec_size < head_size) ? sq[tid].z * kvec_qk.z * scale_f4.z : zero;
@@ -291,7 +285,7 @@ __global__ void masked_MHA_kernel(T* q,
 //        T attn_score = blockReduceSum<T>(qk);
         if(tid == 0) {
             logits[iter] = attn_score;
-	    //if(blockIdx.x == 0){
+	    //if(blockIdx. x == 0){
 	    //printf("each block qk res = %f\n", attn_score);
        	  
 	}
@@ -310,7 +304,7 @@ __global__ void masked_MHA_kernel(T* q,
     
     T block_fenmu = blockReduceSum<T>(fenzi);
     if (tid == 0){
-        fenmu = block_fenmu;
+        fenmu = block_fenmu + 1e-6;
     }
     __syncthreads();
     if(tid < step) {
@@ -333,7 +327,15 @@ __global__ void masked_MHA_kernel(T* q,
             Vec_t vvec_qkv = *reinterpret_cast<Vec_t*>(&v_cache[iter * step_stride + cache_offset]);
             // T value = v_cache[ite * cache_offset + k_offset];
             // when final step, update k cache
-            if (iter == step - 1) {
+            //if (iter == 0 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+            //    printf("iter=0, head=0, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset], v_cache[iter * step_stride + cache_offset + 1], v_cache[iter * step_stride + cache_offset + 2]);
+	    //	printf("iter=0, head=1, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset+max_seq_len * head_size], v_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 1], v_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 2]);
+            //}
+            //if (iter == 12 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+            //    printf("iter=12, head=0, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset], v_cache[iter * step_stride + cache_offset + 1], v_cache[iter * step_stride + cache_offset + 2]);
+	    //	printf("iter=12, head=1, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset+max_seq_len * head_size], v_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 1], v_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 2]);
+            //}
+	    if (iter == step - 1) {
                 // TODO: update k cache with k with bias add
                 *reinterpret_cast<Vec_t*>(&v_cache[iter * step_stride + cache_offset]) = vvec;
                 // v_cache[iter * cache_offset + k_offset] = v_mem[k_offset];
@@ -592,7 +594,7 @@ void launchDecoderMaskedMHA(TensorWrapper<T>* qkv_buf,
                                                             cur_step,
                                                             rotary_embedding_dim,
                                                             rotary_embedding_base);
-    print_data<<<1,1>>>(mha_output->data);
+    //print_data<<<1,1>>>(mha_output->data, true);
     //printf("called fused masked self attn kernel\n");
 }
 
