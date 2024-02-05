@@ -71,7 +71,7 @@ void CPUMaskedAttn(T *q,
                 // softmax(logits), logits.shape = [bs, num heads, 1, step]
                 row_max = std::max(attn_score, row_max);
             }
-//            printf("all step/seqlen(one row) max attn score = %f\n", row_max);
+            //            printf("all step/seqlen(one row) max attn score = %f\n", row_max);
             float fenzi = 0.0f;
             float fenmu = 0.0f;
             for (int iter = 0; iter < step; iter++)
@@ -82,7 +82,7 @@ void CPUMaskedAttn(T *q,
             for (int iter = 0; iter < step; iter++)
             { // row
                 logits[batch_id * num_heads * step + head_id * step + iter] = (float)(fenzi / fenmu);
-  //              printf("logits=%f\n", fenzi / fenmu);
+                //              printf("logits=%f\n", fenzi / fenmu);
             }
             // logits*V = [bs, num heads, 1, step] * [mx_seq_len or step, bs, num heads, head size]
             // for(int iter = 0; iter < step; iter++) {
@@ -101,7 +101,7 @@ void CPUMaskedAttn(T *q,
                         sv[qkv_offset] = (float)v_mem[qkv_offset];
                     }
                     O += sv[qkv_offset] * logits[batch_id * num_heads * step + head_id * step + iter];
-    //                printf("logits[%d]=%f, sv[%d]=%f, O=%f\n", iter, logits[iter], qkv_offset, sv[qkv_offset], O);
+                    //                printf("logits[%d]=%f, sv[%d]=%f, O=%f\n", iter, logits[iter], qkv_offset, sv[qkv_offset], O);
                 }
                 mha_output[qkv_offset] = O;
             }
@@ -119,7 +119,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
         if (fabs(CPUoutput[i] - GPUres) > 1e-6)
         {
             printf("the %dth res is wrong, CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], GPUres);
-//            return false;
+            //            return false;
         }
     }
     return true;
@@ -142,20 +142,59 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     h_vcache = (dtype *)malloc(sizeof(dtype) * vcache_size);                                                                          \
     cudaMalloc((void **)&d_vcache, sizeof(dtype) * vcache_size);                                                                      \
     for (int i = 0; i < qkv_size; i++)                                                                                                \
-    {   	    														      \
-        if(i < batch_size * (kv_num_heads + num_heads) * head_size) {								      \
-	    h_qkv[i] = (dtype)1.0f;    												      \
-	} else {														      \
-	    h_qkv[i] = (dtype) (i % 2 + 1);											      \
-    	}	    														      \
+    {                                                                                                                                 \
+        if (i < batch_size * num_heads * head_size)                                                                                   \
+        {                                                                                                                             \
+            if (i < batch_size * num_heads * head_size / 2)                                                                           \
+            {                                                                                                                         \
+                h_qkv[i] = (dtype)(i + 1);                                                                                            \
+            }                                                                                                                         \
+            else                                                                                                                      \
+            {                                                                                                                         \
+                h_qkv[i] = (dtype)(i + 1) / 10;                                                                                       \
+            }                                                                                                                         \
+        }                                                                                                                             \
+        else if (i < batch_size * (num_heads + kv_num_heads) * head_size)                                                             \
+        {                                                                                                                             \
+            if (i < batch_size * (num_heads + kv_num_heads / 2) * head_size)                                                          \
+            {                                                                                                                         \
+                h_qkv[i] = (dtype)(i + 5);                                                                                            \
+            }                                                                                                                         \
+            else                                                                                                                      \
+            {                                                                                                                         \
+                h_qkv[i] = (dtype)(i + 1) / 10;                                                                                       \
+            }                                                                                                                         \
+        }                                                                                                                             \
+        else if (i < batch_size * (num_heads + kv_num_heads * 2) * head_size)                                                         \
+        {                                                                                                                             \
+            if (i < batch_size * (num_heads + kv_num_heads + kv_num_heads / 2) * head_size)                                           \
+            {                                                                                                                         \
+                h_qkv[i] = (dtype)(i - 3);                                                                                            \
+            }                                                                                                                         \
+            else                                                                                                                      \
+            {                                                                                                                         \
+                h_qkv[i] = (dtype)(i - 7) / 10;                                                                                       \
+            }                                                                                                                         \
+        }                                                                                                                             \
+        printf("h_qkv[%d]= %f \n", i, h_qkv[i]);                                                                                      \
     }                                                                                                                                 \
     dtype *h_q = h_qkv;                                                                                                               \
     dtype *h_k = h_q + batch_size * num_heads * head_size;                                                                            \
     dtype *h_v = h_k + batch_size * (kv_num_heads + num_heads) * head_size;                                                           \
     for (int i = 0; i < (kcache_size * h_step) / max_seq_len; i++)                                                                    \
     {                                                                                                                                 \
-        h_kcache[i] = (dtype)1.0f;                                                                                                    \
-        h_vcache[i] = (dtype)1.0f;                                                                                                    \
+        if (i < kcache_size / 2)                                                                                                      \
+        {                                                                                                                             \
+            h_kcache[i] = (dtype)(i + 1);                                                                                             \
+            h_vcache[i] = (dtype)(i + 1);                                                                                             \
+        }                                                                                                                             \
+        else                                                                                                                          \
+        {                                                                                                                             \
+            h_kcache[i] = (dtype)(i - kcache_size / 2 + 1) / 10;                                                                      \
+            h_vcache[i] = (dtype)(i - kcache_size / 2 + 1) / 10;                                                                      \
+        }                                                                                                                             \
+        printf("h_kcache[%d]= %f \n", i, h_kcache[i]);                                                                                \
+        printf("h_vcache[%d]= %f \n", i, h_vcache[i]);                                                                                \
     }                                                                                                                                 \
     dtype *h_o;                                                                                                                       \
     dtype *d_o;                                                                                                                       \
@@ -165,7 +204,7 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     bool *h_finished = (bool *)malloc(sizeof(bool) * batch_size);                                                                     \
     bool *d_finished;                                                                                                                 \
     cudaMalloc((void **)&d_finished, sizeof(bool) * batch_size);                                                                      \
-    for (int i = 0; i < batch_size; i++)                                                                                            \
+    for (int i = 0; i < batch_size; i++)                                                                                              \
     {                                                                                                                                 \
         h_finished[i] = static_cast<bool>(0);                                                                                         \
     }                                                                                                                                 \
@@ -185,8 +224,8 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
     DataType type_bool = getTensorType<bool>();                                                                                       \
     DataType type_int = getTensorType<int>();                                                                                         \
     TensorWrapper<dtype> *qkv = new TensorWrapper<dtype>(GPU, type, {batch_size, num_heads + 2 * kv_num_heads, head_size}, d_qkv);    \
-    TensorWrapper<dtype> *kcache = new TensorWrapper<dtype>(GPU, type, {max_seq_len, batch_size, kv_num_heads, head_size}, d_kcache); \
-    TensorWrapper<dtype> *vcache = new TensorWrapper<dtype>(GPU, type, {max_seq_len, batch_size, kv_num_heads, head_size}, d_vcache); \
+    TensorWrapper<dtype> *kcache = new TensorWrapper<dtype>(GPU, type, {h_layer_id, batch_size, kv_num_heads, max_seq_len, head_size}, d_kcache); \
+    TensorWrapper<dtype> *vcache = new TensorWrapper<dtype>(GPU, type, {h_layer_id, batch_size, kv_num_heads, max_seq_len, head_size}, d_vcache); \
     TensorWrapper<bool> *finished = new TensorWrapper<bool>(GPU, type_bool, {batch_size}, d_finished);                                \
     TensorWrapper<int> *step = new TensorWrapper<int>(CPU, type_int, {1}, &h_step);                                                   \
     TensorWrapper<int> *layer_id = new TensorWrapper<int>(CPU, type_int, {1}, &h_layer_id);                                           \
@@ -226,10 +265,10 @@ bool CheckResult(float *CPUoutput, T *GPUoutput, int output_size)
 int main(int argc, char *argv[])
 {
     constexpr int batch_size = 1;
-    constexpr int head_size = 16;
+    constexpr int head_size = 4;
     constexpr int num_heads = 2;
-    constexpr int kv_num_heads = 1;
-    constexpr int max_seq_len = 32;
+    constexpr int kv_num_heads = 2;
+    constexpr int max_seq_len = 4;
     int h_step = 4;
     int h_layer_id = 0;
     int rotary_embedding_dim = 128;
