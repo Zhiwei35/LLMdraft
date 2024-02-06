@@ -207,8 +207,8 @@ __global__ void masked_MHA_kernel(T* q,
     if (tid * vec_size < head_size) {
         qvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&q_mem[q_offset_vec]));
         //if(q_head_id == 0 && q_batch_id == 0 && tid == 0) {
-        //    printf("qvec[0]=%f, qvec[1]=%f, qvec[2]=%f\n", qvec.x, qvec.y, qvec.z);
-	//    printf("qvec[128]=%f, qvec[129]=%f, qvec[130]=%f\n", q_mem[q_offset_vec+128], q_mem[q_offset_vec+129], q_mem[q_offset_vec+130]);
+        //    printf("qhead=0, qvec[0]=%f, qvec[1]=%f, qvec[2]=%f\n", qvec.x, qvec.y, qvec.z);
+	//    printf("qhead=1, qvec[128]=%f, qvec[129]=%f, qvec[130]=%f\n", q_mem[q_offset_vec+128], q_mem[q_offset_vec+129], q_mem[q_offset_vec+130]);
         //}
         // if (qkv_bias != nullptr){
 	    //     Vec_t q_bias = *reinterpret_cast<Vec_t*>(&qkv_bias[q_head_id * head_size + tid * vec_size]);
@@ -217,12 +217,17 @@ __global__ void masked_MHA_kernel(T* q,
         //     }
 	    // }
         kvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&k_mem[k_offset_vec]));
-       // if(kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
-        //    printf("kvec[0]=%f, kvec[1]=%f, kvec[2]=%f\n", kvec.x, kvec.y, kvec.z);
-        //}
+        //if(kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+        //    printf("kvh=0, kvec[0]=%f, kvec[1]=%f, kvec[2]=%f\n", kvec.x, kvec.y, kvec.z);
+        //    printf("kvh=1, kvec[128]=%f, kvec[129]=%f, kvec[130]=%f\n", k_mem[k_offset_vec+128], k_mem[k_offset_vec+129], k_mem[k_offset_vec+130]);
+	//}
         
         vvec = *reinterpret_cast<Vec_t*>(const_cast<T*>(&v_mem[k_offset_vec]));
-        // if (qkv_bias != nullptr){
+        //if(kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+        //    printf("kvh=0, vvec[0]=%f, vvec[1]=%f, vvec[2]=%f\n", vvec.x, vvec.y, vvec.z);
+        //    printf("kvh=1, vvec[128]=%f, vvec[129]=%f, vvec[130]=%f\n", v_mem[k_offset_vec+128], v_mem[k_offset_vec+129], v_mem[k_offset_vec+130]);
+        //}
+	// if (qkv_bias != nullptr){
 	    //     Vec_t v_bias =*reinterpret_cast<Vec_t*>(&qkv_bias[kv_head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]);
         //     for(int i = 0; i < vec_size; i++) {
         //         reinterpret_cast<float*>(&vvec)[i] += reinterpret_cast<float*>(&v_bias)[i];
@@ -257,10 +262,10 @@ __global__ void masked_MHA_kernel(T* q,
         //或许可以在每个step省略掉前step-1的qk dot
         Vec_t kvec_qk = tid * vec_size < head_size ? *reinterpret_cast<Vec_t*>(&k_cache[iter * step_stride + cache_offset]) : zero_f4;
         //if (iter == 0 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
-        //    printf("iter=0, head=1, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", k_cache[iter * step_stride + cache_offset+max_seq_len * head_size], k_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 1], k_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 2]);
+        //    printf("iter=0, head=2, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", k_cache[iter * step_stride + cache_offset+max_seq_len * 2 * head_size], k_cache[iter * step_stride + cache_offset+ 2 * max_seq_len * head_size + 1], k_cache[iter * step_stride + cache_offset + 2 * max_seq_len * head_size + 2]);
         //}
-        //if (iter == 12 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
-        //    printf("iter=12, head=1, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", k_cache[iter * step_stride + cache_offset+max_seq_len * head_size], k_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 1], k_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 2]);
+        //if (iter == 10 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+        //    printf("iter=10, head=2, kvec_qk[0]=%f, kvec_qk[1]=%f, kvec_qk[2]=%f\n", k_cache[iter * step_stride + cache_offset+max_seq_len * 2 * head_size], k_cache[iter * step_stride + cache_offset+ 2 * max_seq_len * head_size + 1], k_cache[iter * step_stride + cache_offset+ 2 * max_seq_len * head_size + 2]);
         //}
         //sk[tid]= k_cache[iter * cache_offset + k_offset];
         // __syncthreads();
@@ -331,11 +336,11 @@ __global__ void masked_MHA_kernel(T* q,
             // when final step, update k cache
             //if (iter == 0 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
             //    printf("iter=0, head=0, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset], v_cache[iter * step_stride + cache_offset + 1], v_cache[iter * step_stride + cache_offset + 2]);
-	    //	printf("iter=0, head=1, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset+max_seq_len * head_size], v_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 1], v_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 2]);
+	    //	printf("iter=0, head=2, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset+max_seq_len *2 * head_size], v_cache[iter * step_stride + cache_offset+ 2 * max_seq_len * head_size + 1], v_cache[iter * step_stride + cache_offset+ 2 * max_seq_len * head_size + 2]);
             //}
-            //if (iter == 12 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
+            //if (iter == 10 && kv_head_id == 0 && kv_batch_id == 0 && tid == 0) {
             //    printf("iter=12, head=0, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset], v_cache[iter * step_stride + cache_offset + 1], v_cache[iter * step_stride + cache_offset + 2]);
-	    //	printf("iter=12, head=1, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset+max_seq_len * head_size], v_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 1], v_cache[iter * step_stride + cache_offset+max_seq_len * head_size + 2]);
+	    //	printf("iter=10, head=2, vvec_qk[0]=%f, vvec_qk[1]=%f, vvec_qk[2]=%f\n", v_cache[iter * step_stride + cache_offset+ 2 * max_seq_len * head_size], v_cache[iter * step_stride + cache_offset+ 2 * max_seq_len * head_size + 1], v_cache[iter * step_stride + cache_offset+ 2 * max_seq_len * head_size + 2]);
             //}
 	    if (iter == step - 1) {
                 // TODO: update k cache with k with bias add

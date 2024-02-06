@@ -484,7 +484,7 @@ __global__ void rope_kernel_for_self_decoder(T* q,
     int tid = threadIdx.x;
     int q_head_id = blockIdx.x;
     int q_batch_id = blockIdx.y;
-    int kv_head_id = q_head_id / head_num / kv_head_num;
+    int kv_head_id = q_head_id / (head_num / kv_head_num);
     int kv_batch_id = q_batch_id;
 
     int batch_stride = head_num * head_size;

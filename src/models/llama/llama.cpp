@@ -436,7 +436,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
         // input_ids->shape = {1};
         if (index == 0)
         {
-	    ret = 13; // to keep same as HF for debug
+	    //ret = 13; // to keep same as HF for debug
             TensorWrapper<int> tmp = TensorWrapper<int>(CPU, getTensorType<int>(), {1}, &ret);
             ONELLM_CHECK(tmp.shape != input_ids->shape);
             ONELLM_CHECK(tmp.dtype == input_ids->dtype);

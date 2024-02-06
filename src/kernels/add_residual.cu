@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "src/kernels/add_residual.h"
+#include "src/utils/cuda_debug_utils.cuh"
 
 // 1.this kernel is used at the end of FFN in every decoder layer
 template <typename T>
@@ -53,7 +54,8 @@ __global__ void AddResidual( // residual.shape = [num tokens, hidden_units], bat
 template <typename T>
 void launchAddResidual( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, 256 threads travrse hiddenunits eles recursely
     TensorWrapper<T> *residual,
-    TensorWrapper<T> *decoder_out // [num tokens, hidden_units]
+    TensorWrapper<T> *decoder_out, // [num tokens, hidden_units]
+    bool is_print
 )
 {
     int batch_size = decoder_out->shape[0];
@@ -66,13 +68,18 @@ void launchAddResidual( // residual.shape = [num tokens, hidden_units], batch_si
                                     decoder_out->data,
                                     batch_size,
                                     hidden_units);
+    if (is_print) {
+    	print_data<<<1,1>>>(decoder_out->data);
+    }
     // printf("called fusedAddBiasResidualAndRMSNorm\n");
 }
 template void launchAddResidual( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, n_dims = hidden_units
     TensorWrapper<float> *residual,
-    TensorWrapper<float> *decoder_out // [num tokens, hidden_units]
-);
+    TensorWrapper<float> *decoder_out, // [num tokens, hidden_units]
+    bool is_print
+    );
 template void launchAddResidual( // residual.shape = [num tokens, hidden_units], batch_size = num tokens, n_dims = hidden_units
     TensorWrapper<half> *residual,
-    TensorWrapper<half> *decoder_out // [num tokens, hidden_units]
-);
+    TensorWrapper<half> *decoder_out, // [num tokens, hidden_units]
+    bool is_print
+    );

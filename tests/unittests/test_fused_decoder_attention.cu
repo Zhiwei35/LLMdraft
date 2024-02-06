@@ -308,7 +308,7 @@ int main(int argc, char *argv[])
             }                                                                                                                                     
             else                                                                                                                                  
             {                                                                                                                                     
-                h_qkv[i] = (float)(i + 1) / 10;                                                                                                   
+                h_qkv[i] = (float)(i - 3) / 10;                                                                                                   
             }                                                                                                                                     
         }                                                                                                                                         
         else if (i < batch_size * (num_heads + kv_num_heads) * head_size)                                                                         
