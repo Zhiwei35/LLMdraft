@@ -2,9 +2,7 @@
 #include "src/utils/macro.h"
 #include "src/utils/debug_utils.h"
 #include "src/layers/decoder/context_decoder.h"
-//TODO: 1.more elegantly call DeviceSyncAndCheckCudaError();
-//2.ffn down proj dont have bias, but we cant pass void* to the fusedrmsnorm, here adopt a workaround that allocate 0.0f to bias,  which must be enhanced
-//3.line128 update the decoder input of next iter, I think this is right
+// (RussWong)note: in llama, all linear dont have bias
 template<typename T>
 void LlamaContextDecoder<T>::allocForForward(LLaMAAttentionDynParams& params)
 {
@@ -37,24 +35,18 @@ template<typename T>
 void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector<LlamaLayerWeight<T>*>& layerWeights, TensorMap& output_tensors, LLaMAAttentionDynParams& dyn_params)
 {
     allocForForward(dyn_params);
-    //1.
     Tensor* seq_lens = input_tensors["input_length"];
-    // Tensor* padding_offset = input_tensors["padding_offset"];
+    // 1. calculate padding offset
     // shape:
         //seq_lengths:[batch size]
         //output cum_seqlens:[batch size + 1], first ele is 0
         //output padding_offset:[batch size * max q len]
-    //int h_token_num{};//output 
-    launchCalPaddingoffset(//h_pinned_token_num_ptr, //pinned host mem alloced in h file
-                           //&h_token_num, //out
-                           padding_offset, //out
+    launchCalPaddingoffset(padding_offset, //out
                            cum_seqlens, //out
                            seq_lens->as<int>()); // in
     DeviceSyncAndCheckCudaError();
-    //2.
-    // Tensor* attention_mask = input_tensors["attention_mask"];
+    //2. build causal mask
     Tensor* context_length = input_tensors["context_length"];
-    //dyn_params.max_k_len = attention_mask->shape[2];
     launchBuildCausalMasks<T>(attention_mask, //out
                             seq_lens->as<int>(), //q, input lens, [bs]
                             context_length->as<int>());//k, context lens, [bs]
@@ -69,9 +61,7 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
     Tensor* layer_id = input_tensors["layer_id"];
     Tensor* decoder_input = input_tensors["decoder_input"];
     ONELLM_CHECK_WITH_INFO(decoder_input->as<T>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    // ONELLM_CHECK_WITH_INFO(padding_offset->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     ONELLM_CHECK_WITH_INFO(history_length->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    // ONELLM_CHECK_WITH_INFO(attention_mask->as<int>()->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     TensorMap ctx_attn_inputs{
         {"attention_input", decoder_input},
         {"padding_offset", padding_offset},
@@ -80,7 +70,6 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
         {"context_length", context_length},
         {"attention_mask", attention_mask},
         {"layer_id", layer_id}
-        //{"layer_id", &TensorWrapper(Device::CPU, type_int, {1}, &layer_id)}
     };
     TensorMap ctx_attn_outputs{
         {"attention_output", decoder_output},
@@ -98,37 +87,40 @@ void LlamaContextDecoder<T>::forward(TensorMap& input_tensors, const std::vector
 
         decoder_input = ctx_attn_inputs["attention_input"];
         launchRMSNorm(decoder_input->as<T>(), //in&out, [num tokens, q_hidden_units]
-                    decoder_residual, // = rmsnorm input hidden states
+                    decoder_residual, // = rmsnorm input hidden states, used for next add residual
                     layerWeights[layer_id]->attn_norm_weight,//rmsnorm weights, [q_hidden_units]
                     rmsnorm_eps);
         DeviceSyncAndCheckCudaError();  
         ctxAttn->forward(ctx_attn_inputs, ctx_attn_outputs, layerWeights[layer_id]->self_attn_weight, dyn_params, ctxAttn->GetAttnStaticParams());
-        // TODO:这里是加input rmsnorm的输入
+        // RussWong note:这里的residual是上一个rmsnorm的输入
         launchFusedAddBiasResidualRMSNorm(decoder_residual, //in residual from tensor before rmsnorm and return decoder_residual + decoder_output, [num tokens, hidden_units]
                                         decoder_output->as<T>(), //in&out from attention output, [num tokens, hidden_units]
                                         layerWeights[layer_id]->self_attn_weight.output, //bias
                                         layerWeights[layer_id]->ffn_norm_weight.gamma,//rmsnorm weights, [hidden_units]
                                         rmsnorm_eps);
         DeviceSyncAndCheckCudaError();
-        save_tensor(decoder_output->as<T>() ,"ffn_input.bin", layer_id);
+        #ifdef SAVE_DATA
+            save_tensor(decoder_output->as<T>() ,"ffn_input.bin", layer_id);
+        #else
+        #endif
         TensorMap ffn_inputs{
             {"ffn_input", decoder_output}
         };
         TensorMap ffn_outputs{
             {"ffn_output", decoder_output}
         };
-	dyn_params.is_ctx = true;
+	dyn_params.is_ctx = true; // used to distinguish ffn is in context decoder or self decoder, so as to reduce print infos
         ffn->forward(ffn_inputs, ffn_outputs, layerWeights[layer_id]->ffn_weight, dyn_params);
-        save_tensor(decoder_output->as<T>() ,"ffn_output.bin", layer_id);
-        // auto gamma = layer_id < num_layer - 1 ? layerWeights[layer_id + 1]->attn_norm_weight.gamma :
-        //                                              input_tensors["output_norm_weight"]->as<T>()->data;//llamaweight->output_norm_weight
-        // TODO:这里的residual为上一个launchFusedAddBiasResidualRMSNorm中加了redisual后的hidden states
+        #ifdef SAVE_DATA
+            save_tensor(decoder_output->as<T>() ,"ffn_output.bin", layer_id);
+        #else
+        #endif        
+        // RussWong note:这里的residual为上一个launchFusedAddBiasResidualRMSNorm中加了redisual后的hidden states
         launchAddResidual(decoder_residual, //residual, [num tokens, hidden_units]
                         decoder_output->as<T>() //in&out, [num tokens, hidden_units]
                         );
         DeviceSyncAndCheckCudaError();
         ctx_attn_inputs.insert("attention_input", decoder_output);
-	//decoder_input = decoder_output; // for next iter
     }
     freeBuf();
     DeviceSyncAndCheckCudaError();

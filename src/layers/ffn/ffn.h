@@ -17,9 +17,6 @@ private:
     const int inter_size;
     const int hidden_units;
     int count = -1; // used to record layer index currently
-    //    const bool is_1st_epoch; // judge if its 1st epoch, if so, we will allocate kv cache
-    // this params are dynamic
-    //const LLaMAAttentionDynParams attn_dyn_params;
 
     cudaStream_t stream;
     BaseAllocator* allocator;
@@ -30,10 +27,7 @@ private:
     // [2, num tokens, intersize]
     TensorWrapper<T>*  SwiGLU_input = nullptr;  //gate proj and up proj output buf   
     // [num tokens, intersize] 
-    TensorWrapper<T>*  down_proj_input = nullptr; 
-    // [num tokens, hiddenunits]
-    // TensorWrapper<T>*  down_proj_output = nullptr;
-  
+    TensorWrapper<T>*  down_proj_input = nullptr;   
 
 
 public:
