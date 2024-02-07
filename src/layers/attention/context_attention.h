@@ -22,8 +22,6 @@ private:
     float scale;
     // this params are only saw in llama and are unchanged 
     LLaMAAttentionStaticParams attn_static_params;
-    // this params are dynamic
-    //const LLaMAAttentionDynParams attn_dyn_params;
     cudaStream_t stream;
     BaseAllocator* allocator;
     // for linear and batchgemm
@@ -36,7 +34,6 @@ private:
     TensorWrapper<T>*  k_cache_buf = nullptr;
     TensorWrapper<T>*  v_cache_buf = nullptr;
     TensorWrapper<T>*  qk_buf = nullptr;
-    TensorWrapper<T>*  qk_buf_float = nullptr; // for acc
     TensorWrapper<T>*  qkv_buf_w_pad = nullptr;
     TensorWrapper<T>*  qkv_buf_wo_pad_1 = nullptr;      
 

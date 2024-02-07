@@ -86,6 +86,10 @@ option (PRINT_DATA
   "print kernel output to debug"
   OFF
 )
+option (SAVE_DATA
+  "save kernel output to debug"
+  OFF
+)
 # enable 85-86, 88-91, 97-98 when we plan to test llama, and enable 93-95 when we want to test some example and unittests
 file(GLOB_RECURSE ONELLM_CXX_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.cc)
 file(GLOB_RECURSE ONELLM_CUDA_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cu)

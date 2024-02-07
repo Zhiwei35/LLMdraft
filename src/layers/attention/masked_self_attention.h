@@ -3,14 +3,14 @@
 #include "src/memory/allocator/cuda_allocator.h"
 #include "src/kernels/linear.h" //1st/4th kernel of masked self attention, qkv gemm
 #include "src/kernels/attn_softmax_kernel.h"
-#include "src/kernels/qkv_bias_and_RoPE.h" //2nd kernel of masked self attention, qkv bias and rope
+#include "src/kernels/qkv_bias_and_RoPE.h" //2nd rope
 #include "src/kernels/fused_decoder_self_attention.h" //3rd kernel 
 #include "src/utils/tensor.h"
 #include "src/kernels/cublas_utils.h"
 #include "src/models/llama/llama_params.h"
 #include "src/utils/macro.h"
 
-// 这里面的数据成员都是只存在于attention layer，而不像finished，seqlengths这种贯穿整个过程
+// (RussWong)note: 这里面的数据成员都是只存在于attention layer，而不像finished，seq lengths这种贯穿整个过程
 template<typename T>
 class LLaMASelfAttentionLayer {
 private:
@@ -20,23 +20,17 @@ private:
     const int hidden_units;
     const int q_head_per_kv; //for GQA and MQA
     const int kv_head_num;
-    // const bool is_free_buffer_after_fwd;
-    //const bool is_1st_epoch; // judge if its 1st epoch, if so, we will allocate kv cache
     float scale;
     // this params are only saw in llama and are unchanged 
     LLaMAAttentionStaticParams attn_static_params;
-    // this params are dynamic
-    //const LLaMAAttentionDynParams attn_dyn_params;
-
     cudaStream_t stream;
     BaseAllocator* allocator;
     // for linear and batchgemm
     cublasWrapper* cublas_wrapper;
 
     // intermedia buffer
-    TensorWrapper<T>* qkv_buf     = nullptr; // for qkv linear output and mha input
+    TensorWrapper<T>* qkv_buf     = nullptr; // for qkv linear output and rope input/output
     TensorWrapper<T>* mha_output = nullptr; // mha output, then invoke a linear to attention output
-
 
 public:
     LLaMASelfAttentionLayer(int head_num,
@@ -46,7 +40,7 @@ public:
                                cudaStream_t stream,
                                cublasWrapper* cublas_wrapper,
                                BaseAllocator* allocator);
-                            //    bool is_free_buffer_after_fwd);
+    // (RussWong)note: private data member can only be accessed by member function
     LLaMAAttentionStaticParams& GetAttnStaticParams(){
         return attn_static_params;
     }
