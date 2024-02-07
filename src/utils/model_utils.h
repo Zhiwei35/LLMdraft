@@ -7,28 +7,26 @@
 #include "src/utils/macro.h"
 #include "src/memory/allocator/cuda_allocator.h"
 #include "src/models/llama/llama_params.h"
-
+// (RussWong) note: all LLM models are created in the header file, and I provided two ways, one is real weight model, the other is dummy weight model for functionality
 namespace onellm {
     template<typename T>
     BaseModel *CreateModelWithName(const std::string& model_name) {
         ONELLM_CHECK_WITH_INFO(model_name == "llama", "dont support other models except llama yet!");
-        int head_num = 32;//4;
-        int kv_head_num = 32;//2;
-        int head_size = 128;//8;
-        int inter_size = 11008;//12;
-        int num_layers = 32;//2;
+        int head_num = 32;
+        int kv_head_num = 32;
+        int head_size = 128;
+        int inter_size = 11008;
+        int num_layers = 32;
         int max_seq_len = 64;
-        int vocab_size = 32000;//100;
+        int vocab_size = 32000;
         int hidden_units = (head_num + 2 * kv_head_num) * head_size;
         int q_hidden_units = head_num * head_size;
-        //int step = 0;
-        float rmsnorm_eps = 1e-6;
         bool attn_bias = false;
         LLaMAAttentionStaticParams attn_static_params;
         attn_static_params.rotary_embedding_dim = 128;
         attn_static_params.rotary_embedding_base = 10000;
-        attn_static_params.max_position_embeddings = 4096;//2048; for llamav1
-        attn_static_params.use_dynamic_ntk = false; // for dyn scaling rope
+        attn_static_params.max_position_embeddings = 4096;
+        attn_static_params.use_dynamic_ntk = false; // true is for dyn scaling rope
         cublasHandle_t cublas_handle;
         cublasLtHandle_t cublaslt_handle;
         cudaStream_t stream;

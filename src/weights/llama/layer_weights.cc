@@ -7,7 +7,6 @@ LlamaLayerWeight<T>::LlamaLayerWeight(int     head_num,
                                     int     head_size,
                                     int     inter_size,
                                     WeightType weight_type,
-                                    //int        group_size,
                                     bool       attn_bias):
     head_num(head_num),
     kv_head_num(kv_head_num),
@@ -30,9 +29,7 @@ LlamaLayerWeight<T>::LlamaLayerWeight(int     head_num,
         CHECK(cudaMalloc((void**)&self_attn_weight.qkv.bias, sizeof(T) * (head_num + 2 * kv_head_num) * head_size));
         CHECK(cudaMalloc((void**)&self_attn_weight.output.bias, sizeof(T) * hidden_units));
     }
-
-    // ffn_weight.gate.type = weight_type;
-    // ffn_weight.up.type = weight_type;
+    // (RussWong)note: we concat gate linear weight and up linear weight to one weight tensor for performance improvement
     ffn_weight.gateAndup.type = weight_type;
     ffn_weight.down.type = weight_type;
     ffn_weight.gateAndup.shape = {2 * inter_size, hidden_units};
@@ -42,9 +39,8 @@ LlamaLayerWeight<T>::LlamaLayerWeight(int     head_num,
     // CHECK(cudaMalloc((void**)&ffn_weight.up.data, hidden_units * inter_size));
     CHECK(cudaMalloc((void**)&ffn_weight.down.data, sizeof(T) * hidden_units * inter_size));
 }
-//model file type用来控制loadweightfrombin的第二个模板类型参数T_IN,如果T_IN和第一个模板参数不一致，需要将T_IN的weight使用ptx cast转换为T
-// weight_path = weight_path + "layers." + std::to_string(layer)
-// weight from HF is always half type
+// (RussWong)note: weight from HF is always half type, and if we want run fp32 inference, we should convert half weight to fp32 weight in tools/weights_convert.py 
+// (RussWong)note: shape and data of ffn weight downloaded form HF are transposed, so we should carefully declare shape here
 template<typename T>
 void LlamaLayerWeight<T>::loadWeights(std::string weight_path, WeightType weight_type) // weighttype参数比较多余
 {
@@ -64,7 +60,7 @@ void LlamaLayerWeight<T>::loadWeights(std::string weight_path, WeightType weight
 	self_attn_weight.output.bias = nullptr;
 	ffn_weight.down.bias = nullptr;
     } 
-    // tmp! after I handle qkvbiasandrope and fusedbiasaddresidual's bias nullptr case, I can remove it
+    // (RussWong)note: below code lines can be enabled when I dont support qkvbiasandrope and fusedbiasaddresidual's bias nullptr case.
     //T* d_dummy_qkv_bias;
     //GPUMalloc(&d_dummy_qkv_bias, sizeof(T) * (head_num + 2 * kv_head_num) * head_size);
     //cudaMemset((void*)d_dummy_qkv_bias, 0, sizeof(T) * (head_num + 2 * kv_head_num) * head_size);
@@ -80,18 +76,10 @@ void LlamaLayerWeight<T>::loadWeights(std::string weight_path, WeightType weight
     //cudaMemset((void*)d_dummy_ffn_down_bias, 0, sizeof(T) * hidden_units);
     //ffn_weight.down.bias = (T*)d_dummy_ffn_down_bias;
 }
+
+// (RussWong)note: load dummy model/weight API, is used to the time when you want test inference performance only
 template<typename T>
-void LlamaLayerWeight<T>::loadWeights() // 这个改动可能会影响一些example，因为它们往里面传入了这几个dummy weight指针
-// void LlamaLayerWeight<T>::loadWeights(T* d_attn_norm_weight,
-//                                 T* d_ffn_norm_weight,
-//                                 T* d_qkv_weights,
-//                                 T* d_qkv_bias,
-//                                 T* d_output_weights,
-//                                 T* d_output_bias,
-//                                 T* d_ffn_down,
-//                                 T* d_ffn_down_bias,
-//                                 T* d_ffn_gate,
-//                                 T* d_ffn_up)
+void LlamaLayerWeight<T>::loadWeights() 
 {
     T* d_dummy_attn_norm_weight;
     T* d_dummy_ffn_norm_weight;
@@ -169,9 +157,6 @@ void LlamaLayerWeight<T>::loadWeights() // 这个改动可能会影响一些exam
     ffn_weight.down.data = d_dummy_ffn_down;
     ffn_weight.down.bias = d_dummy_ffn_down_bias;
 }
-//required in linking time
-// template void LlamaLayerWeight<float>::loadWeights(float*, float*, float*, float*, float*, float*, float*, float*, float*, float*);
-// template void LlamaLayerWeight<half>::loadWeights(half*, half*, half*, half*, half*, half*, half*, half*, half*, half*);
 
 template<typename T>
 void freeWeights(BaseWeight<T>& weights)
@@ -187,16 +172,16 @@ void freeWeights(BaseWeight<T>& weights)
 template<typename T>
 LlamaLayerWeight<T>::~LlamaLayerWeight()
 {
-    // free norm
+    // free norm weights ptr
     cudaFree(attn_norm_weight.gamma);
     cudaFree(ffn_norm_weight.gamma);
-    //free weights, including data and bias
+    // free other weights, including data and bias
     freeWeights(self_attn_weight.qkv);
     freeWeights(self_attn_weight.output);
     freeWeights(ffn_weight.gateAndup);
     // freeWeights(ffn_weight.up);
     freeWeights(ffn_weight.down);
 }
-
+// template instantial required in linking time
 template class LlamaLayerWeight<float>;
 template class LlamaLayerWeight<half>;

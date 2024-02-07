@@ -3,7 +3,7 @@
 #include <sstream>  // std::stringstream
 #include <string>
 #include <vector>
-
+//(RussWong)note: this function allow us can self define print string
 template<typename... Args>
 inline std::string fmtstr(const std::string& format, Args... args)
 {
@@ -16,12 +16,11 @@ inline std::string fmtstr(const std::string& format, Args... args)
         throw std::runtime_error("Error during formatting.");
     }
     auto size = static_cast<size_t>(size_s);
-    //auto buf  = std::make_unique<char[]>(size);
     std::unique_ptr<char> buf(new char[size]);
     std::snprintf(buf.get(), size, format.c_str(), args...);
     return std::string(buf.get(), buf.get() + size - 1);  // We don't want the '\0' inside
 }
-
+//(RussWong)note: below two functions allow us can convert elements in vector or pointer to string
 template<typename T>
 inline std::string vec2str(std::vector<T> vec)
 {

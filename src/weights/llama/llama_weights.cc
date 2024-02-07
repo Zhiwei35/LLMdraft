@@ -36,17 +36,13 @@ LlamaWeight<T>::LlamaWeight(
     pre_decoder_embedding_weight.type = weight_type;
     post_decoder_embedding_weight.type = weight_type;
 }
+// (RussWong)note: weight from HF is always half type, and if we want run fp32 inference, we should convert half weight to fp32 weight in tools/weights_convert.py 
+// (RussWong)note: shape and data of embedding and LMHead weight downloaded form HF are transposed, so we should carefully declare shape here
 template<typename T>
 void LlamaWeight<T>::loadWeights(std::string weight_path) {
-    //weight_path += '/';
-    // std::cout << "the weight path is " << weight_path <<"\n";
-    // weight from HF is always half type
     loadWeightFromBin<T, float>::internalFunc(out_rmsnorm_weight.gamma, {(size_t)hidden_units}, weight_path + "model.norm.weight.bin");
-    // std::cout << "loaded norm weight " << weight_path <<"\n";
     loadWeightFromBin<T, float>::internalFunc(post_decoder_embedding_weight.data, {(size_t)vocab_size, (size_t)hidden_units}, weight_path + "lm_head.weight.bin");
-    // std::cout << "loaded lmhead weight " << weight_path <<"\n";
     loadWeightFromBin<T, float>::internalFunc(pre_decoder_embedding_weight.data, {(size_t)vocab_size, (size_t)hidden_units}, weight_path + "model.embed_tokens.weight.bin");
-    // std::cout << "loaded embed tokens weight " << weight_path <<"\n";
     for (int layer = 0; layer < num_layer; ++layer) {
         llama_layer_weight[layer]->loadWeights(weight_path + "model.layers." + std::to_string(layer), weight_type);
     }
@@ -93,6 +89,6 @@ LlamaWeight<T>::~LlamaWeight()
         delete p;
     }
 }
-
+// template instantial required in linking time
 template struct LlamaWeight<float>;
 template struct LlamaWeight<half>;

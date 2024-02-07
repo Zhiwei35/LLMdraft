@@ -22,13 +22,11 @@ public:
                     int  head_size,
                     int  inter_size,
                     WeightType weight_type,
-                    //int  group_size, //used for per_group quantization
-                    bool attn_bias);// cudamalloc to weights
+                    bool attn_bias);
     ~LlamaLayerWeight();
 
     void loadWeights(std::string weight_path, WeightType weight_type);
     
-
     void loadWeights();
 
     LayerNormWeight<T> attn_norm_weight;

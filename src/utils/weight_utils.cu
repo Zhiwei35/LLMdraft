@@ -11,7 +11,7 @@ inline __device__ float type_cast(half val) {
 
 template<>
 inline __device__ half type_cast(float val) {
-    return __float2half(val); //还有ru和rd两种舍入方式
+    return __float2half(val); 
 }
 
 template<typename T>
@@ -50,7 +50,6 @@ __global__ void type_conversion(T_OUT* dst, const T_IN* src, const int size)
     int total_thread_nums = blockDim.x * gridDim.x;
     for (int index = gtid; index < size; index += total_thread_nums) {
         dst[index] = type_cast<T_OUT>(src[index]);
-        // if(gtid == 0) {printf("1st ele after half2float: %f\n", dst[gtid]);}
     }
 }
 
@@ -107,19 +106,13 @@ std::vector<T> loadWeightFromBinHelper(std::vector<size_t> shape, std::string fi
     // If we succeed, return an array with values.
     return host_array;
 }
-///home/ubuntu/hzw/llamaweight/tmp/layers.0.attention.wq.weight
-//template <typename T_OUT, typename T_FILE, bool is_same>
-//struct loadWeightFromBin
-//{};
+
 template <typename T_OUT, typename T_FILE>
 struct loadWeightFromBin<T_OUT, T_FILE, true>
 {
 public:
     static void internalFunc(T_OUT* ptr, std::vector<size_t> shape, std::string filename) {
         std::vector<T_FILE> host_array = loadWeightFromBinHelper<T_FILE>(shape, filename);
-        // if(filename.find("embed") != -1) {
-        //     std::cout << "embed table: " << (float)host_array[0] << ", " << (float)host_array[1] << "\n";
-        // }
         if (host_array.empty()) {
             return;
         }
@@ -135,13 +128,9 @@ struct loadWeightFromBin<T_OUT, T_FILE, false>
 public:
     static void internalFunc(T_OUT* ptr, std::vector<size_t> shape, std::string filename) {
         std::vector<T_FILE> host_array = loadWeightFromBinHelper<T_FILE>(shape, filename);
-        // if(filename.find("embed") != -1) {
-        //     std::cout << "embed table: " << (float)host_array[0] << ", " << (float)host_array[1] << "\n";
-        // }
         if (host_array.empty()) {
             return;
         }
-
 
         T_FILE* ptr_tmp;
         GPUMalloc(&ptr_tmp, host_array.size());
@@ -152,7 +141,7 @@ public:
     }
 };
 
-// ！！report more than one instance
+// ！！(wrong case) report more than one instance
 // template<typename T_OUT, typename T_FILE>
 // typename std::enable_if<std::is_same<T_OUT, T_FILE>::value, int>::type loadWeightFromBin(T_OUT* ptr, std::vector<size_t> shape, std::string filename)
 // {
