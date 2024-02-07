@@ -1,6 +1,5 @@
 #include "src/kernels/build_casual_mask.h"
 // mask shape =  [bs, max_q_len, max_k_len]
-// 在gpt_kernels.cu llama_kernels.cu中都出现了不同的版本，这里是以后者里面的版本为例写的，因为在llamacontextdecoder中调用的是这个
 template<typename T>
 __global__ void BuildCausalMasksConsideringContextPastKV(T* mask,
                                                 const int* q_lens,  //input lens, shape=[batch size]

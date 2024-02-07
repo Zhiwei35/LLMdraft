@@ -3,12 +3,12 @@
 // mini-softmax + curand_sample
 // input: [bs, K] from topK output
 // output: [bs]
-// beamsearch不存在sampling，所以bsxbm = bs
+// (Russwong)note: beamsearch不存在sampling，所以bsxbm = bs
 template<typename T>
 __global__ void SamplingKernel(int* topk_id,
                                T* topk_val, //[bs, K] from topK
                                int* output_id, //[bs]
-                               int* seqlen, //cu seqlen,[bs]
+                               int* seqlen, //cumulated seq len,[bs]
                                bool* is_finished, //[bs]
                                int K,
                                int rand_num, // step
@@ -28,10 +28,10 @@ __global__ void SamplingKernel(int* topk_id,
             sum += (float)topk_val[batch_id * K + i];
         }
         curandState_t state;
-        curand_init((unsigned long long)rand_num,(unsigned long long)bid, (unsigned long long)0, &state);// not sure rand_num's type is suitable here or not
+        // (Russwong)note: curand_init API only support ulonglong data type
+        curand_init((unsigned long long)rand_num,(unsigned long long)bid, (unsigned long long)0, &state);
         thredhold = (float)curand_uniform(&state) * sum; // for a block
-        // printf("thredhold = %f\n", thredhold);
-        output_id[bid] = topk_id[bid * K] % vocab_size; //init output id in case line37 never run
+        output_id[bid] = topk_id[bid * K] % vocab_size; 
         for(int i = 0; i < K; i++) {
             thredhold = thredhold - (float)topk_val[batch_id * K + i];
             if(thredhold < 0) {
@@ -59,7 +59,6 @@ void launchSampling(TensorWrapper<int>* topk_id,
 
     dim3 grid(batch_size);
     dim3 block(K); // K is small, so directly allocate K threads is enough
-    // std::cout << "calling sampling kernel" << "\n";
     SamplingKernel<<<grid, block>>>(
         topk_id->data,
         topk_val->data,
@@ -71,7 +70,6 @@ void launchSampling(TensorWrapper<int>* topk_id,
         end_id,
         vocab_size
     );
-    // std::cout << "called sampling kernel" << "\n";
 }
 
 template void launchSampling(TensorWrapper<int>* topk_id,

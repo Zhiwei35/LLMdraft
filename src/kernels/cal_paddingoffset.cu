@@ -4,7 +4,7 @@
     //cum_seqlens:[batch size + 1],first ele is 0
     //padding_offset:[batch size * max q len]
 // note: the point is to calc padding offset and cum offset
-// we first use serial algo, then enhance to scan algo
+// TODO: we first use serial algo, then can enhance to CUDA scan algo
 
 __global__ void CalPaddingoffset(int*         padding_offset, 
                                 int*         cum_seqlens,
@@ -27,7 +27,6 @@ __global__ void CalPaddingoffset(int*         padding_offset,
         total_seqlen += seqlen;
     }
     cum_seqlens[batch_size] = total_seqlen;
-    //h_token_num[0] = total_seqlen;
 }
 
 void launchCalPaddingoffset(TensorWrapper<int>* padding_offset, 

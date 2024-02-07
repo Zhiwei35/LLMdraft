@@ -10,7 +10,6 @@
 //2.cublasXt API: have the data on the Host
 //3.cuBLASLt API: lightweight library dedicated to GEMM  with a new flexible API. 
 // adds flexibility in matrix data layouts, input types, compute types, and also in choosing the algorithmic implementations and heuristics through parameter programmability
-
 class cublasWrapper {
     private:
         cublasHandle_t   cublas_handle_;
@@ -20,15 +19,10 @@ class cublasWrapper {
         cudaDataType_t Btype_;
         cudaDataType_t Ctype_;
         cudaDataType_t computeType_;   
-
-        //cudaStream_t   stream_;
-        // void* cublas_workspace = nullptr;
-//        BaseAllocator* allocator_ = nullptr;
     
     public:
         cublasWrapper(cublasHandle_t cublas_handle_,
                       cublasLtHandle_t cublaslt_handle_);
-                      //cudaStream_t stream);
                       // BaseAllocator* allocator); enable it when we use cublasLt API
 
         ~cublasWrapper();

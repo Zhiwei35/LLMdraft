@@ -1,7 +1,6 @@
 #include <float.h> //FLT_MIN
 #include <cuda.h>
 #include <iostream>
-//#include <utils/gpu_config.h>
 #include "src/kernels/topK.h"
 #include <cub/cub.cuh>
 
@@ -15,7 +14,7 @@ __device__ topK<T, K> reduce_functor(const topK<T, K>& a, const topK<T, K>& b) {
     return res;
 }
 // gridsize:bs * beamwidth * BlockPerBeam 
-// blocksize:256
+// blocksize: 256
 // shape infer: [bs, beamwidth, vocab size] => [bs, beamwidth, BlockPerBeam, K]
 template<typename T, int K, int blockSize, int BlockPerBeam>
 __global__ void topK_kernel_round1(const T* probs, const int vocab_size, 
@@ -81,14 +80,7 @@ __global__ void topK_kernel_round2(const int* topK_ids, const T* topK_vals,
         }
     }    
 }
-// template<typename T>
-// void launchTopKforBeamSearch(const T* probs, 
-//                             const int batch_size,
-//                             const int vocab_size, 
-//                             int* topk_ids,
-// 			    T* topk_vals,
-// 			    int* final_topk_ids,
-// 			    T* final_topk_vals) {// GPU workspace is for intermediate buffer and output buffer
+
 template <typename T>
 void launchTopKforBeamSearch(TensorWrapper<T> *probs,
                              TensorWrapper<int> *topk_ids,
@@ -106,7 +98,7 @@ void launchTopKforBeamSearch(TensorWrapper<T> *probs,
     int topK_val_buf_size = bsxbm * BlockPerBeam * K;
     int topK_ids_buf_size = bsxbm * BlockPerBeam * K;
     int final_topK_val_buf_size = bsxbm * K;
-    // memory plan
+    
     T* topK_vals = topk_vals->data;
     int* topK_ids = topk_ids->data;
     T* final_topK_vals = final_topk_vals->data;
@@ -143,17 +135,3 @@ template void launchTopKforBeamSearch(TensorWrapper<half> *probs,
                              TensorWrapper<half> *topk_vals,
                              TensorWrapper<int> *final_topk_ids,
                              TensorWrapper<half> *final_topk_vals);
-// template void launchTopKforBeamSearch(const float* probs,
-//                             const int batch_size,
-//                             const int vocab_size,
-//                             int* topk_ids,
-//                             float* topk_vals,
-//                             int* final_topk_ids,
-//                             float* final_topk_vals);
-// template void launchTopKforBeamSearch(const half* probs,
-//                             const int batch_size,
-//                             const int vocab_size,
-//                             int* topk_ids,
-//                             half* topk_vals,
-//                             int* final_topk_ids,
-//                             half* final_topk_vals);

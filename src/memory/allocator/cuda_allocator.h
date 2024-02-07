@@ -44,7 +44,6 @@ public:
         cudaGetDevice(&dev_id);
     }
     ~CudaAllocator() {
-        // std::cout << "cudaAllocator deconstructor!" << std::endl;
         for (auto &it: cudaSmallBlocksMap) {
             auto &cudaBlocks = it.second; //vector
             for (int i = 0; i < cudaBlocks.size(); i++) {

@@ -1,4 +1,5 @@
 #include "src/kernels/attn_softmax_kernel.h"
+#include "src/utils/cuda_debug_utils.cuh"
 #include <float.h>
 #include <math.h>
 #include <assert.h>
@@ -65,12 +66,7 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
     {
         return;
     }
-    // if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
-    // {
-    //     printf("attn softmax input top2 data:\n");
-    //     printf("%f\n", qk[0]);
-    //     printf("%f\n", qk[1]);
-    // }
+    
     __shared__ float inv_sum, s_max;
     for (int row_start = blockIdx.x; row_start < q_len; row_start += gridDim.x)
     {
@@ -79,8 +75,8 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
         T qk_data = static_cast<T>(0);
         T mask_data = static_cast<T>(0);
         T thread_max = FLT_MIN;
-        T data[NUMS_PER_THREAD_PER_ROW]; // 面对这种一个block一个thread需要处理多行多列的时候，数据尽量用数组存储，计算出每个block和thread要处理几行几列
-        // for(int col_start = threadIdx.x; col_start < k_len; col_start += blockDim.x){
+        // (RussWong)note: 面对这种一个block一个thread需要处理多行多列的时候，数据尽量用数组存储，计算出每个block和thread要处理几行几列
+        T data[NUMS_PER_THREAD_PER_ROW]; 
         for (int col_start = 0; col_start < NUMS_PER_THREAD_PER_ROW; col_start++)
         {
             qk_offset = batch_id * head_nums * q_len * k_len + head_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
@@ -89,9 +85,7 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
             mask_offset = batch_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
             mask_data = mask[mask_offset];
             // https://www.zhihu.com/question/472323371/answer/2001223766这
-            // debug info,printf("before,data[%d]=%f\n",col_start, data[col_start]);
             data[col_start] = scale * qk_data + (1 - mask_data) * (-10000.0f);
-            // debug info,printf("after,scale*qk_data=%f, (float)mask_data=%f,data[%d]=%f\n",scale * qk_data, (float)mask_data, col_start, data[col_start]);
             thread_max = fmax(data[col_start], thread_max);
         }
         // warp/block reduce
@@ -107,17 +101,6 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
         // for(int col_start = threadIdx.x; col_start < k_len; col_start += blockDim.x){
         for (int col_start = 0; col_start < NUMS_PER_THREAD_PER_ROW; col_start++)
         {
-            // debug info to see useless threads if its available,printf("blockIdx.x=%d, threadIdx.x=%d\n",blockIdx.x, threadIdx.x);
-	    // if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
-        //     {
-        //         printf("attn softmax before exp top2 data:\n");
-        //         printf("data[col_start]=%f,s_max=%f\n", data[col_start], s_max);
-        //     }
-        //     if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 1)
-        //     {
-        //         printf("data[col_start]=%f,s_max=%f\n", data[col_start], s_max);
-        //     }
-
             qk_offset = batch_id * head_nums * q_len * k_len + head_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
             mask_offset = batch_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
             data[col_start] = expf(data[col_start] - s_max);
@@ -137,15 +120,6 @@ __global__ void ScaleMaskAndSoftmax_float(T *attn_score,
         {
             qk_offset = batch_id * head_nums * q_len * k_len + head_id * q_len * k_len + row_start * k_len + col_start * blockDim.x + threadIdx.x;
             attn_score[qk_offset] = (data[col_start] * inv_sum);
-        //     if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 0)
-        //     {
-        //         printf("attn softmax output top2 data:\n");
-        //         printf("out=%f,data[col_start]=%f,inv_sum=%f\n", attn_score[0], data[col_start], inv_sum);
-	    // }
-        //     if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 && threadIdx.x == 1)
-        //     {
-	    // 	printf("out=%f,data[col_start]=%f,inv_sum=%f\n", attn_score[1], data[col_start], inv_sum);
-        //     }
         }
     }
 }
@@ -302,15 +276,12 @@ void launchScaleMaskAndSoftmax(TensorWrapper<T> *qk,
     int head_nums = qk->shape[1];
     int k_length = qk->shape[3];
     bool is_half = sizeof(T) == 2;
-    // printf("softmax problem size: \n");
-    // printf("[bs,headnum,qlen,klen]=%d,%d,%d,%d\n",batch_size,head_nums,q_length,k_length);
     // TODO: should enhance it by padding to support odd ones
     if (is_half) {
     	ONELLM_CHECK_WITH_INFO(k_length % 2 == 0, "Currently, K_len should be divided by 2 under half type!");
     }
     dim3 grid(q_length, batch_size, head_nums);
     dim3 block((k_length + 32 - 1) / 32 * 32); // align with 32x threads
-    // printf("calling softmax kernel\n");
     if (is_half)
     {
         LAUNCH_SOFTMAX(half, 2);
@@ -319,7 +290,10 @@ void launchScaleMaskAndSoftmax(TensorWrapper<T> *qk,
     {
         LAUNCH_SOFTMAX(float, 1);
     }
-    // printf("called softmax kernel\n");
+#ifdef PRINT_DATA
+    print_data<<<1, 1>>>(attn_score->data);
+#else
+#endif
 }
 
 template void launchScaleMaskAndSoftmax(TensorWrapper<float> *qk,

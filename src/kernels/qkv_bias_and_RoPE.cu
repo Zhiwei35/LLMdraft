@@ -1,4 +1,4 @@
-// This kernel only used in prompt phase
+// launchAddFusedQKVBiasTransposeAndRoPE kernel can be used in prompt phase and launchRoPE kernel is used in token generation phase
 // 1.add bias to QKV, which has shape [batch_size, seq_len, 3, head_num, size_per_head], and
 // QKV split to 3 split buffer q, k, v and transpose them to [batch_size, head_num, seq_len, size_per_head].
 
@@ -10,13 +10,12 @@
 // shape = [num_tokens, qkv_head_num, head_size], 因为各句子长度不一，所以不用bs * seqlen表示
 // output: q shape = [bs, head num, seqlen, head size], if k v is this shape, maybe need tranpose in successor steps, ep in cublas
 //         k/v shape = [bs, kv head num, seqlen, head size]
-// seqlen=max_q_len
+// ps: seqlen = max_q_len here
 #include <math.h>
 #include <stdio.h>
 #include "src/utils/cuda_debug_utils.cuh"
 #include "src/kernels/qkv_bias_and_RoPE.h"
-// 这里算出来只有head size / 2个cos，同理sin个数也一样
-// llama.py实现
+// HF python code:
 //    def _compute_inv_freq(self, base: Union[int, float]) -> torch.Tensor:
 //         """Compute the inverse frequency."""
 //         inv_freq = 1.0 / (base**(torch.arange(
@@ -36,19 +35,12 @@
 //         sin = freqs.sin()
 //         cache = torch.cat((cos, sin), dim=-1)
 //         return cache
-//对比llama py实现，我们少了L30和34的这一步,即一个(2048,1)和(1,64)的外积,更：也没有减少
 inline __device__ float2 GetRoPEfreq(int zid, int rot_embed_dim, float base, float t_step)
 {
-    // 某个token的head size维度上连续俩元素的inv freq，t_Step表示tokenid，能对上transformers上的[0,2047]和freq的外积
-    // 每个inv freq值对应于head size维度上0 2 4 6的值
+    // (RussWong) note: 每个token所属的id, 它的freq值都是固定的, id的上限为max position embedding
+    // t_step表示token id（这里考虑了多轮对话历史上下文长度)
+    // 每个freq值对应于zid = head size维度上0 2 4 6 ... 64带入下式计算
     const float inv_freq = t_step / powf(base, zid / (float)rot_embed_dim); //rot_embed_dim = 128
-    //if(blockIdx.x==0 && blockIdx.y==0 && zid == 0){
-   //     printf("when tid=0,cos=%f,sin=%f,step=%f,base=%f,rot_embed_dim=%d,theta=%f\n",cos(inv_freq),sin(inv_freq),t_step,base,rot_embed_dim,powf(base, zid / (float)rot_embed_dim));
-    //}
-    //if(blockIdx.x==0 && blockIdx.y==0 && zid == 2){
-    //	printf("when tid=1,cos=%f,sin=%f,step=%f,base=%f,rot_embed_dim=%d,theta=%f\n",cos(inv_freq),sin(inv_freq),t_step,base,rot_embed_dim,powf(base, zid / (float)rot_embed_dim));
-    //}
-
     return {cos(inv_freq), sin(inv_freq)};
 }
 
@@ -57,14 +49,9 @@ inline __device__ float2 GetRoPEres(float data, float data_rotate, const float2 
     float2 rot_v;
     rot_v.x = coef.x * data - coef.y * data_rotate;
     rot_v.y = coef.x * data_rotate + coef.y * data;
-    //if(blockIdx.x==0 && blockIdx.y==0 && threadIdx.x == 0){
-    //	printf("when tid=0,left=%f,right=%f,cos=%f,data=%f,sin=%f,data_rotate=%f\n",rot_v.x,rot_v.y,coef.x,data,coef.y,data_rotate);
-    //}
-    //if(blockIdx.x==0 && blockIdx.y==0 && threadIdx.x == 1){
-    //    printf("when tid=1,left=%f,right=%f,cos=%f,data=%f,sin=%f,data_rotate=%f\n",rot_v.x,rot_v.y,coef.x,data,coef.y,data_rotate);
-    //}
     return rot_v;
 }
+// for chatglm2 rope
 // inline __device__ float2 GetRoPEres(const float2 v, const float2 coef)
 // {
 //     float2 rot_v;
@@ -110,18 +97,13 @@ inline __device__ float2 GetRoPEres(float data, float data_rotate, const float2 
 //         return;
 //     }
 
-//     TwoFloat2 &q_ = *reinterpret_cast<TwoFloat2 *>(&q); // q为float4 寄存器
+//     TwoFloat2 &q_ = *reinterpret_cast<TwoFloat2 *>(&q);
 //     TwoFloat2 &k_ = *reinterpret_cast<TwoFloat2 *>(&k);
 
 //     float2 coef0 = GetRoPEfreq(4 * tid, rot_embed_dim, base, t_step);
-//     // float freq0 = timestep / powf(rotary_embedding_base, 4 * tid / (float) rotary_embedding_dim); //分子zid = 0,2,4,, headsize/2-1,对应的theta下标为0,1,2.对应的headsize维度的索引为(0,1),(2,3)
 //     q_.x = GetRoPEres(q_.x, coef0);
-//     // rot0.x = coef0.x * q.x -  coef0.y * q.y; //q.x为x0,q.y为x1，head size维度上两个相邻
-//     // rot0.y = coef0.x * q.y +  coef0.y * q.x
 //     float2 coef1 = GetRoPEfreq(4 * tid + 2, rot_embed_dim, base, t_step);
 //     q_.y = GetRoPEres(q_.y, coef1);
-//     // rot1.x = coef1.x * q.x -  coef1.y * q.y; //q.x为x2,q.y为x3，head size维度上两个相邻
-//     // rot1.y = coef1.x * q.y +  coef1.y * q.x;
 //     k_.x = GetRoPEres(k_.x, coef0);
 //     k_.y = GetRoPEres(k_.y, coef1);
 // }
@@ -142,17 +124,16 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
                                                    const int head_size,
                                                    const int rotary_embedding_dim,
                                                    float rotary_embedding_base, // default 10000 in llama
-                                                   int max_position_embeddings, /*default 2048 in llama, placeholder for ntk RoPE*/
+                                                   int max_position_embeddings, /*default 2048 in llama*/
                                                    bool use_dynamic_ntk /*placeholder for ntk RoPE*/)
 {
+    // (RussWong)note: in Llama, rotate size = 64, we are not able to vectorizedly read data.
     // int vec_size = Vec<T>::size;
     // using Vec_t = typename Vec<T>::Type;
     int token_id = blockIdx.x;
     int head_id = blockIdx.y;
     int tid = threadIdx.x;
     int token_padding_offset = padding_offset[token_id];
-    // 0. filter the redundant part, we'd better to allocate more threads than data to ensure all data can be vectorized
-    // bool is_data = tid * vec_size < head_size;
     // 1. prapare rebuilding , do rebuild padding and transpose when store
     int dst_token_id = token_id + token_padding_offset; // token id after rebuild padding
 
@@ -163,52 +144,7 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
     int q_id = token_id * qkv_head_num * head_size + head_id * head_size + tid;
     int k_id = token_id * qkv_head_num * head_size + head_id * head_size + tid + head_num * head_size;
     int v_id = token_id * qkv_head_num * head_size + head_id * head_size + tid + head_num * head_size + kv_head_num * head_size;
-    //if (token_id == 0 && head_id == 0 && tid == 0)
-    //{
-    //    printf("after qkv gemm, q res: \n");
-    //    printf("q[%d]=%f\n", tid,QKV[0]);
-    //    printf("q[%d]=%f\n", tid+1,QKV[1]);
-    //    printf("q[%d]=%f\n", tid+2,QKV[2]);
-    //    printf("k[%d]=%f\n", tid,QKV[k_id]);
-    //    printf("k[%d]=%f\n", tid+1,QKV[k_id + 1]);
-    //    printf("k[%d]=%f\n", tid+2,QKV[k_id + 2]);
-    //}
-    // note: scalar add can be replaced by 3 overloaded function call, which is implemented by float add, float2 add and float4 add.
-    // TODO: reduce the pointer converter and fuse for loop
-    // Vec_t q, k, v;
-    // if (is_data)
-    // {
-    //     q = *reinterpret_cast<Vec_t *>(&QKV[q_id]);
-	// if (qkv_bias != nullptr){
-	//     Vec_t q_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size]));
-    //         for (int i = 0; i < vec_size; i++)
-    //         {
-    //         	reinterpret_cast<float *>(&q)[i] += reinterpret_cast<float *>(&q_bias)[i];
-    //         }
-	// }
-    // }
-    // // note: kv judge condition is add a item that head_id<kv_head_id in case of GQA and MQA
-    // if (is_data && head_id < kv_head_num)
-    // {
-    //     k = *reinterpret_cast<Vec_t *>(&QKV[k_id]);
-    //     // note: I missed a vec_size about the bias offset causing memcpyd2h misaligned address
-    //     if (qkv_bias != nullptr){
-	//     Vec_t k_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size + head_num * head_size]));
-    //         for (int i = 0; i < vec_size; i++)
-    //         {
-    //             reinterpret_cast<float *>(&k)[i] += reinterpret_cast<float *>(&k_bias)[i];
-    //         }
-	// }
 
-    //     v = *reinterpret_cast<Vec_t *>(&QKV[v_id]);
-    //     if (qkv_bias != nullptr){
-	//     Vec_t v_bias = *reinterpret_cast<Vec_t *>(const_cast<T *>(&qkv_bias[head_id * head_size + tid * vec_size + head_num * head_size + kv_head_num * head_size]));
-    //         for (int i = 0; i < vec_size; i++)
-    //         {
-    //             reinterpret_cast<float *>(&v)[i] += reinterpret_cast<float *>(&v_bias)[i];
-    //         }
-	// }
-    // }
     float v = QKV[v_id];
     int dst_q_id = batch_id * seq_len * head_num * head_size +
                    head_id * seq_len * head_size +
@@ -218,20 +154,22 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
                     head_id * seq_len * head_size +
                     local_token_id * head_size + tid;
     if (head_id < kv_head_num)
-    { // for MQA and GQA
+    { // (RussWong)note: for MQA and GQA
         v_buf[dst_kv_id] = v;
     }
     // 3. RoPE
-    const int cur_seq_history_len = history_length[batch_id]; // pay attention to where the history lenght cumsum
+    const int cur_seq_history_len = history_length[batch_id];
     const int context_length = cur_seq_history_len + input_length[batch_id];
-    const int timestep = cur_seq_history_len + local_token_id; //+ local_token_id得到m，即要结合history length做全局位置编码
-    // timestep为cos(m*theta)中的m
+    //（RussWong)note: 多轮对话下要结合history length求得全局的cos和sin
+    const int timestep = cur_seq_history_len + local_token_id; 
+    // (RussWong)note: timestep为cos(m*theta)中的m
     if (tid >= rotary_embedding_dim / 2)
     {
         return;
-    } // tid = [0,1,63]
+    } // tid = [0,1,2,...,63]
 
     float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, timestep);
+    // (RussWong)note: print cos and sin of each token id, this is nothing to do with concrete input id
     //if(token_id == 2 && head_id == 0 && tid == 0)
    // {
     //    printf("tokenid=2, cos_sin res:\n");
@@ -244,32 +182,7 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
     //}
     float2 q_rotate = GetRoPEres(QKV[q_id], QKV[q_id + head_size / 2], cos_sin);
     float2 k_rotate = GetRoPEres(QKV[k_id], QKV[k_id + head_size / 2], cos_sin);
-
-    // apply_RoPE(q, k, tid, rotary_embedding_dim, rotary_embedding_base, timestep);
-    // 4.write back to gmem and do transpose
-    //  [bs, head num, seqlen, head size]
-    //  pay attention to local token id and kv head num and max_seq_len(seq_len)
-    // int dst_q_id = batch_id * seq_len * head_num * head_size +
-    //                head_id * seq_len * head_size +
-    //                local_token_id * head_size + tid * vec_size;
-
-    // int dst_kv_id = batch_id * seq_len * kv_head_num * head_size +
-    //                 head_id * seq_len * head_size +
-    //                 local_token_id * head_size + tid * vec_size;
-    // if (is_data)
-    // {
-        // *reinterpret_cast<Vec_t *>(&q_buf[dst_q_id]) = q; // remember to add & before q_buf[], cause q_buf[] is a scalar
-        // if (head_id < kv_head_num)
-        // { // for MQA and GQA
-        //     *reinterpret_cast<Vec_t *>(&k_buf[dst_kv_id]) = k;
-        //     *reinterpret_cast<Vec_t *>(&v_buf[dst_kv_id]) = v;
-        // }
-        // if (token_id == 0 && head_id == 0 && tid == 0)
-        // {
-        //     printf("rope top2 res: \n");
-        //     printf("%f\n", q_buf[tid]);
-        //     printf("%f\n", q_buf[1]);
-        // }
+    // (RussWong)note: write result back into q k v
     q_buf[dst_q_id] = q_rotate.x;
     q_buf[dst_q_id + head_size / 2] = q_rotate.y;
     if (head_id < kv_head_num)
@@ -277,29 +190,6 @@ __global__ void add_fusedQKV_bias_transpose_kernel(T *q_buf,
         k_buf[dst_kv_id] = k_rotate.x;
         k_buf[dst_kv_id + head_size / 2] = k_rotate.y;
     }
-    // if (token_id == 5 && head_id == 0 && tid == 0)
-    // {
-    // 	printf("token 5 after rope:\n");
-   	// printf("query_states[0] = %f\n", q_buf[dst_q_id]);
-   	// printf("query_states[1] = %f\n", q_buf[dst_q_id + 1]);
-    //  	printf("query_states[2] = %f\n", q_buf[dst_q_id + 2]);
-	// printf("token 5 after rope:\n");
-    //     printf("key_states[0] = %f\n", k_buf[dst_kv_id]);
-    //     printf("key_states[1] = %f\n", k_buf[dst_kv_id + 1]);
-    //     printf("key_states[2] = %f\n", k_buf[dst_kv_id + 2]);
-    // }
-    // if (token_id == 8 && head_id == 0 && tid == 0)
-    // {
-    //     printf("token 8 after rope:\n");
-    //     printf("query_states[0] = %f\n", q_buf[dst_q_id]);
-    //     printf("query_states[1] = %f\n", q_buf[dst_q_id + 1]);
-    //     printf("query_states[2] = %f\n", q_buf[dst_q_id + 2]);
-    //     printf("token 8 after rope:\n");
-    //     printf("key_states[0] = %f\n", k_buf[dst_kv_id]);
-    //     printf("key_states[1] = %f\n", k_buf[dst_kv_id + 1]);
-    //     printf("key_states[2] = %f\n", k_buf[dst_kv_id + 2]);
-    // }
-
 }
 
 template <>
@@ -391,9 +281,9 @@ __global__ void add_fusedQKV_bias_transpose_kernel(half *q_buf,
 }
 
 // input: qkv_buf : qkv continouns buf when no padding
-// shape = [num_tokens, qkv_head_num, head_size], 因为各句子长度不一，所以不用bs * seqlen表示
+// shape = [num_tokens, qkv_head_num, head_size]
 // output: q shape = [bs, head num, seqlen, head size], if k v is this shape, maybe need tranpose in successor steps, ep in cublas
-//         k/v shape = [bs, kv head num, seqlen, head size], 这里的seqlen应该是max_q_len
+//         k/v shape = [bs, kv head num, seqlen, head size]
 template <typename T>
 void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<T> *q_buf,
                                            TensorWrapper<T> *k_buf,
@@ -415,9 +305,7 @@ void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<T> *q_buf,
     int kv_head_num = (qkv_head_num - head_num) / 2;
 
     dim3 grid(token_num, head_num);
-    // dim3 block((head_size / Vec<float>::size + 32 - 1) / 32 * 32); // apply 2 eles vectorization to match RoPE
-    dim3 block(head_size); // apply 2 eles vectorization to match RoPE
-    // printf("calling qkvbias and rope\n");
+    dim3 block(head_size);
     add_fusedQKV_bias_transpose_kernel<T><<<grid, block>>>(q_buf->data,
                                                            k_buf->data,
                                                            v_buf->data,
@@ -436,9 +324,10 @@ void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<T> *q_buf,
                                                            params.rotary_embedding_base,
                                                            params.max_position_embeddings,
                                                            params.use_dynamic_ntk);
-    //printf("q after rope:\n");
-    //print_data<<<1, 1>>>(q_buf->data);
-    // printf("called qkv bias and rope\n");
+#ifdef PRINT_DATA
+    print_data<<<1, 1>>>(q_buf->data);
+#else
+#endif
 }
 
 template void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<float> *q_buf,
@@ -462,15 +351,7 @@ template void launchAddFusedQKVBiasTransposeAndRoPE(TensorWrapper<half> *q_buf,
                                                     TensorWrapper<int> *input_length,
                                                     LLaMAAttentionStaticParams &params);
 
-
-// block and thread allocation
-// 1 block -> head size，后续可改进为1 warp -> 1 head size
-// 1 grid -> bs * num heads
-// q;       [bs, q num heads, 1, head size]
-// k;       [bs, kv num heads, step/seqlen, head size]
-// v;       [bs, num heads, 1, head size]
-// k_cache; output,[max_seq_len or step, bs, kv num heads, head size] from prompt phase
-// v_cache; output,[max_seq_len or step, bs, num heads, head size] from prompt phase
+// (RussWong)note: this kernel is called in self decoder, not context decoder
 template<typename T>
 __global__ void rope_kernel_for_self_decoder(T* q,
                     T* k,
@@ -484,6 +365,7 @@ __global__ void rope_kernel_for_self_decoder(T* q,
     int tid = threadIdx.x;
     int q_head_id = blockIdx.x;
     int q_batch_id = blockIdx.y;
+    // (RussWong)note: !!should add () to head_num / kv_head_num, or res is wrong
     int kv_head_id = q_head_id / (head_num / kv_head_num);
     int kv_batch_id = q_batch_id;
 
@@ -496,48 +378,20 @@ __global__ void rope_kernel_for_self_decoder(T* q,
         return;
     }
     // RoPE
-    //if(blockIdx.x==0 && blockIdx.y==0){
-    //	if(tid == 0){
-    //	    printf("input k,k_offset=%d, k[0]=%f, k[1]=%f\n",k_offset,k[k_offset],k[k_offset+1]);
-    //	}
-    //}
     float k_reg = k[k_offset];
     float k_rotate_reg = k[k_offset + head_size / 2];
     float2 cos_sin = GetRoPEfreq(tid * 2, rotary_embedding_dim, rotary_embedding_base, step - 1);
-    //if(blockIdx.x==0 && blockIdx.y==0){
-    //    if(tid == 0){
-    //        printf("after cossin,input k,k_offset=%d, k[0]=%f,k_reg=%f, k[1]=%f\n",k_offset,k[k_offset],k_reg,k[k_offset+1]);
-    //    }
-    //}
     float2 q_rotate = GetRoPEres(q[q_offset], q[q_offset + head_size / 2], cos_sin);
-    //if(blockIdx.x==0 && blockIdx.y==0){
-    //    if(tid == 0){
-    //        printf("after q rope,input k,k_offset=%d, k[0]=%f,k_reg=%f, k[1]=%f\n",k_offset,k[k_offset],k_reg,k[k_offset+1]);
-    //    }
-    //}
-    float2 k_rotate = make_float2(0,0);// = GetRoPEres(k_reg, k_rotate_reg, cos_sin);
+    float2 k_rotate = make_float2(0,0);
     k_rotate.x = cos_sin.x * k_reg - cos_sin.y * k_rotate_reg;
     k_rotate.y = cos_sin.x * k_rotate_reg + cos_sin.y * k_reg;
-    //if(blockIdx.x==0 && blockIdx.y==0){
-    //    if(tid == 0){
-    //	    printf("when tid=0,left=%f,right=%f,cos=%f,data=%f,k[0]=%f,sin=%f,data_rotate=%f\n", k_rotate.x,k_rotate.y,cos_sin.x,k_reg,k[k_offset],cos_sin.y,k_rotate_reg);
-    //	}
-    //}
+
     q[q_offset] = q_rotate.x;
     q[q_offset + head_size / 2] = q_rotate.y;
     k[k_offset] = k_rotate.x;
     k[k_offset + head_size / 2] = k_rotate.y;
-    //if(blockIdx.x==0 && blockIdx.y==0){
-    //    if(tid==0){
-    //        printf("step = %d\n", step);
-    //        printf("after rope, q[%d] and k[%d] is %f, %f,or %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],q_rotate.x,k_rotate.x,cos_sin.x,cos_sin.y);
-    //    }
-    //    if(tid==1){
-    //        printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid, tid, q[q_offset], k[k_offset],cos_sin.x,cos_sin.y);
-    //        printf("after rope, q[%d] and k[%d] is %f, %f, cos_sin=%f,%f\n", tid+64, tid+64, q[q_offset+64], k[k_offset+64],cos_sin.x,cos_sin.y);
-    //    }
-    //}
 }
+// // TODO: fp16 self decoder rope has not implemented yet
 template<>
 __global__ void rope_kernel_for_self_decoder(half* q,
                     half* k,
@@ -548,6 +402,8 @@ __global__ void rope_kernel_for_self_decoder(half* q,
                     const int step,
                     int   rotary_embedding_dim,
                     float rotary_embedding_base){}
+
+// note: all TensorWrapper's shape cant see here, we can see it in context_decoder.cpp or self_decoder.cpp
 template<typename T>
 void launchRoPE(TensorWrapper<T>* qkv_buf,
                 TensorWrapper<int>* step,
@@ -561,7 +417,6 @@ void launchRoPE(TensorWrapper<T>* qkv_buf,
     ONELLM_CHECK(head_size == 128);
     const int cur_step = step->getVal();
     T* qkv_data = qkv_buf->data;
-    //[bs,1,qkv_head_num,head_size]
     T* q = qkv_data;
     T* k = qkv_data + head_num * head_size;
 
@@ -579,6 +434,10 @@ void launchRoPE(TensorWrapper<T>* qkv_buf,
                                                     cur_step,
                                                     rotary_embedding_dim,
                                                     rotary_embedding_base);
+#ifdef PRINT_DATA
+    print_data<<<1, 1>>>(q);
+#else
+#endif
 }
 
 template void launchRoPE(TensorWrapper<float>* qkv_buf,

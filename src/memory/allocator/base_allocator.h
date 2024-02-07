@@ -5,9 +5,8 @@
 class BaseAllocator 
 {
 public:
-    //BaseAllocator() = default;//class with pure virtual func cant be initialized
     virtual ~BaseAllocator(){};
-    // unified interface for alloc buffer
+    // unified interface for all derived allocator to alloc buffer
     template<typename T>
     T* Malloc(T* ptr, size_t size, bool is_host){
         return (T*)UnifyMalloc((void*)ptr, size, is_host);

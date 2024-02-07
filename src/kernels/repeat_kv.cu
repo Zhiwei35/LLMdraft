@@ -4,7 +4,8 @@
 // if MQA or GQA, we should use this transpose to broadcast kv head num to q head num
 //[num layers, bs, kv head num, max_seq_len, head size]=>[bs, q head num, max_k_len, head size]
 // context_length.shape=[bs]
-// 问题: k_dst.shape = [1,32,13,128],现在这个k_dst以13*128为单位循环第一个13*128的值，正确应该为k_after_rope的值
+// bugs1: when k_dst.shape = [1,32,13,128],现在这个k_dst以13*128为单位循环第一个13*128的值
+// solu1: launcher函数里面获取kv cache的shape出错，需要仔细核对各个TensorWrapper的shape再通过正确索引获取
 template <typename T>
 __global__ void repeat_value_cache(T *v_dst,
                                    const T *v_src,
@@ -53,21 +54,20 @@ void launchRepeatKVCache(TensorWrapper<T> *k_cache_src, //{num_layers, batch_siz
                          TensorWrapper<T> *v_cache_dst)
 {
     int batch_size = context_length->shape[0];
-    int kv_head_num = k_cache_src->shape[2]; // 破案！！
+    int kv_head_num = k_cache_src->shape[2]; // RussWong note: we should carefully access the shape value, corresponding to the place where tensorwapper is defined
     int max_seq_len = k_cache_src->shape[3];
     int head_num = k_cache_dst->shape[1];
 
     int max_k_len = k_cache_dst->shape[2];
     int head_size = k_cache_dst->shape[3];
     int layer = layer_id->getVal();
-    // note: here MUSTN'T use layer_id->getVal<int>(), because we cant access GPU memory directly by [] if data is on GPU
-    // note: so we can make layer data locate on CPU
+    // note: if layer id is on GPU, here MUSTN'T use layer_id->getVal<int>(), because we cant access GPU memory directly by [] if data is on GPU
+    // note: so we can make layer data locate on CPU, so that we can access data by []
     size_t layer_offset = layer * batch_size * kv_head_num * max_seq_len * head_size;
     int q_head_per_kv = head_num / kv_head_num;
     int blockSize = 128;
-    dim3 block(128);
-    dim3 grid((max_k_len * head_size + blockSize - 1) / blockSize, batch_size, head_num); // q head num
-    // std::cout << "calling transpose/broadcast kernel" << "\n";
+    dim3 block(blockSize);
+    dim3 grid((max_k_len * head_size + blockSize - 1) / blockSize, batch_size, head_num);
     repeat_value_cache<T><<<grid, block>>>(v_cache_dst->data,
                                            v_cache_src->data,
                                            layer_offset,
@@ -87,9 +87,10 @@ void launchRepeatKVCache(TensorWrapper<T> *k_cache_src, //{num_layers, batch_siz
                                            context_length->data,
                                            max_k_len,
                                            max_seq_len);
-    //printf("k after repeat kv:\n");
-    //print_data<<<1, 1>>>(k_cache_dst->data);
-    // std::cout << "called repeat/broadcast kernel" << "\n";
+#ifdef PRINT_DATA
+    print_data<<<1, 1>>>(k_cache_dst->data);
+#else
+#endif
 }
 
 template void launchRepeatKVCache(TensorWrapper<float> *k_cache_src,
