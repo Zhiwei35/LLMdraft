@@ -3,10 +3,10 @@
 #include "src/weights/llama/llama_weights.h"
 #include "src/layers/decoder/context_decoder.h"
 #include "src/layers/decoder/self_decoder.h"
-#include "src/kernels/input_embedding.h"
-#include "src/kernels/linear.h" //LM Head
-#include "src/kernels/topK.h" //topK
-#include "src/kernels/sampling.h" //sampling
+#include "src/kernels/input_embedding.h" // embedding
+#include "src/kernels/linear.h" // LM Head
+#include "src/kernels/topK.h" // topK
+#include "src/kernels/sampling.h" // sampling
 #include "src/models/tokenizer.h"
 #include "src/utils/debug_utils.h"
 template<typename T>
@@ -20,54 +20,40 @@ private:
     int vocab_size;
     int vocab_size_padded;
     float rmsnorm_eps = 1e-5f;   
-    // const int start_id = 0; // from hf modeling_config
-    // const int end_id = 2;// from hf modeling_config
     const int hidden_units; 
-    const int max_seq_len;
-    int output_token_limit = 256;
+    const int max_seq_len; // self defined
+    int output_token_limit = 256; // self defined
     int pad_token_id = 0;// from hf modeling_config 
     int bos_token_id = 1;
     int eos_token_id = 2;
     int layer_id = 0;
-    int batch_size = 1; //tmp var, should included in dyn params
-    int beamwidth = 1;
-    int BlockPerBeam = 8;
+    int batch_size = 1; // can included in dyn params or not
+    int beamwidth = 1; // needed by beam search, when we dont adopt beam search, set 1 by default
+    int BlockPerBeam = 8; // needed by topK
     int index = 0;
-    std::string prompt = "";
+    std::string prompt = ""; // self defined or not
 
     Tokenizer tokenizer;
     LlamaWeight<T>* llama_weights;
     LlamaSelfDecoder<T>* self_decoder;
     LlamaContextDecoder<T>* context_decoder;
-    int max_context_token_num_ = 32;
-    //int h_step;
-    int K = 4;
+    // int max_context_token_num_ = 32; // 
+
+    int K = 4; // K of topK sort
     TensorWrapper<int>* step;
     TensorWrapper<T>* output_rmsnorm_weight;
     TensorWrapper<int>* layer;
-    //T*   context_decoder_input_buf_{};   // CTXDEC
     TensorWrapper<T>* context_decoder_input;
-    //T*   context_decoder_output_buf_{};  // CTXDEC
     TensorWrapper<T>* context_decoder_output;
-    //int* context_decoder_ids_buf_{}; //这个倒没见过
     TensorWrapper<T>* context_decoder_lmhead_input;
-    //T* decoder_input_buf_{};   // CTXDEC, GENERATE
     TensorWrapper<T>* decoder_input;
-    //T* decoder_output_buf_{};  // CTXDEC, GENERATE
     TensorWrapper<T>* decoder_output;
 
-    //int* input_ids_buf_{};       // input token ids, CTXDEC
     TensorWrapper<int>* input_ids;
-    //int* input_length_buf_{};    // input length, CTXDEC, GENERATE
     TensorWrapper<int>* input_length;
-    //int* history_length_buf_{};  // history length, CTXDEC
     TensorWrapper<int>* history_length;
-    //int* context_length_buf_{};  // history length + input_length, CTXDEC, GENERATE
     TensorWrapper<int>* context_length;
 
-    // float* logits_buf_{};        // combined logits
-    // float* context_logits_buf_{};
-    //int* total_padding_count_{};  // GENERATE
     TensorWrapper<T>* all_k_cache;
     TensorWrapper<T>* all_v_cache;
     TensorWrapper<T>* unused_residual;
@@ -75,13 +61,8 @@ private:
     IntDict int_params_of_sample;
     TensorWrapper<T>* probs;
     TensorWrapper<int>* token_ids;
-    //int* token_ids_buf_{};   // all token IDs in [S, B], indexed using `step`
-    //int* output_ids_buf_{};  // output ids in [B, S]
     TensorWrapper<int>* sequence_lengths; //record current sequence length in GENERATE
-    //int* sequence_lengths_{};     // current sequence length，GENERATE
-    //int*      end_ids_buf_{};
     TensorWrapper<bool>* is_finished;
-    // TensorWrapper<T>* topk_workspace;
     TensorWrapper<int>* topk_id;
     TensorWrapper<T>* topk_val;
     TensorWrapper<int>* final_topk_id;
@@ -105,10 +86,8 @@ public:
           int num_layers,
           int vocab_size,
           const LLaMAAttentionStaticParams&  attn_static_params,
-        // int                          max_batch_size,
-        // int                          max_context_token_num,
-          int max_seq_len,//session_len
-          //int h_step,
+        // int max_context_token_num,
+          int max_seq_len,
         //for base model
           cudaStream_t stream,
           cublasWrapper* cublas_wrapper,
@@ -122,7 +101,6 @@ public:
     num_layers(num_layers),
     vocab_size(vocab_size),
     vocab_size_padded(vocab_size),
-    //h_step(h_step),
     hidden_units(head_num * head_size),
     max_seq_len(max_seq_len) {
         int_params_of_sample.insert({"vocab_size", vocab_size});
@@ -181,8 +159,6 @@ public:
     void allocateCPUBuffer(int max_batch_size);
     void allocateGPUBuffer(int batch_size);
     void free();
-    //weights在common_utils里面已经load好了
-    //void loadWeights(std::string file);
 
     std::vector<std::string> MakeInput(const std::string &history, int round, const std::string &input); // 根据历史信息和当前输入生成prompt
 
@@ -190,11 +166,9 @@ public:
     // single request response
     std::string Response(const std::vector<std::string>& input, CallBack PrintRes);
 
-    //copy token ids to CPU(h_token_ids), 暂时不需要，因为反正也是bs=1
     int MakeOutput();
 
     void inputEmbedding(TensorWrapper<int>* input_ids, TensorWrapper<T>* decoder_input);
-
     void InitializeForContextDecoder(IntDict& int_params_first_token);
     int firstTokenGen(LLaMAAttentionDynParams& dparams, IntDict& int_params_first_token);
     void InitializeForSelfDecoder();

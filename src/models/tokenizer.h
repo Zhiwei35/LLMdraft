@@ -16,7 +16,8 @@ struct FileBuffer {
 
     int ReadInt() {
         int v;
-        if (fread(&v, 1, 4, f) != 4) { // fread(buf,1,sizeof(buf),fp);表示每个数据的大小为1，读了4次，一共4b，返回值为实际读取的数据个数即4
+        // fread(buf,1,sizeof(buf),fp)：表示每个数据的大小为1，读了4次，一共4b，返回值为实际读取的数据个数即4
+        if (fread(&v, 1, 4, f) != 4) { 
             std::cout << "FileBuffer.ReadInt error." << "\n";
         };
         return v;
