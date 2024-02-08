@@ -7,8 +7,10 @@
 
 #include <math.h>
 #include "src/kernels/repeat_kv.h"
-//[bs, kv head num, max_seq_len, head size]=>[bs, q head num, max_k_len, head size]
-//context_length.shape=[bs]
+// (RussWong)note:
+// there is no repeat kv cpu kernel implementation now
+// we compare the kernel correctnesss by eyes
+// `./test_repeat_kv` to test fp32 GPU kernel
 int main() {
     const int batch_size = 1;
     const int head_num = 2;
@@ -17,15 +19,12 @@ int main() {
     const int max_k_len = 2;
     const int head_size = 2;
     const int num_layers = 2;
-//    const int layer_id = 0;
-    // debug info, better to retain: std::cout <<"batch_size=" << batch_size << "  vocab_size=" << vocab_size << std::endl;
     const int k_size = num_layers * batch_size * kv_head_num * max_seq_len * head_size;
     const int out_k_size = batch_size * head_num * max_k_len * head_size;
     float* h_k;
     float* d_k;
     h_k = (float*)malloc(sizeof(float) * k_size);
     cudaMalloc((void**)&d_k, sizeof(float) * k_size);
-//    const int k_size = batch_size * kv_head_num * max_seq_len * head_size;
     float* h_v;
     float* d_v;
     h_v = (float*)malloc(sizeof(float) * k_size);
@@ -66,7 +65,6 @@ int main() {
     TensorWrapper<float>* out_v = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, max_k_len, head_size}, d_trans_v);
     TensorWrapper<int>* layer_id = new TensorWrapper<int>(Device::CPU, type_int, {batch_size}, h_layer_id);
     
-    // size_t layer_offset = layer_id * batch_size * kv_head_num * max_seq_len * head_size;
     std::cout << "before launch softmax kernel" << std::endl;
     launchRepeatKVCache(in_k, in_v, ctx_len, layer_id, out_k, out_v);
     std::cout << "after launch softmax kernel" << std::endl;

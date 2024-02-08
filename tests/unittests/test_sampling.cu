@@ -1,7 +1,10 @@
 #include <iostream>
 #include "src/kernels/sampling.h"
 #include "src/utils/macro.h"
-
+// (RussWong)note: there is no CPU implementation of this kernel
+// we compare the kernel correctnesss by eys
+// `./test_sampling` to test fp32 GPU kernel
+// `./test_sampling 1` to test fp16 GPU kernel
 #define LAUNCH_SAMPLING(dtype)                                                                                 \
     int *h_topkid;                                                                                             \
     int *d_topkid;                                                                                             \

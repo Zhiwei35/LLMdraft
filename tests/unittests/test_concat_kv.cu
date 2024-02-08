@@ -7,7 +7,10 @@
 
 #include <cuda.h>
 #include "src/kernels/concat_past_kv.h"
-
+// (RussWong)note:
+// there is no concat kv cpu kernel implementation now
+// we compare the kernel correctnesss by eyes and result print infos
+// `./test_concat_kv` to test fp32 GPU kernel
 int main()
 {
     const int batch_size = 1;
@@ -18,6 +21,7 @@ int main()
     const int kv_size = 1 * batch_size * max_q_len * kv_head_num * head_size;
     const int layer_offset = 1 * batch_size * max_seq_len * kv_head_num * head_size;
     const int kvcache_size = layer_offset;
+    // (RussWong)note: we plan to place layer id on CPU
     //    const int layer_id = 0;
 
     float *h_k_src;
@@ -46,6 +50,7 @@ int main()
     float *kv_scale;
     cudaMalloc((void **)&kv_scale, sizeof(float));
     int *h_layer_id = (int *)malloc(sizeof(int) * batch_size);
+    // (RussWong)note: we plan to place layer id on CPU
     // int *d_layer_id;
     // cudaMalloc((void **)&d_layer_id, sizeof(int) * batch_size);
 
@@ -75,7 +80,6 @@ int main()
     TensorWrapper<int> *history_len = new TensorWrapper<int>(Device::GPU, type_int, {batch_size}, dhistory_length);
     TensorWrapper<float> *out_kdst = new TensorWrapper<float>(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_k_dst);
     TensorWrapper<float> *out_vdst = new TensorWrapper<float>(Device::GPU, type, {batch_size, kv_head_num, max_seq_len, head_size}, d_v_dst);
-    // size_t layer_offset = layer_id * batch_size * kv_head_num * max_seq_len * head_size;
     // debug info, better to retain: std::cout << "before launch kernel" << std::endl;
     launchConcatKVCache(in_ksrc, in_vsrc, layer_id, cur_q_len, history_len, out_kdst, out_vdst);
     // debug info, better to retain: std::cout << "after launch kernel" << std::endl;

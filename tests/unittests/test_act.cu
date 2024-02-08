@@ -5,6 +5,11 @@
 #include <string>      // std::string
 #include <vector>      // std::vector
 #include "src/kernels/act_kernel.h"
+// (RussWong)note: not sure CPU implementation is absolutely right and the GPU kernel is right compared with HF.
+// when you are implementing LLMs inference on CPU, you can reuse the CPU kernel and test its correctness
+// (RussWong)note:
+// `./test_act 1` to test half GPU kernel
+// `./test_act` to test fp32 GPU kernel
 template<typename T>
 void CPUSwiGLU(T* input, T* output, int batch_size, int intermedia_size){
     float silu_out = 0.0f;
@@ -22,11 +27,8 @@ template<typename T>
 bool CheckResult(T* CPUoutput, T* GPUoutput, int output_size) {
     for(int i = 0; i < output_size; i++) {
         if(fabs((float)CPUoutput[i] - (float)GPUoutput[i]) > 1e-6){
-        //if(true){
 	    printf("the %dth res is wrong, CPUoutput = %f, GPUoutput = %f\n", i, (float)CPUoutput[i], (float)GPUoutput[i]);
-            //return false;
         }
-
     }
     return true;
 }
@@ -65,12 +67,13 @@ void test_act(int batch_size, int intermedia_size, int input_size , int output_s
     cudaFree(d_input);
     cudaFree(d_output);    
 }
+
 int main(int argc, char** argv) {
     constexpr int batch_size = 16;
     constexpr int intermedia_size = 11008;
     constexpr int input_size = batch_size * intermedia_size * 2;
     constexpr int output_size = batch_size * intermedia_size;
-    if (atoi(argv[1]) == 1){
+    if (argv[1]){
         test_act<half>(batch_size, intermedia_size, input_size, output_size);
     } else {
         test_act<float>(batch_size, intermedia_size, input_size, output_size);

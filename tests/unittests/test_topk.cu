@@ -7,7 +7,10 @@
 
 #include <cuda.h>
 #include "src/kernels/topK.h"
-
+// (RussWong)note:
+// there is no top k cpu kernel implementation now
+// we compare the kernel correctnesss by eyes and result print infos
+// `./test_topk` to test fp32 GPU kernel
 int main() {
     const int batch_size = 1;
     const int vocab_size = 30000;
@@ -42,8 +45,6 @@ int main() {
     h_final_topk_vals = (float*)malloc(sizeof(float) * final_topK_val_buf_size);
     cudaMalloc((void**)&d_final_topk_vals, sizeof(float) * final_topK_val_buf_size);
 
-//    float* topK_workspace;
-//    cudaMalloc((void**)&topK_workspace, sizeof(float) * batch_size * beamwidth * BlockPerBeam * K + sizeof(int) * batch_size * beamwidth * BlockPerBeam * K + sizeof(float) * batch_size * beamwidth * K + sizeof(int) * batch_size * beamwidth * K);
     for(int i = 0; i < probs_size; i++) { // 0-59999
        h_probs[i] = i;
     }
@@ -73,13 +74,8 @@ int main() {
                                                                 d_final_topk_vals);
     // debug info, better to retain: std::cout << "before launch kernel" << std::endl;
     launchTopKforBeamSearch(probs_tensor, tmp_topk_ids, tmp_topk_vals, final_topk_ids, final_topk_vals);
-    // launchTopKforBeamSearch(d_probs, batch_size, vocab_size, d_tmp_topk_ids, d_tmp_topk_vals, d_final_topk_ids, d_final_topk_vals);
-    // debug info, better to retain: std::cout << "after launch kernel" << std::endl;
-    //int* h_topK_workspace = (int*)malloc(sizeof(int) * (batch_size * beamwidth));
-    // debug info, better to retain: std::cout << "cuda memcpy device to host" << std::endl;
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
     cudaMemcpy(h_final_topk_ids, d_final_topk_ids, sizeof(int) * final_topK_val_buf_size, cudaMemcpyDeviceToHost);
-    //float* h_topK_val = (float*)malloc(sizeof(float) * (batch_size * beamwidth));
     cudaMemcpy(h_final_topk_vals, d_final_topk_vals,  sizeof(float) * final_topK_val_buf_size, cudaMemcpyDeviceToHost);
     for(int i = 0; i < final_topK_val_buf_size; i++) {
         int id = h_final_topk_ids[i];

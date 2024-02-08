@@ -2,7 +2,9 @@
 #include <iostream>
 // [b,h,s,d]=>[b,s,h,d]=>[num tokens,h,d]
 // padding_offset.shape = [num_tokens]
-
+// (RussWong)note: this kernel is only supporting fp32 type UT
+// we compare the kernel correctnesss by eyes and result print infos
+// `./test_fused_trans_remv_pad` to test fp32 kernel
 int main() {
     const int batch_size = 2;
     const int head_num = 2;

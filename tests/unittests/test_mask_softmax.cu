@@ -7,7 +7,11 @@
 
 #include <math.h>
 #include "src/kernels/attn_softmax_kernel.h"
-
+// (RussWong)note:
+// there is no cpu kernel implementation now, and if you bought my CUDA lesson, you can find CPU softmax kernel.
+// we compare the kernel correctnesss by eyes and result print infos
+// `./test_mask_softmax 1` to test half GPU kernel
+// `./test_mask_softmax` to test fp32 GPU kernel
 #define TEST_MASKED_SOFTMAX(dtype)                                                                                                  \
     dtype *h_qk;                                                                                                                    \
     dtype *d_qk;                                                                                                                    \

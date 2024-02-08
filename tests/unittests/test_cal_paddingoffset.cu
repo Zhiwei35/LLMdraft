@@ -6,7 +6,9 @@
 #include <vector>      // std::vector
 
 #include "src/kernels/cal_paddingoffset.h"
-
+// (RussWong)note: this kernel is only int type input and output, not fp32 or half
+// we compare the kernel correctnesss by eyes and result print infos
+// `./paddingoffset` to run
 int main() {
     const int batch_size = 3;
     const int max_q_len = 5;

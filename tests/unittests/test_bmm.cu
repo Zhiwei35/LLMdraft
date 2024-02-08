@@ -8,7 +8,8 @@
 #include "src/utils/macro.h"
 #include "src/kernels/linear.h"
 #include "src/weights/base_weights.h"
-
+// (RussWong)note: this kernel's CPU implementation is absolutely right.
+// But when you are implementing LLMs inference on CPU, I dont recommend to reuse the CPU kernel, because its performance is bad
 void CPUlinear(float* input, float* weight, float* output,
                 int m, int k, int n, int batch) {
     for(int b = 0; b < batch; b++) {
@@ -24,22 +25,16 @@ void CPUlinear(float* input, float* weight, float* output,
 
 bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
     for(int i = 0; i < output_size; i++) {
-	if (i < 5) {
-	    printf("%d st res,  CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], GPUoutput[i]);
-	
-	}
-	if (i == 16 or i == 17 or i == 128 or i == 129) {
-	    printf("%d st res,  CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], GPUoutput[i]);
-	}
-	//if(fabs(CPUoutput[i] - GPUoutput[i]) > 1e-6){
-        //    printf("the %dth res is wrong, CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], GPUoutput[i]);
-        //    return false;
-        //}
-
+        if(fabs(CPUoutput[i] - GPUoutput[i]) > 1e-6){
+            printf("the %dth res is wrong, CPUoutput = %f, GPUoutput = %f\n", i, CPUoutput[i], GPUoutput[i]);
+            return false;
+        }
     }
     return true;
 }
-
+// (RussWong)note:
+// `./bmm 1` to test fp32 GPU batch matmul with trans_b = true
+// `./bmm` to test fp32 GPU batch matmul with trans_b = false
 int main(int argc, char *argv[]) {
     const int batch_size = 1;
     const int seqlen_in = 16;
@@ -66,11 +61,7 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&d_w, sizeof(float) * w_size);
     for(int i = 0; i < w_size; i++) { 
         h_w[i] = (float)(i % 2 + 1);
-    	//h_w[i] = 1.0f;
-	if (i < 5) {
-	    printf("h_w[%d]=%f\n", i, h_w[i]);
-	}
-	//h_w[i] = 2.0f;
+    	//h_w[i] = 1.0f; // simple data
     }
 
     float* h_in = (float*) malloc(sizeof(float) * in_size);
@@ -78,7 +69,7 @@ int main(int argc, char *argv[]) {
     cudaMalloc((void**)&d_in, sizeof(float) * in_size);
     for(int i = 0; i < in_size; i++) { 
         h_in[i] = (float)(i % 2 + 1);
-    	//h_in[i] = 1.0f;
+    	//h_in[i] = 1.0f; // simple data
     }
 
     float* h_out = (float*) malloc(sizeof(float) * output_size);
@@ -90,16 +81,16 @@ int main(int argc, char *argv[]) {
     DataType type = getTensorType<float>();
     WeightType wtype = getWeightType<float>(); 
     TensorWrapper<float>* in;
-    if (argv[1]) {
+    if (argv[1]) {// enable trans_b for test qk*v
         in = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_in, head_size}, d_in);
-    } else {
+    } else {// disable trans_b for test q*k
         in = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_in, seqlen_w}, d_in);
     }
     TensorWrapper<float>* weight = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_w, head_size}, d_w);
     TensorWrapper<float>* out;
-    if (argv[1]) {// enable trans_b for test lmhead linear
+    if (argv[1]) {// enable trans_b for test qk*v
         out = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_in, seqlen_w}, d_out);
-    } else {
+    } else {// disable trans_b for test q*k
         out = new TensorWrapper<float>(Device::GPU, type, {batch_size, head_num, seqlen_in, head_size}, d_out);
     }
     cublasHandle_t cublas_handle;
@@ -110,9 +101,9 @@ int main(int argc, char *argv[]) {
     cublas_wrapper->setFP32GemmConfig();  
     // debug info, better to retain: 
     std::cout << "before launch kernel" << std::endl;
-    if (argv[1]) {// enable trans_b for test lmhead linear
+    if (argv[1]) {// enable trans_b for test qk*v
         launchLinearStridedBatchGemm(in, weight, out, cublas_wrapper, false, true);
-    } else {
+    } else {// disable trans_b for test q*k
         launchLinearStridedBatchGemm(in, weight, out, cublas_wrapper);
     } 
     // debug info, better to retain: 
@@ -122,9 +113,9 @@ int main(int argc, char *argv[]) {
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
     CHECK(cudaMemcpy(h_out, d_out, sizeof(float) * output_size, cudaMemcpyDeviceToHost));
     float* CPUout = (float*) malloc(sizeof(float) * output_size);
-    if (argv[1]) {// enable trans_b for test lmhead linear
+    if (argv[1]) {// enable trans_b for ttest qk*v
         CPUlinear(h_in, h_w, CPUout, seqlen_in, head_size, seqlen_w, batch_size * head_num);
-    } else {
+    } else {// disable trans_b for test q*k
         CPUlinear(h_in, h_w, CPUout, seqlen_in, seqlen_w, head_size, batch_size * head_num);
     } 
     

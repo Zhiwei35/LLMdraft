@@ -8,6 +8,10 @@
 #include <fstream>
 #include "src/utils/macro.h"
 #include "src/utils/debug_utils.h"
+// (RussWong)note:
+// this test is for debug, to compare intermediate tensor and HF intermediate tensor
+// before run, you should change the path to your local right dir
+// `./debug` to compare 
 
 std::vector<float> loadWeightFromBinHelper(std::vector<size_t> shape, std::string filename)
 {
@@ -55,8 +59,8 @@ void internalFunc(float* ptr, std::vector<size_t> shape, std::string filename) {
         std::cout << "[warning] data from file is empty!!" << "\n";
         return;
     }
+    // copy host_array to our defined ptr
     memcpy(ptr, host_array.data(), host_array.size());
-    // CHECK(cudaMemcpy(ptr, host_array.data(), host_array.size(), cudaMemcpyHostToDevice));
     return;
 }
 void loadWeights(float* ptr1, std::string weight_path, int shape0, int shape1) // weighttype参数比较多余
@@ -77,19 +81,13 @@ bool CheckResult(float* CPUoutput, float* GPUoutput, int output_size) {
         
 	if(fabs(CPUoutput[i] - GPUoutput[i]) > 1e-6){
 	    printf("the %dth res is wrong, onellm = %f, trans = %f\n", i, CPUoutput[i], GPUoutput[i]);
-        } 
-        //if (i < 14000){
-	//   printf("the %dth res is right, onellm = %f, trans = %f\n", i, CPUoutput[i], GPUoutput[i]);
-    
-	//}
     }
     return true;
 }
-///home/data/trans/q_buf_after_rope_trans.bin
-///home/data/onellm/q_buf_after_rope.bin
-//(right)2 fusedGateUpGemm / down =>{seqlen, hidden_units} * {2 * inter_size, hidden_units} = [16, 16] * [10*2, 16]
-//(right)1 trans b => {seqlen, hidden_units} * {vocab_size, hidden_units} = [16, 16] * [32, 16]
-//(right)0 most cases => {seqlen, hidden_units} * {hidden_units, hidden_units} = [16, 16] * [16, 16]
+// 1.for example: the path of two data files is below, and you should replace L122&L123 with the two
+// /home/data/trans/q_buf_after_rope_trans.bin
+// /home/data/onellm/q_buf_after_rope.bin
+// 2.And you should change the L98&L99 to the right data size according to your data file
 int main(int argc, char *argv[]) {
     const int seqlen = 13;
     const int hidden_units = 4096;
@@ -97,7 +95,6 @@ int main(int argc, char *argv[]) {
     const int inter_size = 10;
     int hidden_units_2 = 0;
     int output_size = 0;
-    //int in_size = 0; // TO MODIFY
     int shape0 = 1; // TO MODIFY
     int shape1 = 4096; // TO MODIFY
     
@@ -109,7 +106,6 @@ int main(int argc, char *argv[]) {
     float* d_w = (float*)malloc(sizeof(float) * hidden_units_2);
     float* d_w_trans= (float*)malloc(sizeof(float) * hidden_units_2);
     h_w = (float*)malloc(sizeof(float) * hidden_units_2);
-    // cudaMalloc((void**)&d_w, sizeof(float) * hidden_units_2);
     for(int i = 0; i < hidden_units_2; i++) { 
        h_w[i] = (float)(i % 3); // 1 2 1 2
     }
@@ -117,7 +113,6 @@ int main(int argc, char *argv[]) {
     float* h_in = (float*) malloc(sizeof(float) * hidden_units * seqlen);
     float* d_in = (float*) malloc(sizeof(float) * in_size);
     float* d_in_trans = (float*) malloc(sizeof(float) * in_size);
-    // cudaMalloc((void**)&d_in, sizeof(float) * seqlen *  hidden_units);
     for(int i = 0; i < hidden_units * seqlen; i++) { 
        h_in[i] = (float)(i % 3);
     }

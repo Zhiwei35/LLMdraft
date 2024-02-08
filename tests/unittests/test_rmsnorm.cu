@@ -9,6 +9,10 @@
 #include "src/kernels/rmsnorm_kernel.h"
 
 #include <stdio.h>
+// (RussWong)note: this kernel's CPU implementation is absolutely right.
+// But when you are implementing LLMs inference on CPU, I dont recommend to reuse the CPU kernel, because its performance is bad
+// `./test_residual` to test fp32 GPU kernel
+// `./test_residual 1` to test fp16 GPU kernel
 
 #define CHECK(call)                                   \
 do                                                    \
@@ -37,11 +41,6 @@ void CPUfusedresidandRMSNorm(float* h_decoder_out,
             input = h_decoder_out[b * hidden_units + i];
 	    sum += input * input;
         }
-        //float sum = 0.0f;
-        //for (int i = 0; i < hidden_units; i++) {
-        //    sum += input * input;
-        //}
-        
         mean = (float)sum / hidden_units;
         inv_fenmu = rsqrt(mean + eps);
         
@@ -73,70 +72,6 @@ int main(int argc, char *argv[]) {
     // debug info, better to retain: std::cout <<"batch_size=" << batch_size << "  vocab_size=" << vocab_size << std::endl;
     // first param = true or 1, we go fp32
     if (argv[1]) {
-        float* h_decoder_out = (float*) malloc(sizeof(float) * total_size);
-        float* decoder_out = (float*) malloc(sizeof(float) * total_size);
-        float* d_decoder_out;
-        cudaMalloc((void**)&d_decoder_out, sizeof(float) * total_size);
-        for(int i = 0; i < total_size; i++) { 
-            h_decoder_out[i] = (float)(i % 2 + 1);
-        }
-        // to save residual used by fusedResidualAndRmsnorm
-        float* d_decoder_rsd;
-        cudaMalloc((void**)&d_decoder_rsd, sizeof(float) * total_size);
-        //rmsnorm weights
-        float* h_scale = (float*) malloc(sizeof(float) * hidden_units);
-        float* d_scale;
-        cudaMalloc((void**)&d_scale, sizeof(float) * hidden_units);
-        for(int i = 0; i < hidden_units; i++) { 
-            h_scale[i] = (float)(i % 2 + 1);
-        }
-
-        CHECK(cudaMemcpy(d_decoder_out, h_decoder_out, sizeof(float) * total_size, cudaMemcpyHostToDevice));
-        CHECK(cudaMemcpy(d_scale, h_scale, sizeof(float) * hidden_units, cudaMemcpyHostToDevice));
-
-        DataType type_float = getTensorType<float>();
-        DataType type_int = getTensorType<int>();
-        TensorWrapper<float>* decoder_out_tensor = new TensorWrapper<float>(Device::GPU, 
-                                                                            type_float,
-                                                                            {num_tokens, hidden_units}, 
-                                                                            d_decoder_out);
-        TensorWrapper<float>* decoder_rsd= new TensorWrapper<float>(Device::GPU, 
-                                                                            type_float,
-                                                                            {num_tokens, hidden_units}, 
-                                                                            d_decoder_rsd);
-
-        LayerNormWeight<float> scale;
-        scale.gamma = d_scale;
-        // debug info, better to retain: 
-        std::cout << "before launch kernel" << std::endl;
-        launchRMSNorm(decoder_out_tensor, decoder_rsd, scale, eps);
-        // debug info, better to retain: 
-        std::cout << "after launch kernel" << std::endl;
-        // debug info, better to retain: 
-        std::cout << "cuda memcpy device to host" << std::endl;
-        // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
-        CHECK(cudaMemcpy(decoder_out, d_decoder_out, sizeof(float) * total_size, cudaMemcpyDeviceToHost));
-        // 以下float不用被half替换
-        float* CPUout = (float*) malloc(sizeof(float) * total_size);
-        for(int i = 0; i < total_size; i++){
-            CPUout[i] = (float)(i % 2 + 1);
-        }
-        float* cpu_scale = (float*) malloc(sizeof(float) * hidden_units);
-        for(int i = 0; i < hidden_units; i++) { 
-            cpu_scale[i] = (float)(i % 2 + 1);
-        }
-        CPUfusedresidandRMSNorm(CPUout, cpu_scale, eps, hidden_units, num_tokens);
-        bool is_right = CheckResult<float>(CPUout, decoder_out, total_size);
-        // debug info, better to retain: 
-        std::cout << "rmsnorm passed" << std::endl;
-        free(h_decoder_out);
-        free(h_scale);
-        free(cpu_scale);
-        free(CPUout);
-        free(decoder_out);
-        cudaFree(d_decoder_out);
-        cudaFree(d_scale);
-    } else {
         half* h_decoder_out = (half*) malloc(sizeof(half) * total_size);
         half* decoder_out = (half*) malloc(sizeof(half) * total_size);
         half* d_decoder_out;
@@ -200,7 +135,70 @@ int main(int argc, char *argv[]) {
         free(decoder_out);
         cudaFree(d_decoder_out);
         cudaFree(d_scale);
-    }
+    } else {
+        float* h_decoder_out = (float*) malloc(sizeof(float) * total_size);
+        float* decoder_out = (float*) malloc(sizeof(float) * total_size);
+        float* d_decoder_out;
+        cudaMalloc((void**)&d_decoder_out, sizeof(float) * total_size);
+        for(int i = 0; i < total_size; i++) { 
+            h_decoder_out[i] = (float)(i % 2 + 1);
+        }
+        // to save residual used by fusedResidualAndRmsnorm
+        float* d_decoder_rsd;
+        cudaMalloc((void**)&d_decoder_rsd, sizeof(float) * total_size);
+        //rmsnorm weights
+        float* h_scale = (float*) malloc(sizeof(float) * hidden_units);
+        float* d_scale;
+        cudaMalloc((void**)&d_scale, sizeof(float) * hidden_units);
+        for(int i = 0; i < hidden_units; i++) { 
+            h_scale[i] = (float)(i % 2 + 1);
+        }
 
+        CHECK(cudaMemcpy(d_decoder_out, h_decoder_out, sizeof(float) * total_size, cudaMemcpyHostToDevice));
+        CHECK(cudaMemcpy(d_scale, h_scale, sizeof(float) * hidden_units, cudaMemcpyHostToDevice));
+
+        DataType type_float = getTensorType<float>();
+        DataType type_int = getTensorType<int>();
+        TensorWrapper<float>* decoder_out_tensor = new TensorWrapper<float>(Device::GPU, 
+                                                                            type_float,
+                                                                            {num_tokens, hidden_units}, 
+                                                                            d_decoder_out);
+        TensorWrapper<float>* decoder_rsd= new TensorWrapper<float>(Device::GPU, 
+                                                                            type_float,
+                                                                            {num_tokens, hidden_units}, 
+                                                                            d_decoder_rsd);
+
+        LayerNormWeight<float> scale;
+        scale.gamma = d_scale;
+        // debug info, better to retain: 
+        std::cout << "before launch kernel" << std::endl;
+        launchRMSNorm(decoder_out_tensor, decoder_rsd, scale, eps);
+        // debug info, better to retain: 
+        std::cout << "after launch kernel" << std::endl;
+        // debug info, better to retain: 
+        std::cout << "cuda memcpy device to host" << std::endl;
+        // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
+        CHECK(cudaMemcpy(decoder_out, d_decoder_out, sizeof(float) * total_size, cudaMemcpyDeviceToHost));
+        // 以下float不用被half替换
+        float* CPUout = (float*) malloc(sizeof(float) * total_size);
+        for(int i = 0; i < total_size; i++){
+            CPUout[i] = (float)(i % 2 + 1);
+        }
+        float* cpu_scale = (float*) malloc(sizeof(float) * hidden_units);
+        for(int i = 0; i < hidden_units; i++) { 
+            cpu_scale[i] = (float)(i % 2 + 1);
+        }
+        CPUfusedresidandRMSNorm(CPUout, cpu_scale, eps, hidden_units, num_tokens);
+        bool is_right = CheckResult<float>(CPUout, decoder_out, total_size);
+        // debug info, better to retain: 
+        std::cout << "rmsnorm passed" << std::endl;
+        free(h_decoder_out);
+        free(h_scale);
+        free(cpu_scale);
+        free(CPUout);
+        free(decoder_out);
+        cudaFree(d_decoder_out);
+        cudaFree(d_scale);
+    }
 }
 

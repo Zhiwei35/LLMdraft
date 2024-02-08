@@ -8,8 +8,8 @@
 #include "src/kernels/qkv_bias_and_RoPE.h"
 #include "src/weights/llama/attention_weights.h"
 #include "src/utils/macro.h"
-
-//TODO: CPURoPE still has some issues
+// (RussWong)note: not sure CPU implementation is absolutely right and the GPU kernel is right compared with HF.
+// when you are implementing LLMs inference on CPU, you can reuse the CPU kernel and test its correctness
 void CPUfunc(float* q,
                 float* k,
                 float* v,
@@ -79,20 +79,22 @@ void CPUfunc(float* q,
 bool CheckResult(float* q, float* k, float* hq, float* hk, 
                 const int q_size, const int k_size) {
     for(int i = 0; i < q_size; i++) {
-        //if(fabs(q[i] - hq[i]) > 1e-6){
-        printf("the %dth q is wrong, q = %f, hq = %f\n", i, q[i], hq[i]);
-        //    return false;
-        //}
+        if(fabs(q[i] - hq[i]) > 1e-6){
+            printf("the %dth q is wrong, q = %f, hq = %f\n", i, q[i], hq[i]);
+            return false;
+        }
     }
     for(int i = 0; i < k_size; i++) {
-        //if(fabs(k[i] - hk[i]) > 1e-6){
-        printf("the %dth k is wrong, k = %f, hk = %f\n", i, k[i], hk[i]);
-        //    return false;
-       // }
+        if(fabs(k[i] - hk[i]) > 1e-6){
+            printf("the %dth k is wrong, k = %f, hk = %f\n", i, k[i], hk[i]);
+            return false;
+        }
     }
     return true;
 }
-
+// (RussWong)note:
+// `./biasRope` to test fp32 GPU kernel
+// half GPU kernel test is not implemented now
 int main() {
     const int batch_size = 1;
     const int seq_len = 32;
@@ -119,8 +121,6 @@ int main() {
         qkv_bias[i] = 2.0f;
     }
     for(int i = 0; i < batch_size; i++){
-        //input_length[i] = 16;
-        //history_length[i] = 4;
 	input_length[i] = 7;
         history_length[i] = 0;
     }

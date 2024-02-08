@@ -9,7 +9,9 @@
 #include "src/kernels/add_residual.h"
 
 #include <stdio.h>
-
+// (RussWong)note: this kernel's CPU implementation is absolutely right.
+// But when you are implementing LLMs inference on CPU, I dont recommend to reuse the CPU kernel, because its performance is bad
+// `./test_residual` to test fp32 GPU kernel
 #define CHECK(call)                                   \
 do                                                    \
 {                                                     \
@@ -86,7 +88,6 @@ int main() {
     std::cout << "cuda memcpy device to host" << std::endl;
     // Note: remember to memcpy from device to host and define the correct copy size(mul the sizeof(dtype)), or will cause segment fault
     CHECK(cudaMemcpy(decoder_out, d_decoder_out, sizeof(float) * total_size, cudaMemcpyDeviceToHost));
-    //cublasGetVector(hidden_units, sizeof(float), d_out, 1, h_out, 1);
     float* CPUout = (float*) malloc(sizeof(float) * total_size);
     for(int i = 0; i < total_size; i++){
         CPUout[i] = (float)(i % 2 + 1);
