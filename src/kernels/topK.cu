@@ -88,7 +88,7 @@ void launchTopKforBeamSearch(TensorWrapper<T> *probs,
                              TensorWrapper<int> *final_topk_ids,
                              TensorWrapper<T> *final_topk_vals)
 {
-    // support both beamserach adn sampling topk, cause probs shape is [bs*bw, vocabsize]
+    // support both beamserach and sampling topk by integrate beamwidth into batchsize, we get variable bsxbw = bs*bw, the probs shape is [bs*bw, vocabsize]
     int bsxbm = probs->shape[0];
     int vocab_size = probs->shape[1];
     constexpr int BlockPerBeam = 8;
