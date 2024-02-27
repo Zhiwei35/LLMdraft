@@ -18,10 +18,10 @@ __global__ void print_data(T* src1, bool is_target=false) {
 			printf("%dth = %f\n", tid + 131, src1[tid + 131]);
 			printf("%dth = %f\n", tid + 1024, src1[tid + 1024]);	
 		}
-	    // printf("from/outlinearin data[%d] = %f\n", tid, src3[tid]);
-    	// printf("from/outlinearin data[%d] = %f\n", tid + 1, src3[tid+1]);
-   	    // printf("from/outlinearin data[%d] = %f\n", tid + 128, src3[tid+128]);
-    	// printf("from/outlinearin data[%d] = %f\n", tid + 129, src3[tid+129]);
+	    // printf("from_tensor/outlinearin data[%d] = %f\n", tid, src3[tid]);
+    	// printf("from_tensor/outlinearin data[%d] = %f\n", tid + 1, src3[tid+1]);
+   	    // printf("from_tensor/outlinearin data[%d] = %f\n", tid + 128, src3[tid+128]);
+    	// printf("from_tensor/outlinearin data[%d] = %f\n", tid + 129, src3[tid+129]);
     	
 	    // printf("qkvweight/outweight data[%d] = %f\n", tid, src2[tid]);
     	// printf("qkvweight/outweight data[%d] = %f\n", tid + 1, src2[tid+1]);    

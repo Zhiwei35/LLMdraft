@@ -100,7 +100,10 @@ void LLaMAContextAttentionLayer<T>::forward(TensorMap& inputs, TensorMap& output
     Tensor* layer_id = inputs["layer_id"]; //ON CPU
     launchAddFusedQKVBiasTransposeAndRoPE(q_buf_w_pad, k_buf_w_pad, v_buf_w_pad, qkv_buf_wo_pad,
                                         weights.qkv, padding_offset->as<int>(), history_length->as<int>(), input_length->as<int>(), static_params);
+#ifndef PERF
     DeviceSyncAndCheckCudaError();
+#else
+#endif
 #ifdef SAVE_DATA
     save_tensor(q_buf_w_pad ,"q_buf_after_rope.bin", layer_id->as<int>()); //{batch_size, head_num, max_q_len, head_size}
 #else

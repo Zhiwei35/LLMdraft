@@ -53,7 +53,7 @@ struct Vec<float> {
     using Type = float4;
     static constexpr int size = 4;
 };
-//(RussWong)note: for chatGLM2 RoPE
+//(RussWong)note: temply dont know which LLM use two continuous elements do RoPE
 struct TwoFloat2{
     float2 x;
     float2 y;

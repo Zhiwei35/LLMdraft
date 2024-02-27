@@ -243,14 +243,14 @@ int main(int argc, char** argv)
                                                               type, 
                                                               {q_hidden_units}, 
                                                               d_output_norm_weight);
-    ONELLM_CHECK_WITH_INFO(decoder_input->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-//    ONELLM_CHECK_WITH_INFO(padding_offset->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(history_length->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-//    ONELLM_CHECK_WITH_INFO(attention_mask->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(layer->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(context_length->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(output_norm_weight->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(input_length->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(decoder_input->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+//    LLM_CHECK_WITH_INFO(padding_offset->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(history_length->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+//    LLM_CHECK_WITH_INFO(attention_mask->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(layer->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(context_length->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(output_norm_weight->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(input_length->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
     std::cout << "in context decoder example cpp: " << layer->DeviceString() << "\n";    
     TensorMap decoder_inputs{
         {"decoder_input", decoder_input},

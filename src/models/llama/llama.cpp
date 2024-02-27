@@ -1,11 +1,7 @@
 #include "src/models/llama/llama.h"
 
-size_t RoundUpTo32x(size_t size)
-{
-    return ((size + 31) / 32) * 32;
-}
 // (RussWong)note: we only support batch size = 1 now
-// cpu pinned buffer
+// cpu unpinned buffer
 template <typename T>
 void Llama<T>::allocateCPUBuffer(int batch_size)
 {
@@ -169,11 +165,11 @@ int Llama<T>::firstTokenGen(LLaMAAttentionDynParams &dparams, IntDict &int_param
 {
     InitializeForContextDecoder(int_params_first_token);
     inputEmbedding(input_ids, context_decoder_input);
-    ONELLM_CHECK_WITH_INFO(context_decoder_input->data != nullptr, "GPU context decoder input data is not initialized");
-    ONELLM_CHECK_WITH_INFO(history_length->data != nullptr, "GPU history_length data is not initialized");
-    ONELLM_CHECK_WITH_INFO(input_length->data != nullptr, "GPU input_length data is not initialized");
-    ONELLM_CHECK_WITH_INFO(context_length->data != nullptr, "GPU context_length data is not initialized");
-    ONELLM_CHECK_WITH_INFO(output_rmsnorm_weight->data != nullptr, "GPU output_rmsnorm_weight data is not initialized");
+    LLM_CHECK_WITH_INFO(context_decoder_input->data != nullptr, "GPU context decoder input data is not initialized");
+    LLM_CHECK_WITH_INFO(history_length->data != nullptr, "GPU history_length data is not initialized");
+    LLM_CHECK_WITH_INFO(input_length->data != nullptr, "GPU input_length data is not initialized");
+    LLM_CHECK_WITH_INFO(context_length->data != nullptr, "GPU context_length data is not initialized");
+    LLM_CHECK_WITH_INFO(output_rmsnorm_weight->data != nullptr, "GPU output_rmsnorm_weight data is not initialized");
     TensorMap decoder_inputs{
         {"decoder_input", context_decoder_input},
         {"history_length", history_length},
@@ -250,8 +246,7 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap &decoder_outputs)
         TensorWrapper<T> *decoder_output_tensorwrapper = decoder_output->as<T>();
         auto input_length = decoder_output_tensorwrapper->shape[0];
         auto hidden_units = decoder_output_tensorwrapper->shape[1];
-        //ONELLM_CHECK(h_input_length_buf_[0] == input_length);
-        // follow fastllm handle ctxdecoder sampling
+        // fetch last token to handle ctxdecoder sampling
         auto ptr = decoder_output_tensorwrapper->data + (input_length - 1) * hidden_units;
         context_decoder_lmhead_input->data = ptr;
         launchLinearGemm(/*Tensor**/ context_decoder_lmhead_input,                     //[1, hidden units] for ctx decoder
@@ -288,9 +283,9 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap &decoder_outputs)
     DeviceSyncAndCheckCudaError();
 
     CHECK(cudaMemcpy(h_output_ids, token_ids->data, sizeof(int) * batch_size, cudaMemcpyDeviceToHost));
-    // std::cout << "sampling done" << std::endl;
+    // std::cout << "sampling d" << std::endl;
     //std::cout << "generated index: " << h_output_ids[0] << std::endl;
-    return h_output_ids[0]; // only for bs = 1
+    return h_output_ids[0]; // only for bs = 1        
 }
 
 // 单轮对话, batch size = 1
@@ -298,9 +293,12 @@ int Llama<T>::LMHeadAndTopKSample(TensorMap &decoder_outputs)
 template <typename T>
 std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack PrintRes)
 {
-    // this input already include self-defined pre prompt
     //std::vector<int> res = tokenizer.Encode(input[2]);
-    std::vector<int> res = {1, 18637, 29892,526,366,19861, 29973,1815,366,5193,304,592,29973};
+    // from transformers import AutoTokenizer
+    // tokenizer = AutoTokenizer.from_pretrained("path/to/tokenizer_folder")
+    // prompt = "Hey, are you conscious? Can you talk to me?"
+    // input_ids = tokenizer(prompt, return_tensors="pt")
+    // 下行的input token ids暂时是通过以上4行huggingface python api而得，修复了tokenzier.Encode之后再用以上第5行替换    std::vector<int> res = {1, 18637, 29892,526,366,19861, 29973,1815,366,5193,304,592,29973};
     std::string history_str = input[1];
     std::vector<int> history_input_ids;
     if (!history_str.empty())
@@ -369,11 +367,10 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
         // input_ids->shape = {1};
         if (index == 0)
         {
-	    //ret = 13; // to keep same as HF for debug
             TensorWrapper<int> tmp = TensorWrapper<int>(CPU, getTensorType<int>(), {1}, &ret);
-            ONELLM_CHECK(tmp.shape != input_ids->shape);
-            ONELLM_CHECK(tmp.dtype == input_ids->dtype);
-            ONELLM_CHECK(tmp.location != input_ids->location);
+            LLM_CHECK(tmp.shape != input_ids->shape);
+            LLM_CHECK(tmp.dtype == input_ids->dtype);
+            LLM_CHECK(tmp.location != input_ids->location);
             allocator->Free(input_ids->data);
             input_ids->data = allocator->Malloc(input_ids->data, sizeof(int) * 1, false);
             input_ids->shape = {1};
@@ -383,17 +380,7 @@ std::string Llama<T>::Response(const std::vector<std::string> &input, CallBack P
         {
             CHECK(cudaMemcpy(input_ids->data, &ret, sizeof(int) * 1, cudaMemcpyHostToDevice));
         }
-        index++; // 生成的token数量
-        // 但是这个我不希望对齐32b啊，看来allocator还是得改一下!!
-        // lmdeploy对齐了32b，但是fastllm没有，我感觉也没有必要对齐32b
-        // 但是至少目前对齐32b的情况下，所有kernel是正确的，后面考虑单单llama.cpp里面这些或者就input_ids不对齐32b
-
-        // 把input_ids这块[max_context_token_nums]大小得buf输进self decoder是有问题得，应该输入一块decoder_input_buf.shape=[bs, hiddenunits]
-        // 或者把input ids这块tensorwrapper的buffer重新allocate并重定义shape，参考fastllm.cpp#261-277
-        // input_ids->shape = {1,1};[bs, max seq len]
-        // CHECK(cudaMemcpy(input_ids->data, &ret, sizeof(int), cudaMemcpyHostToDevice));//note: dont use input_ids = new TensorWrapper<int>(...&ret), because this is cpu ret
-
-        // input_ids = new TensorWrapper<int>(GPU, INT32, {1, 1}, &ret);
+        index++;
     }
     PrintRes(-1, retString.c_str());
     return retString;

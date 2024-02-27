@@ -41,7 +41,7 @@ void launchLinearGemm(TensorWrapper<T> *input,
     cublasOperation_t transB = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
     if (!trans_a && !trans_b)
     {
-        ONELLM_CHECK_WITH_INFO(Ak == Bk, "2nd dim of input MUST = 1st dim of weight");
+        LLM_CHECK_WITH_INFO(Ak == Bk, "2nd dim of input MUST = 1st dim of weight");
     }
     cublas_wrapper->Gemm(transA,
                          transB,

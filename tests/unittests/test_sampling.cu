@@ -2,7 +2,7 @@
 #include "src/kernels/sampling.h"
 #include "src/utils/macro.h"
 // (RussWong)note: there is no CPU implementation of this kernel
-// we compare the kernel correctnesss by eys
+// we compare the kernel correctnesss by eyes and result print infos
 // `./test_sampling` to test fp32 GPU kernel
 // `./test_sampling 1` to test fp16 GPU kernel
 #define LAUNCH_SAMPLING(dtype)                                                                                 \

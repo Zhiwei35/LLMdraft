@@ -35,8 +35,8 @@ void launchCalPaddingoffset(TensorWrapper<int>* padding_offset,
 {
     const int batch_size = padding_offset->shape[0];                            
     const int max_q_len = padding_offset->shape[1]; 
-    ONELLM_CHECK_WITH_INFO(batch_size == input_lengths->shape[0], "input lenghts numbers should equal to padding offset bs dim!") ;                        
-    ONELLM_CHECK_WITH_INFO(batch_size == cum_seqlens->shape[0] - 1, "cum seqlen numbers should equal to padding offset bs dim + 1!") ;                        
+    LLM_CHECK_WITH_INFO(batch_size == input_lengths->shape[0], "input lenghts numbers should equal to padding offset bs dim!") ;                        
+    LLM_CHECK_WITH_INFO(batch_size == cum_seqlens->shape[0] - 1, "cum seqlen numbers should equal to padding offset bs dim + 1!") ;                        
     CalPaddingoffset<<<1, 1>>>( 
         padding_offset->data, cum_seqlens->data, input_lengths->data, batch_size, max_q_len
     );

@@ -163,14 +163,14 @@ int main(int argc, char** argv)
                                                               type, 
                                                               {num_layers, attn_dyn_params.batch_size, kv_head_num, max_seq_len, head_size}, 
                                                               d_all_v_cache);
-    ONELLM_CHECK_WITH_INFO(attention_input->data != nullptr, "tensor inserted in tensormap is nullptr data!");
-    ONELLM_CHECK_WITH_INFO(qkv_bias->data != nullptr, "tensor inserted in tensormap is nullptr data!");
-    ONELLM_CHECK_WITH_INFO(padding_offset->data != nullptr, "tensor inserted in tensormap is nullptr data!");
-    ONELLM_CHECK_WITH_INFO(history_length->data != nullptr, "tensor inserted in tensormap is nullptr data!");
-    ONELLM_CHECK_WITH_INFO(input_length->data != nullptr, "tensor inserted in tensormap is nullptr data!");
-    ONELLM_CHECK_WITH_INFO(layer_id->data != nullptr, "tensor inserted in tensormap is nullptr data!");
-    ONELLM_CHECK_WITH_INFO(context_length->data != nullptr, "tensor inserted in tensormap is nullptr data!");
-    ONELLM_CHECK_WITH_INFO(attention_mask->data != nullptr, "tensor inserted in tensormap is nullptr data!");
+    LLM_CHECK_WITH_INFO(attention_input->data != nullptr, "tensor inserted in tensormap is nullptr data!");
+    LLM_CHECK_WITH_INFO(qkv_bias->data != nullptr, "tensor inserted in tensormap is nullptr data!");
+    LLM_CHECK_WITH_INFO(padding_offset->data != nullptr, "tensor inserted in tensormap is nullptr data!");
+    LLM_CHECK_WITH_INFO(history_length->data != nullptr, "tensor inserted in tensormap is nullptr data!");
+    LLM_CHECK_WITH_INFO(input_length->data != nullptr, "tensor inserted in tensormap is nullptr data!");
+    LLM_CHECK_WITH_INFO(layer_id->data != nullptr, "tensor inserted in tensormap is nullptr data!");
+    LLM_CHECK_WITH_INFO(context_length->data != nullptr, "tensor inserted in tensormap is nullptr data!");
+    LLM_CHECK_WITH_INFO(attention_mask->data != nullptr, "tensor inserted in tensormap is nullptr data!");
 
     TensorMap ctx_attn_inputs{
         {"attention_input", attention_input},

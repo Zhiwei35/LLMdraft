@@ -40,7 +40,7 @@ inline __device__ float2 GetRoPEfreq(int zid, int rot_embed_dim, float base, flo
     // (RussWong) note: 每个token所属的id, 它的freq值都是固定的, id的上限为max position embedding
     // t_step表示token id（这里考虑了多轮对话历史上下文长度)
     // 每个freq值对应于zid = head size维度上0 2 4 6 ... 64带入下式计算
-    const float inv_freq = t_step / powf(base, zid / (float)rot_embed_dim); //rot_embed_dim = 128
+    const float inv_freq = t_step / powf(base, zid / (float)rot_embed_dim);
     return {cos(inv_freq), sin(inv_freq)};
 }
 
@@ -51,7 +51,6 @@ inline __device__ float2 GetRoPEres(float data, float data_rotate, const float2 
     rot_v.y = coef.x * data_rotate + coef.y * data;
     return rot_v;
 }
-// for chatglm2 rope
 // inline __device__ float2 GetRoPEres(const float2 v, const float2 coef)
 // {
 //     float2 rot_v;
@@ -412,9 +411,9 @@ void launchRoPE(TensorWrapper<T>* qkv_buf,
     const int qkv_head_num = qkv_buf->shape[1];
     int head_num = 32; // only for llama
     const int head_size = qkv_buf->shape[2];
-    ONELLM_CHECK(batch_size == 1);
-    ONELLM_CHECK(qkv_head_num == 96);
-    ONELLM_CHECK(head_size == 128);
+    LLM_CHECK(batch_size == 1);
+    LLM_CHECK(qkv_head_num == 96);
+    LLM_CHECK(head_size == 128);
     const int cur_step = step->getVal();
     T* qkv_data = qkv_buf->data;
     T* q = qkv_data;

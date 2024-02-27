@@ -57,16 +57,14 @@ public:
     }
 
     void* UnifyMalloc(void* ptr, size_t size, bool is_host) {
-        // align to 32bytes to make float4 work
-        // not sure if w/o it, float4 works or not
-//        size = ((size + 31) / 32) * 32;
+        // 1. host malloc
         if (is_host) {
-            //CHECK(cudaMallocHost(&ptr, size));
+            //CHECK(cudaMallocHost(&ptr, size)); // for cuda stream async
             ptr = malloc(size);
             memset(ptr, 0, size);
             return ptr;
         }
-        //大buf, 先去bigblocks里面找空闲的（free出来的）
+        // 2.big buf, 先去bigblocks里面找空闲的（free出来且未归还到OS的）
         if (size > 1024 * 1024) { // > 1M
             auto &BigBlocks = cudaBigBlocksMap[dev_id];
             int blockID = -1;
@@ -99,7 +97,8 @@ public:
             BigBlocks.push_back(CudaBigBlock(new_buffer, size, true));
             return new_buffer;
         }
-        //小buf, 先去bigblocks里面找空闲的（free出来的）
+        // 3.small buf, 先去smallblocks里面找空闲的（free出来且未归还到OS的）
+        // 问题: 为什么要分成大小block? 答: 用free size记录碎片
         auto &SmallBlocks = cudaSmallBlocksMap[dev_id];
         for (int i = 0; i < SmallBlocks.size(); i++) {
             if (SmallBlocks[i].size >= size && !SmallBlocks[i].is_allocated) {
@@ -112,7 +111,7 @@ public:
                 return SmallBlocks[i].data;
             }
         }
-        // 没找到空闲的再cudaMalloc
+        // 4.没找到空闲的再cudaMalloc
         void* new_buffer = (void*)ptr;
         CHECK(cudaMalloc(&new_buffer, size));
         CHECK(cudaMemset(new_buffer, 0, size));
@@ -128,11 +127,12 @@ public:
         if (ptr == nullptr) {
             return;
         }
+        // 1.host free
         if (is_host) {
             free(ptr);
             return;
         }
-        // 清理碎片：当累计的小buf超出了1G时，清理未分配出去的smallblocks, 已分配的还是保留在smallmap
+        // 2.清理碎片：当累计的小buf超出了1G时，清理未分配出去的smallblocks, 已分配的还是保留在smallmap
         for (auto &it: cudaSmallBlocksMap) {
             if (FreeSize[it.first] > 1024 * 1024 * 1024) {
                 auto &cudaBlocks = it.second;
@@ -155,7 +155,7 @@ public:
                 FreeSize[it.first] = 0;
             }
         }
-        // 找到待free的buffer的位置，设is_allocated = false，大小block都不归还到OS，除非没有在大小block里面找到待free的ptr
+        // 3.找到待free的buffer的位置，设is_allocated = false，大小block都不归还到OS，除非没有在大小block里面找到待free的ptr
         for (auto &it: cudaSmallBlocksMap) {
             auto &cudaBlocks = it.second;
             for (int i = 0; i < cudaBlocks.size(); i++) {

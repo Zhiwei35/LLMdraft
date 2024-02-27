@@ -128,10 +128,10 @@ int main(){
                                                                 type, 
                                                                 {num_layers, attn_dyn_params.batch_size, kv_head_num, max_seq_len, head_size}, 
                                                                 d_all_v_cache);
-    ONELLM_CHECK_WITH_INFO(attention_input->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(step->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(finished->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
-    ONELLM_CHECK_WITH_INFO(layer_id->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(attention_input->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(step->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(finished->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
+    LLM_CHECK_WITH_INFO(layer_id->data != nullptr, "the data ptr of tensor inserted into TensorMap is nullptr!");
 
     TensorMap masked_attn_inputs{
         {"attention_input", attention_input},

@@ -17,7 +17,7 @@ inline __device__ half type_cast(float val) {
 template<typename T>
 void GPUMalloc(T** ptr, size_t size)
 {
-    ONELLM_CHECK_WITH_INFO(size >= ((size_t)0), "Ask cudaMalloc size " + std::to_string(size) + "< 0 is invalid.");
+    LLM_CHECK_WITH_INFO(size >= ((size_t)0), "Ask cudaMalloc size " + std::to_string(size) + "< 0 is invalid.");
     CHECK(cudaMalloc((void**)(ptr), sizeof(T) * size));
 }
 template void GPUMalloc(float** ptr, size_t size);

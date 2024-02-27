@@ -46,7 +46,7 @@ __global__ void silu_and_mul_kernel<half>(
 template<typename T>
 void launchAct(TensorWrapper<T>* input, TensorWrapper<T>* out) {
     int batch_size = input->shape[0];
-    ONELLM_CHECK(input->shape[1] == 2);
+    LLM_CHECK(input->shape[1] == 2);
     int intermedia_size = input->shape[2];
     dim3 grid(batch_size);
     dim3 block(256);

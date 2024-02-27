@@ -278,7 +278,7 @@ void launchScaleMaskAndSoftmax(TensorWrapper<T> *qk,
     bool is_half = sizeof(T) == 2;
     // TODO: should enhance it by padding to support odd ones
     if (is_half) {
-    	ONELLM_CHECK_WITH_INFO(k_length % 2 == 0, "Currently, K_len should be divided by 2 under half type!");
+    	LLM_CHECK_WITH_INFO(k_length % 2 == 0, "Currently, K_len should be divided by 2 under half type!");
     }
     dim3 grid(q_length, batch_size, head_nums);
     dim3 block((k_length + 32 - 1) / 32 * 32); // align with 32x threads

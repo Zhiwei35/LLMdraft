@@ -8,10 +8,10 @@
 #include "src/memory/allocator/cuda_allocator.h"
 #include "src/models/llama/llama_params.h"
 // (RussWong) note: all LLM models are created in the header file, and I provided two ways, one is real weight model, the other is dummy weight model for functionality
-namespace onellm {
+namespace llm {
     template<typename T>
     BaseModel *CreateModelWithName(const std::string& model_name) {
-        ONELLM_CHECK_WITH_INFO(model_name == "llama", "dont support other models except llama yet!");
+        LLM_CHECK_WITH_INFO(model_name == "llama", "dont support other models except llama yet!");
         int head_num = 32;
         int kv_head_num = 32;
         int head_size = 128;
@@ -53,7 +53,7 @@ namespace onellm {
     }
 
     template<typename T>
-    std::unique_ptr<BaseModel> CreateOneLLMModelFromDummy(std::string tokenizer_file){
+    std::unique_ptr<BaseModel> CreateDummyLLMModel(std::string tokenizer_file){
         BaseModel *model = CreateModelWithName<T>("llama");
         model->loadTokenizer(tokenizer_file);
         model->loadWeightsFromDummy();
@@ -61,7 +61,7 @@ namespace onellm {
     }
 
     template<typename T>
-    std::unique_ptr<BaseModel> CreateOneLLMModelFromFile(std::string model_dir, std::string tokenizer_file){
+    std::unique_ptr<BaseModel> CreateRealLLMModel(std::string model_dir, std::string tokenizer_file){
         BaseModel *model = CreateModelWithName<T>("llama");
 	std::cout << "start creating model..." << "\n";
 	model->loadTokenizer(tokenizer_file);
@@ -69,5 +69,5 @@ namespace onellm {
 	std::cout << "finish creating model..." << "\n";
         return std::unique_ptr<BaseModel> (model);        
     }
-}
+} // namespace llm
 

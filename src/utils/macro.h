@@ -93,18 +93,18 @@ inline void syncAndCheck(const char* const file, int const line)
                              + std::to_string(line) + " \n");
 }
 
-inline void onellmAssert(bool result, const char* const file, int const line, std::string const& info = "")
+inline void llmAssert(bool result, const char* const file, int const line, std::string const& info = "")
 {
     if (!result) {
         throwRuntimeError(file, line, info);
     }
 }
 
-#define ONELLM_CHECK(val) onellmAssert(val, __FILE__, __LINE__)
-#define ONELLM_CHECK_WITH_INFO(val, info)                                                                              \
+#define LLM_CHECK(val) llmAssert(val, __FILE__, __LINE__)
+#define LLM_CHECK_WITH_INFO(val, info)                                                                              \
     do {                                                                                                               \
         bool is_valid_val = (val);                                                                                     \
         if (!is_valid_val) {                                                                                           \
-            onellmAssert(is_valid_val, __FILE__, __LINE__, (info));                                                    \
+            llmAssert(is_valid_val, __FILE__, __LINE__, (info));                                                    \
         }                                                                                                              \
     } while (0)

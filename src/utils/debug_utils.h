@@ -27,7 +27,7 @@ void save_tensor(TensorWrapper<T>* input, std::string filename){
     cudaMemcpy(icpu, input->data, sizeof(T) * Bm * Bk, cudaMemcpyDeviceToHost);
     std::ofstream F;
     std::cout << "saving intermediate tensor in " << filename << "\n";
-    F.open("/home/data/onellm/"+ filename, std::ofstream::binary);
+    F.open("/home/data/"+ filename, std::ofstream::binary);
     F.write(reinterpret_cast<const char*>(icpu), sizeof(T)*Bm*Bk);
     F.close();
 }
@@ -54,7 +54,7 @@ void save_tensor(TensorWrapper<T>* input, std::string filename, TensorWrapper<in
     cudaMemcpy(icpu, input->data, sizeof(T) * Bm * Bk, cudaMemcpyDeviceToHost);
     std::ofstream F;
     std::cout << "saving intermediate tensor in " << filename << "\n";
-    F.open("/home/data/onellm/" + std::to_string(id) + "_" + filename, std::ofstream::binary);
+    F.open("/home/data/" + std::to_string(id) + "_" + filename, std::ofstream::binary);
     F.write(reinterpret_cast<const char*>(icpu), sizeof(T)*Bm*Bk);
     F.close();
 }
@@ -81,7 +81,7 @@ void save_tensor(TensorWrapper<T>* input, std::string filename, int layer_id){
     cudaMemcpy(icpu, input->data, sizeof(T) * Bm * Bk, cudaMemcpyDeviceToHost);
     std::ofstream F;
     std::cout << "saving intermediate tensor in " << filename << "\n";
-    F.open("/home/data/onellm/" + std::to_string(id) + "_" + filename, std::ofstream::binary);
+    F.open("/home/data/" + std::to_string(id) + "_" + filename, std::ofstream::binary);
     F.write(reinterpret_cast<const char*>(icpu), sizeof(T)*Bm*Bk);
     F.close();
 }

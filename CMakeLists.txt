@@ -13,20 +13,7 @@ find_package(CUDA REQUIRED)
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}")	
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -Xcompiler -Wall")
-#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -Xcompiler") #去掉警告
-#if (SM STREQUAL 70 OR
-#    SM STREQUAL 75 OR
-#    SM STREQUAL 61 OR
-#    SM STREQUAL 60)
-#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_${SM},code=\\\"sm_${SM},compute_${SM}\\\" -rdc=true")
-#if (SM STREQUAL 70 OR SM STREQUAL 75)
-# set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
-# set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
-# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
-#endif()
-#message("-- Assign GPU architecture (sm=60 61 70 75})")
 
-#else()
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  \
                       -gencode=arch=compute_70,code=\\\"sm_70,compute_70\\\" \
                       -gencode=arch=compute_75,code=\\\"sm_75,compute_75\\\" \
@@ -35,18 +22,13 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  \
                         ")
 #                      -rdc=true") # not sure the effect of this option, retain it temply
 
-#set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DWMMA")
-#set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DWMMA")
-#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DWMMA")
 set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86)
 message("-- Assign GPU architecture (sm=70 75 80 86)")
-#endif()
 
 set(CMAKE_C_FLAGS_DEBUG    "${CMAKE_C_FLAGS_DEBUG}    -Wall -O0")
 set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -O0")
 set(CMAKE_CUDA_FLAGS_DEBUG "${CMAKE_CUDA_FLAGS_DEBUG} -O0 -G -Xcompiler -Wall")
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W") #忽略所有警告
 message(STATUS "CMAKE_CXX_FLAGS" ${CMAKE_CXX_FLAGS})
 
 set(CMAKE_CXX_STANDARD 11)
@@ -81,7 +63,10 @@ include_directories(
 link_directories(
   ${COMMON_LIB_DIRS}
 )
-
+option (PERF
+  "measure model inference performance"
+  OFF
+)
 option (PRINT_DATA
   "print kernel output to debug"
   OFF
@@ -90,18 +75,30 @@ option (SAVE_DATA
   "save kernel output to debug"
   OFF
 )
-# enable 85-86, 88-91, 97-98 when we plan to test llama, and enable 93-95 when we want to test some example and unittests
-file(GLOB_RECURSE ONELLM_CXX_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.cc)
-file(GLOB_RECURSE ONELLM_CUDA_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cu)
+if (PERF)
+    add_compile_options(-DPERF)
+endif()
+if (PRINT_DATA)
+    add_compile_options(-DPRINT_DATA)
+endif()
+if (SAVE_DATA)
+    add_compile_options(-DSAVE_DATA)
+endif()
+#cmake .. -DPRINT_DATA=ON && make
+#cmake .. -DPRINT_DATA=ON -DSAVE_DATA=ON && make
+#cmake .. -DPERF=ON && make
+#cmake .. && make
+file(GLOB_RECURSE LLM_CXX_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.cc)
+file(GLOB_RECURSE LLM_CUDA_SOURCES ${PROJECT_SOURCE_DIR}/src/*.cu)
 
-add_library(onellm OBJECT
-           ${ONELLM_CXX_SOURCES}
-           ${ONELLM_CUDA_SOURCES}
+add_library(llmengine OBJECT
+           ${LLM_CXX_SOURCES}
+           ${LLM_CUDA_SOURCES}
            )
 
 add_subdirectory(src)
-add_subdirectory(tests)
-add_subdirectory(examples)
+# add_subdirectory(tests)
+# add_subdirectory(examples)
 
-add_executable(main onellm.cpp)
-target_link_libraries(main PUBLIC -lcublas -lcudart -lcudadevrt onellm)
+add_executable(main user_entry.cpp)
+target_link_libraries(main PUBLIC -lcublas -lcudart -lcudadevrt llmengine)

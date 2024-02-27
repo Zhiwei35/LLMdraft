@@ -25,7 +25,7 @@ void launchInputEmbedding(TensorWrapper<int>* input_ids,    // INT [token num]
     const int max_context_token_num = output->shape[0]; // token num
     const int hidden_size = output->shape[1];
     const int gridSize = 2048;
-    ONELLM_CHECK_WITH_INFO(max_context_token_num == input_ids->shape[0], "input ids 1st shape should equal to 1st shape of output");
+    LLM_CHECK_WITH_INFO(max_context_token_num == input_ids->shape[0], "input ids 1st shape should equal to 1st shape of output");
     embeddingFunctor<T><<<gridSize, blockSize>>>(input_ids->data,
                                                  output->data,
                                                  embed_table->data,

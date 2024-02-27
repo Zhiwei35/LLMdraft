@@ -125,7 +125,7 @@ public:
     	Tensor(location, dtype, shape),
     	data(data){
             DataType in_dtype = getTensorType<T>();
-            ONELLM_CHECK_WITH_INFO(in_dtype == dtype, "when build TensorWrapper, the passed in data type should be same as dtype in params");
+            LLM_CHECK_WITH_INFO(in_dtype == dtype, "when build TensorWrapper, the passed in data type should be same as dtype in params");
         }
 
     // friend bool operator==(Tensor& t1, Tensor& t2);
@@ -139,7 +139,7 @@ public:
 
     inline T getVal(int id) const {
         //TODO: need some boundry and device check
-        ONELLM_CHECK(location == CPU);
+        LLM_CHECK(location == CPU);
         return data[id];
     } // only available on CPU by []
 
@@ -147,7 +147,7 @@ public:
     {
         // TODO: add type check, this is very important, because we often naturally access GPU data, which is wrong
         // for example, I am in transpose kernel to use layer_id->getVal<int>(), which is wrong
-        ONELLM_CHECK(location == CPU);
+        LLM_CHECK(location == CPU);
         return getVal(0);
     }
 
@@ -182,7 +182,7 @@ public:
 
 
 //I cant check if the data pointer in TensorWrapper is nullptr, because the val in tensormap is tensor*
-//so I must check the data pointer using ONELLM_CHECK_WITH_INFO before insert into tensormap.
+//so I must check the data pointer using LLM_CHECK_WITH_INFO before insert into tensormap.
 struct TensorMap {
     std::unordered_map<std::string, Tensor*> tensor_map_;
 
@@ -194,7 +194,7 @@ struct TensorMap {
             }
             else {
                 // std::cout << "this is not a valid tensor, skip to insert into tensormap" << std::endl;
-                ONELLM_CHECK_WITH_INFO(isValid(pair.second),fmtstr("%s is not a valid tensor, skipping insert into TensorMap", pair.first.c_str()));
+                LLM_CHECK_WITH_INFO(isValid(pair.second),fmtstr("%s is not a valid tensor, skipping insert into TensorMap", pair.first.c_str()));
             }
         }
     }
@@ -254,7 +254,7 @@ struct TensorMap {
     inline Tensor* at(const std::string& key)
     {
          // TODO: add a check to check key is existed
-        ONELLM_CHECK_WITH_INFO(isExist(key), fmtstr("Cannot find a tensor of name %s in the tensor map (keys: %s)",
+        LLM_CHECK_WITH_INFO(isExist(key), fmtstr("Cannot find a tensor of name %s in the tensor map (keys: %s)",
                                   key.c_str(),
                                   vec2str(keys()).c_str()));
         return tensor_map_.at(key);
@@ -263,7 +263,7 @@ struct TensorMap {
 
     inline Tensor* operator[](const std::string& key)
     {
-        ONELLM_CHECK_WITH_INFO(isExist(key), fmtstr("Cannot find a tensor of name %s in the tensor map    (keys: %s)",
+        LLM_CHECK_WITH_INFO(isExist(key), fmtstr("Cannot find a tensor of name %s in the tensor map    (keys: %s)",
                                   key.c_str(),
                                   vec2str(keys()).c_str()));
         return tensor_map_.at(key);
